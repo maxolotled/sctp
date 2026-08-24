@@ -2,6 +2,5 @@ shoplogger-v*/build/
 shoplogger-v*/.gradle/
 shoplogger-v*/.jdk/
 shoplogger-v*/*.log
-trading-post-api/
 .claude/
-shoplogger-dev/
+trading-post-api/**/.wrangler/

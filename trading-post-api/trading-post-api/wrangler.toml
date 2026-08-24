@@ -1,0 +1,17 @@
+name = "snailcraft-trading-post"
+main = "worker.js"
+compatibility_date = "2026-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "snailcraft-trading-post-db"
+database_id = "267af9da-50c8-4ad4-bd1e-b72a654e7b73"
+
+# Once daily at midnight UTC — takes a snapshot of every item's price/stock/
+# seller stats into itemDailyStats for the item-library price history graphs.
+[triggers]
+crons = ["0 0 * * *"]
+
+# Set with `wrangler secret put`, not here (see README.md):
+#   API_KEY   - shared key the mod authenticates with
+#   ADMIN_KEY
