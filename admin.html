@@ -234,6 +234,9 @@
 			<input type="password" id="newAdminPassword" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
 			<div class="meta" style="margin:8px 0 4px;">Permissions</div>
 			<div id="newAdminPerms" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+			<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-top:10px;">
+				<input type="checkbox" id="newAdminIsHead"> Head admin (full access, can manage other admins, ignores the permissions above)
+			</label>
 			<button id="createAdminBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;margin-top:10px;">Create admin</button>
 			<div class="err" id="createAdminErr"></div>
 		</div>
@@ -737,12 +740,14 @@
 		var username = document.getElementById("newAdminUsername").value.trim();
 		var password = document.getElementById("newAdminPassword").value;
 		var perms = Array.prototype.slice.call(document.querySelectorAll(".new-admin-perm:checked")).map(function(c){ return c.value; });
+		var isHead = document.getElementById("newAdminIsHead").checked;
 		if(!username){ errEl.textContent = "Enter a username."; return; }
 		if(password.length < 8){ errEl.textContent = "Password must be at least 8 characters."; return; }
 		try {
-			await api("/admin/admins/create", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ username:username, password:password, permissions:perms }) });
+			await api("/admin/admins/create", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ username:username, password:password, permissions:perms, isHeadAdmin:isHead }) });
 			document.getElementById("newAdminUsername").value = "";
 			document.getElementById("newAdminPassword").value = "";
+			document.getElementById("newAdminIsHead").checked = false;
 			document.querySelectorAll(".new-admin-perm").forEach(function(c){ c.checked = false; });
 			await refresh();
 		} catch(err){

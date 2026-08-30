@@ -26,7 +26,7 @@
 //   POST /admin/login                        body: {username, password} -> {token, isHeadAdmin, permissions, expiresAt}
 //
 // Head-admin-only (or master key) — managing other admin accounts:
-//   POST /admin/admins/create                body: {username, password, permissions: [...]}
+//   POST /admin/admins/create                body: {username, password, permissions: [...], isHeadAdmin?} -- isHeadAdmin true mints another head admin (also how the very first one gets created, via the master key)
 //   GET  /admin/admins
 //   POST /admin/admins/update-permissions    body: {id, permissions: [...]}
 //   POST /admin/admins/delete                body: {id}
@@ -438,6 +438,12 @@ async function handleAdminCreateAdmin(request, env) {
 	const username = String(body.username || "").trim();
 	const password = String(body.password || "");
 	const permissions = Array.isArray(body.permissions) ? body.permissions.filter((p) => ADMIN_PERMISSION_BUCKETS.has(p)) : [];
+	// Only reachable by an existing head admin (or the master key) per the
+	// requireAdminAuth(..., null) check above, so it's safe to let the caller
+	// mint another head admin — most importantly, this is also how the very
+	// first named head admin gets created (via the master key, since no
+	// admins row exists yet to be a head admin the normal way).
+	const isHeadAdmin = body.isHeadAdmin === true;
 	if (!username) return json({ error: "username is required" }, 400);
 	if (password.length < 8) return json({ error: "password must be at least 8 characters" }, 400);
 
@@ -451,9 +457,9 @@ async function handleAdminCreateAdmin(request, env) {
 
 	try {
 		await env.DB.prepare(
-			"INSERT INTO admins (id, username, passwordHash, passwordSalt, isHeadAdmin, permissions, createdAt, createdBy) VALUES (?, ?, ?, ?, 0, ?, ?, ?)"
-		).bind(id, username, hash, salt, JSON.stringify(permissions), createdAt, auth.admin.username).run();
-		return json({ ok: true, id });
+			"INSERT INTO admins (id, username, passwordHash, passwordSalt, isHeadAdmin, permissions, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+		).bind(id, username, hash, salt, isHeadAdmin ? 1 : 0, JSON.stringify(permissions), createdAt, auth.admin.username).run();
+		return json({ ok: true, id, isHeadAdmin });
 	} catch (e) {
 		return json({ error: String(e) }, 502);
 	}
