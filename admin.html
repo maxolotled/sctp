@@ -76,28 +76,63 @@
 	<p class="sub">Not linked from the site. Review reports and shared-shop requests here.</p>
 
 	<div class="login" id="loginBox">
-		<label for="adminKeyInput">Admin key</label>
-		<input type="password" id="adminKeyInput" placeholder="Paste your ADMIN_KEY">
-		<button id="loginBtn" type="button">Log in</button>
+		<div id="loginModeAccount">
+			<label for="adminUsernameInput">Username</label>
+			<input type="text" id="adminUsernameInput" placeholder="Username" autocomplete="username">
+			<label for="adminPasswordInput">Password</label>
+			<input type="password" id="adminPasswordInput" placeholder="Password" autocomplete="current-password">
+			<button id="loginBtn" type="button">Log in</button>
+			<div style="margin-top:10px;text-align:center;">
+				<a href="#" id="useKeyLink" style="color:var(--muted);font-size:12.5px;">Use admin key instead</a>
+			</div>
+		</div>
+		<div id="loginModeKey" class="hidden">
+			<label for="adminKeyInput">Admin key</label>
+			<input type="password" id="adminKeyInput" placeholder="Paste your ADMIN_KEY">
+			<button id="loginKeyBtn" type="button">Log in</button>
+			<div style="margin-top:10px;text-align:center;">
+				<a href="#" id="useAccountLink" style="color:var(--muted);font-size:12.5px;">Use username &amp; password instead</a>
+			</div>
+		</div>
 		<div class="err" id="loginErr"></div>
 	</div>
 
 	<div id="panel" class="hidden">
+		<div style="display:flex;justify-content:flex-end;gap:10px;align-items:center;margin-bottom:8px;">
+			<span class="meta" id="whoAmI"></span>
+			<button id="changePasswordToggle" type="button" style="font-size:12.5px;padding:5px 10px;">Change my password</button>
+			<button id="logoutBtn" type="button" style="font-size:12.5px;padding:5px 10px;">Log out</button>
+		</div>
+		<div class="card hidden" id="changePasswordCard">
+			<label for="oldPasswordInput">Current password</label>
+			<input type="password" id="oldPasswordInput" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
+			<label for="newPasswordInput">New password (min 8 characters)</label>
+			<input type="password" id="newPasswordInput" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
+			<button id="changePasswordBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;">Update password</button>
+			<div class="err" id="changePasswordErr"></div>
+		</div>
+
+		<section data-perm="reports">
 		<h2>Pending reports</h2>
 		<div id="reportsPending"></div>
-
-		<h2>Pending shared-shop requests</h2>
-		<div id="requestsPending"></div>
 
 		<details>
 			<summary>Resolved reports</summary>
 			<div id="reportsResolved" style="margin-top:12px;"></div>
 		</details>
+		</section>
+
+		<section data-perm="sharedShopRequests">
+		<h2>Pending shared-shop requests</h2>
+		<div id="requestsPending"></div>
+
 		<details>
 			<summary>Resolved shared-shop requests</summary>
 			<div id="requestsResolved" style="margin-top:12px;"></div>
 		</details>
+		</section>
 
+		<section data-perm="faq">
 		<h2>FAQ (shown on docs.html)</h2>
 		<div class="card">
 			<label for="faqQuestionInput">Question</label>
@@ -108,7 +143,29 @@
 			<div class="err" id="faqAddErr"></div>
 		</div>
 		<div id="faqList"></div>
+		</section>
 
+		<section data-perm="blockedSellers">
+		<h2>Blocked sellers</h2>
+		<div class="card">
+			<label for="blockSellerInput">Seller username</label>
+			<input type="text" id="blockSellerInput" placeholder="e.g. Steve" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
+			<label for="blockReasonInput">Reason (optional)</label>
+			<input type="text" id="blockReasonInput" placeholder="e.g. Scamming buyers" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
+			<div class="meta">Blocking removes their listings immediately and stops any future upload from them showing up — permanent until unblocked.</div>
+			<button id="blockSellerBtn" type="button" style="background:var(--danger);color:#2a0f0a;border:none;font-weight:600;margin-top:8px;">Block seller</button>
+			<div class="err" id="blockSellerErr"></div>
+		</div>
+		<div id="blockedSellersList"></div>
+		</section>
+
+		<section data-perm="rareApprovals">
+		<h2>Rare item approvals</h2>
+		<div class="meta" style="margin-bottom:8px;">Rare-catalog items priced at exactly 1 or 2 diamond are held here instead of showing up publicly, since that's suspiciously cheap for a rare — approve or deny each one.</div>
+		<div id="rareApprovalsList"></div>
+		</section>
+
+		<section data-perm="worldMap">
 		<h2>World map override</h2>
 		<div class="card">
 			<label for="worldMapCoordInput">Grid coordinate (e.g. 12x7)</label>
@@ -128,7 +185,9 @@
 			<button id="worldMapSaveBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;">Save</button>
 			<div class="err" id="worldMapErr"></div>
 		</div>
+		</section>
 
+		<section data-perm="manualListings">
 		<h2>Manually add listings</h2>
 		<div class="card">
 			<label for="manualSeller">Seller username</label>
@@ -164,6 +223,22 @@
 			<button id="shopDeleteBtn" type="button" class="deny" style="margin-top:8px;">Delete shop</button>
 			<div class="err" id="shopDeleteErr"></div>
 		</div>
+		</section>
+
+		<section data-perm="__headAdminOnly__">
+		<h2>Admins</h2>
+		<div class="card">
+			<label for="newAdminUsername">Username</label>
+			<input type="text" id="newAdminUsername" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
+			<label for="newAdminPassword">Password (min 8 characters)</label>
+			<input type="password" id="newAdminPassword" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
+			<div class="meta" style="margin:8px 0 4px;">Permissions</div>
+			<div id="newAdminPerms" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+			<button id="createAdminBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;margin-top:10px;">Create admin</button>
+			<div class="err" id="createAdminErr"></div>
+		</div>
+		<div id="adminsList"></div>
+		</section>
 	</div>
 </div>
 
@@ -173,11 +248,34 @@
 
 	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
 	var EDITABLE_FIELDS = ["itemName","baseItem","price","priceLabel","stackSize","amount","stacksInStock","currency","seller","world","position"];
+	var ALL_PERMS = ["reports","sharedShopRequests","faq","worldMap","manualListings","blockedSellers","rareApprovals"];
+	var PERM_LABELS = {
+		reports: "Reports", sharedShopRequests: "Shared-shop requests", faq: "FAQ",
+		worldMap: "World map", manualListings: "Manual listings",
+		blockedSellers: "Blocked sellers", rareApprovals: "Rare approvals",
+	};
 
-	var adminKey = sessionStorage.getItem("shoplogger_admin_key") || "";
+	var SESSION_KEY = "shoplogger_admin_session";
+	function loadSession(){
+		try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null"); } catch(e){ return null; }
+	}
+	function saveSession(session){
+		sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+	}
+	function clearSession(){
+		sessionStorage.removeItem(SESSION_KEY);
+	}
+
+	// { token, isHeadAdmin, permissions: [...] } — for the master-key login
+	// path this is synthesized locally (isHeadAdmin:true, all permissions),
+	// since the key itself carries no such metadata from the server.
+	var session = loadSession();
 	var reports = [];
 	var requests = [];
 	var faqs = [];
+	var blockedSellers = [];
+	var rareApprovals = [];
+	var admins = [];
 
 	function esc(s){
 		return String(s).replace(/[&<>"']/g, function(c){
@@ -187,34 +285,87 @@
 
 	async function api(path, options){
 		options = options || {};
-		options.headers = Object.assign({ "Authorization": "Bearer " + adminKey }, options.headers || {});
+		options.headers = Object.assign({ "Authorization": "Bearer " + (session ? session.token : "") }, options.headers || {});
 		var res = await fetch(API_BASE + path, options);
 		var data = await res.json();
 		if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
 		return data;
 	}
 
-	async function login(){
-		var input = document.getElementById("adminKeyInput");
+	function hasPerm(perm){
+		if(!session) return false;
+		if(session.isHeadAdmin) return true;
+		if(perm === "__headAdminOnly__") return false;
+		return (session.permissions || []).indexOf(perm) !== -1;
+	}
+
+	function applyPermissionVisibility(){
+		document.querySelectorAll("section[data-perm]").forEach(function(sec){
+			sec.classList.toggle("hidden", !hasPerm(sec.getAttribute("data-perm")));
+		});
+		var who = document.getElementById("whoAmI");
+		if(session) who.textContent = (session.username || "master key") + (session.isHeadAdmin ? " (head admin)" : "");
+	}
+
+	async function loginWithAccount(){
+		var username = document.getElementById("adminUsernameInput").value.trim();
+		var password = document.getElementById("adminPasswordInput").value;
 		var errEl = document.getElementById("loginErr");
-		adminKey = input.value.trim();
-		if(!adminKey){ errEl.textContent = "Enter a key."; return; }
+		if(!username || !password){ errEl.textContent = "Enter a username and password."; return; }
 		errEl.textContent = "Checking…";
 		try {
-			await refresh();
-			sessionStorage.setItem("shoplogger_admin_key", adminKey);
-			document.getElementById("loginBox").classList.add("hidden");
-			document.getElementById("panel").classList.remove("hidden");
+			var res = await fetch(API_BASE + "/admin/login", {
+				method: "POST", headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ username: username, password: password }),
+			});
+			var data = await res.json();
+			if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+			session = { token: data.token, isHeadAdmin: !!data.isHeadAdmin, permissions: data.permissions || [], username: username };
+			saveSession(session);
+			await afterLogin();
 		} catch(err){
-			errEl.textContent = "Wrong key, or the Worker isn't reachable: " + err.message;
-			adminKey = "";
+			errEl.textContent = "Login failed: " + err.message;
+			session = null;
 		}
 	}
 
+	async function loginWithKey(){
+		var key = document.getElementById("adminKeyInput").value.trim();
+		var errEl = document.getElementById("loginErr");
+		if(!key){ errEl.textContent = "Enter a key."; return; }
+		errEl.textContent = "Checking…";
+		session = { token: key, isHeadAdmin: true, permissions: ALL_PERMS.slice(), username: null };
+		try {
+			await refresh();
+			saveSession(session);
+			await afterLogin();
+		} catch(err){
+			errEl.textContent = "Wrong key, or the Worker isn't reachable: " + err.message;
+			session = null;
+		}
+	}
+
+	async function afterLogin(){
+		await refresh();
+		document.getElementById("loginBox").classList.add("hidden");
+		document.getElementById("panel").classList.remove("hidden");
+		applyPermissionVisibility();
+	}
+
+	function logout(){
+		session = null;
+		clearSession();
+		document.getElementById("panel").classList.add("hidden");
+		document.getElementById("loginBox").classList.remove("hidden");
+	}
+
 	async function refresh(){
-		reports = await api("/admin/reports");
-		requests = await api("/admin/shared-shop-requests");
-		faqs = await api("/admin/faq");
+		if(hasPerm("reports")) reports = await api("/admin/reports");
+		if(hasPerm("sharedShopRequests")) requests = await api("/admin/shared-shop-requests");
+		if(hasPerm("faq")) faqs = await api("/admin/faq");
+		if(hasPerm("blockedSellers")) blockedSellers = await api("/admin/blocked-sellers");
+		if(hasPerm("rareApprovals")) rareApprovals = await api("/admin/rare-approvals");
+		if(session && session.isHeadAdmin) admins = await api("/admin/admins");
 		render();
 	}
 
@@ -222,6 +373,9 @@
 		renderReports();
 		renderRequests();
 		renderFaq();
+		renderBlockedSellers();
+		renderRareApprovals();
+		renderAdmins();
 	}
 
 	function renderReports(){
@@ -422,6 +576,227 @@
 		}
 	}
 
+	// ---------------- blocked sellers ----------------
+
+	function renderBlockedSellers(){
+		var el = document.getElementById("blockedSellersList");
+		if(!el) return;
+		el.innerHTML = blockedSellers.length
+			? blockedSellers.map(blockedSellerCard).join("")
+			: '<div class="empty">No sellers are blocked.</div>';
+		document.querySelectorAll(".unblock-seller").forEach(function(b){
+			b.addEventListener("click", function(){ unblockSeller(b.getAttribute("data-username")); });
+		});
+	}
+
+	function blockedSellerCard(s){
+		return '<div class="card">'+
+			'<div class="row">'+
+				'<div>'+
+					'<div class="title">'+esc(s.username)+'</div>'+
+					'<div class="meta">blocked '+esc(s.blockedAt)+' by '+esc(s.blockedBy)+(s.reason ? (' &middot; '+esc(s.reason)) : '')+'</div>'+
+				'</div>'+
+				'<button class="approve unblock-seller" data-username="'+esc(s.username)+'" type="button">Unblock</button>'+
+			'</div>'+
+		'</div>';
+	}
+
+	async function blockSeller(){
+		var errEl = document.getElementById("blockSellerErr");
+		errEl.style.color = "var(--danger)"; errEl.textContent = "";
+		var username = document.getElementById("blockSellerInput").value.trim();
+		var reason = document.getElementById("blockReasonInput").value.trim();
+		if(!username){ errEl.textContent = "Enter a username."; return; }
+		if(!confirm("Block " + username + "? All their current listings will be removed immediately.")) return;
+		try {
+			await api("/admin/blocked-sellers/add", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ username:username, reason:reason }) });
+			document.getElementById("blockSellerInput").value = "";
+			document.getElementById("blockReasonInput").value = "";
+			await refresh();
+		} catch(err){
+			errEl.textContent = "Failed: " + err.message;
+		}
+	}
+
+	async function unblockSeller(username){
+		try {
+			await api("/admin/blocked-sellers/remove", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ username:username }) });
+			await refresh();
+		} catch(err){
+			alert("Failed: " + err.message);
+		}
+	}
+
+	// ---------------- rare item approvals ----------------
+
+	function renderRareApprovals(){
+		var el = document.getElementById("rareApprovalsList");
+		if(!el) return;
+		el.innerHTML = rareApprovals.length
+			? rareApprovals.map(rareApprovalCard).join("")
+			: '<div class="empty">Nothing pending approval.</div>';
+		document.querySelectorAll(".rare-approve").forEach(function(b){
+			b.addEventListener("click", function(){ resolveRareApproval(b.getAttribute("data-id"), "approve"); });
+		});
+		document.querySelectorAll(".rare-deny").forEach(function(b){
+			b.addEventListener("click", function(){ resolveRareApproval(b.getAttribute("data-id"), "deny"); });
+		});
+	}
+
+	function rareApprovalCard(r){
+		return '<div class="card">'+
+			'<div class="row">'+
+				'<div>'+
+					'<div class="title">'+esc(r.itemName)+' — '+esc(r.seller)+' ('+esc(r.world)+')</div>'+
+					'<div class="meta">'+esc(r.priceLabel || (r.price + " " + r.currency))+' &middot; submitted '+esc(r.submittedAt)+'</div>'+
+				'</div>'+
+				'<div class="actions">'+
+					'<button class="approve rare-approve" data-id="'+r.id+'" type="button">Approve</button>'+
+					'<button class="deny rare-deny" data-id="'+r.id+'" type="button">Deny</button>'+
+				'</div>'+
+			'</div>'+
+		'</div>';
+	}
+
+	async function resolveRareApproval(id, action){
+		try {
+			await api("/admin/rare-approvals/resolve", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id:id, action:action }) });
+			await refresh();
+		} catch(err){
+			alert("Failed: " + err.message);
+		}
+	}
+
+	// ---------------- admin accounts (head admin only) ----------------
+
+	function renderAdmins(){
+		var el = document.getElementById("adminsList");
+		var permsEl = document.getElementById("newAdminPerms");
+		if(!el || !permsEl) return;
+		if(!session || !session.isHeadAdmin) return;
+
+		if(!permsEl.dataset.built){
+			permsEl.innerHTML = ALL_PERMS.map(function(p){
+				return '<label style="display:flex;align-items:center;gap:5px;font-size:13px;">'+
+					'<input type="checkbox" class="new-admin-perm" value="'+p+'"> '+PERM_LABELS[p]+
+				'</label>';
+			}).join("");
+			permsEl.dataset.built = "1";
+		}
+
+		el.innerHTML = admins.length ? admins.map(adminCard).join("") : '<div class="empty">No named admins yet — you\'re logged in with the master key.</div>';
+
+		document.querySelectorAll(".admin-save-perms").forEach(function(b){
+			b.addEventListener("click", function(){
+				var id = b.getAttribute("data-id");
+				var checked = Array.prototype.slice.call(document.querySelectorAll('.admin-perm-'+id+':checked')).map(function(c){ return c.value; });
+				updateAdminPermissions(id, checked);
+			});
+		});
+		document.querySelectorAll(".admin-delete").forEach(function(b){
+			b.addEventListener("click", function(){
+				if(confirm("Delete admin \"" + b.getAttribute("data-username") + "\"?")) deleteAdmin(b.getAttribute("data-id"));
+			});
+		});
+		document.querySelectorAll(".admin-reset-password").forEach(function(b){
+			b.addEventListener("click", function(){
+				var pw = prompt("New password for " + b.getAttribute("data-username") + " (min 8 characters):");
+				if(pw) resetAdminPassword(b.getAttribute("data-id"), pw);
+			});
+		});
+	}
+
+	function adminCard(a){
+		if(a.isHeadAdmin){
+			return '<div class="card">'+
+				'<div class="title">'+esc(a.username)+' <span class="badge approved">head admin</span></div>'+
+				'<div class="meta">created '+esc(a.createdAt)+' by '+esc(a.createdBy)+'</div>'+
+			'</div>';
+		}
+		var checks = ALL_PERMS.map(function(p){
+			var checked = a.permissions.indexOf(p) !== -1 ? " checked" : "";
+			return '<label style="display:flex;align-items:center;gap:5px;font-size:13px;">'+
+				'<input type="checkbox" class="admin-perm-'+a.id+'" value="'+p+'"'+checked+'> '+PERM_LABELS[p]+
+			'</label>';
+		}).join("");
+		return '<div class="card">'+
+			'<div class="title">'+esc(a.username)+'</div>'+
+			'<div class="meta">created '+esc(a.createdAt)+' by '+esc(a.createdBy)+'</div>'+
+			'<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">'+checks+'</div>'+
+			'<div class="actions" style="margin-top:10px;">'+
+				'<button class="approve admin-save-perms" data-id="'+a.id+'" type="button">Save permissions</button>'+
+				'<button class="change admin-reset-password" data-id="'+a.id+'" data-username="'+esc(a.username)+'" type="button">Reset password</button>'+
+				'<button class="deny admin-delete" data-id="'+a.id+'" data-username="'+esc(a.username)+'" type="button">Delete</button>'+
+			'</div>'+
+		'</div>';
+	}
+
+	async function createAdmin(){
+		var errEl = document.getElementById("createAdminErr");
+		errEl.style.color = "var(--danger)"; errEl.textContent = "";
+		var username = document.getElementById("newAdminUsername").value.trim();
+		var password = document.getElementById("newAdminPassword").value;
+		var perms = Array.prototype.slice.call(document.querySelectorAll(".new-admin-perm:checked")).map(function(c){ return c.value; });
+		if(!username){ errEl.textContent = "Enter a username."; return; }
+		if(password.length < 8){ errEl.textContent = "Password must be at least 8 characters."; return; }
+		try {
+			await api("/admin/admins/create", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ username:username, password:password, permissions:perms }) });
+			document.getElementById("newAdminUsername").value = "";
+			document.getElementById("newAdminPassword").value = "";
+			document.querySelectorAll(".new-admin-perm").forEach(function(c){ c.checked = false; });
+			await refresh();
+		} catch(err){
+			errEl.textContent = "Failed: " + err.message;
+		}
+	}
+
+	async function updateAdminPermissions(id, permissions){
+		try {
+			await api("/admin/admins/update-permissions", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id:id, permissions:permissions }) });
+			await refresh();
+		} catch(err){
+			alert("Failed: " + err.message);
+		}
+	}
+
+	async function deleteAdmin(id){
+		try {
+			await api("/admin/admins/delete", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id:id }) });
+			await refresh();
+		} catch(err){
+			alert("Failed: " + err.message);
+		}
+	}
+
+	async function resetAdminPassword(id, newPassword){
+		try {
+			await api("/admin/admins/change-password", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id:id, newPassword:newPassword }) });
+			alert("Password updated.");
+		} catch(err){
+			alert("Failed: " + err.message);
+		}
+	}
+
+	// ---------------- own password ----------------
+
+	async function changeOwnPassword(){
+		var errEl = document.getElementById("changePasswordErr");
+		errEl.style.color = "var(--danger)"; errEl.textContent = "";
+		if(!session || !session.username){ errEl.textContent = "The master key has no account/password to change."; return; }
+		var oldPassword = document.getElementById("oldPasswordInput").value;
+		var newPassword = document.getElementById("newPasswordInput").value;
+		if(newPassword.length < 8){ errEl.textContent = "New password must be at least 8 characters."; return; }
+		try {
+			await api("/admin/admins/change-password", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ oldPassword:oldPassword, newPassword:newPassword }) });
+			errEl.style.color = "var(--accent)";
+			errEl.textContent = "Password updated — you'll need to log in again next time.";
+			document.getElementById("oldPasswordInput").value = "";
+			document.getElementById("newPasswordInput").value = "";
+		} catch(err){
+			errEl.textContent = "Failed: " + err.message;
+		}
+	}
+
 	// ---------------- world map override ----------------
 
 	function parseGridCoord(str){
@@ -577,19 +952,45 @@
 	});
 	document.getElementById("shopDeleteBtn").addEventListener("click", deleteShopListings);
 
-	document.getElementById("loginBtn").addEventListener("click", login);
+	document.getElementById("blockSellerBtn").addEventListener("click", blockSeller);
+	document.getElementById("createAdminBtn").addEventListener("click", createAdmin);
+
+	document.getElementById("changePasswordToggle").addEventListener("click", function(){
+		document.getElementById("changePasswordCard").classList.toggle("hidden");
+	});
+	document.getElementById("changePasswordBtn").addEventListener("click", changeOwnPassword);
+	document.getElementById("logoutBtn").addEventListener("click", logout);
+
+	document.getElementById("loginBtn").addEventListener("click", loginWithAccount);
+	document.getElementById("adminPasswordInput").addEventListener("keydown", function(e){
+		if(e.key === "Enter") loginWithAccount();
+	});
+	document.getElementById("loginKeyBtn").addEventListener("click", loginWithKey);
 	document.getElementById("adminKeyInput").addEventListener("keydown", function(e){
-		if(e.key === "Enter") login();
+		if(e.key === "Enter") loginWithKey();
+	});
+	document.getElementById("useKeyLink").addEventListener("click", function(e){
+		e.preventDefault();
+		document.getElementById("loginModeAccount").classList.add("hidden");
+		document.getElementById("loginModeKey").classList.remove("hidden");
+		document.getElementById("loginErr").textContent = "";
+	});
+	document.getElementById("useAccountLink").addEventListener("click", function(e){
+		e.preventDefault();
+		document.getElementById("loginModeKey").classList.add("hidden");
+		document.getElementById("loginModeAccount").classList.remove("hidden");
+		document.getElementById("loginErr").textContent = "";
 	});
 	document.getElementById("faqAddBtn").addEventListener("click", addFaq);
 
-	if(adminKey){
+	if(session){
 		refresh().then(function(){
 			document.getElementById("loginBox").classList.add("hidden");
 			document.getElementById("panel").classList.remove("hidden");
+			applyPermissionVisibility();
 		}).catch(function(){
-			adminKey = "";
-			sessionStorage.removeItem("shoplogger_admin_key");
+			session = null;
+			clearSession();
 		});
 	}
 })();

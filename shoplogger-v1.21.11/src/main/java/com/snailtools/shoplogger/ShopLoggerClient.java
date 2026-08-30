@@ -17,8 +17,6 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.minecraft.block.entity.BarrelBlockEntity;
-import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
 import net.minecraft.client.option.KeyBinding;
@@ -119,7 +117,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 			var be = world.getBlockEntity(pos);
 			// UseBlockCallback also fires for autoscan's own silent interactBlock() call —
 			// only treat this as a real manual click if that's not what's happening.
-			if ((be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity)
+			if (ShopContainers.isShopContainer(be)
 					&& !ShopAutoScanner.getInstance().isSelfInteracting()) {
 				// Manual clicking always wins over autoscan's silent background scanning.
 				ShopAutoScanner.getInstance().onManualContainerInteract();
@@ -160,6 +158,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 			SilentScreenCoordinator.tickWatchdog();
 			ShopAutoScanner.getInstance().tick(client);
 			ShopMarkerRenderer.getInstance().tick(client);
+			TeleportHighlight.getInstance().tick(client);
 			WorldDetector.getInstance().tick(client);
 			QolHookManager.onTick();
 

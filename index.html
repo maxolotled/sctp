@@ -795,6 +795,24 @@
 		return BANNED_ITEMS.indexOf(normBase) !== -1 || BANNED_ITEMS.indexOf(normName) !== -1;
 	}
 
+	// Defense-in-depth mirror of worker.js's CURRENCY_ITEM_IDS/isPaymentItem —
+	// a shop's own payment item should never also show up as something it's
+	// selling (e.g. an "ironingot" shop showing "1 Iron Ingot for 1 Iron
+	// Ingot"). The mod and Worker already filter this at ingestion; this catches
+	// any row that slipped in from an older client before that fix shipped.
+	var CURRENCY_ITEM_IDS = {
+		diamond: "minecraft:diamond", diamondblock: "minecraft:diamond_block",
+		iron: "minecraft:iron_ingot", ironingot: "minecraft:iron_ingot", ironblock: "minecraft:iron_block",
+		gold: "minecraft:gold_ingot", goldingot: "minecraft:gold_ingot", goldblock: "minecraft:gold_block",
+		emerald: "minecraft:emerald", emeraldblock: "minecraft:emerald_block",
+		netherite: "minecraft:netherite_ingot", netheriteingot: "minecraft:netherite_ingot", netheriteblock: "minecraft:netherite_block",
+		coal: "minecraft:coal"
+	};
+	function isPaymentItem(baseItem, currency){
+		var mapped = CURRENCY_ITEM_IDS[String(currency||"").toLowerCase()];
+		return !!mapped && mapped === String(baseItem||"").toLowerCase();
+	}
+
 	function normalizeRow(raw){
 		var row = {};
 		Object.keys(raw).forEach(function(k){
@@ -810,6 +828,8 @@
 		if(isBannedItem(baseItem, itemName)) return null; // shops selling diamonds/diamond blocks are excluded site-wide
 
 		var currency = String(row.currency||"").trim() || "unknown";
+
+		if(isPaymentItem(baseItem, currency)) return null; // shop's own payment item was slipped in as something for sale
 
 		var stackSize = toNum(row.stackSize) || 64;
 		var priceLabel = String(row.priceLabel||"").trim();
@@ -840,7 +860,7 @@
 	// Must match worker.js's rowKey() exactly — this is how report approvals
 	// find the right listing to remove/edit.
 	function rowKey(r){
-		return (r.world+"|"+r.seller+"|"+r.baseItem+"|"+r.itemName).toLowerCase();
+		return (r.world+"|"+r.seller+"|"+r.baseItem+"|"+r.itemName+"|"+(r.bulk?1:0)+"|"+(r.bundled?1:0)).toLowerCase();
 	}
 
 	function rowTimestamp(r){

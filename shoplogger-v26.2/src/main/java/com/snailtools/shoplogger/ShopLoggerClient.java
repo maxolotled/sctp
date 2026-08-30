@@ -27,8 +27,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.block.entity.BarrelBlockEntity;
-import net.minecraft.world.level.block.entity.ChestBlockEntity;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -120,7 +118,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 			var be = world.getBlockEntity(pos);
 			// UseBlockCallback also fires for autoscan's own silent useItemOn() call —
 			// only treat this as a real manual click if that's not what's happening.
-			if ((be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity)
+			if (ShopContainers.isShopContainer(be)
 					&& !ShopAutoScanner.getInstance().isSelfInteracting()) {
 				// Manual clicking always wins over autoscan's silent background scanning.
 				ShopAutoScanner.getInstance().onManualContainerInteract();
@@ -161,6 +159,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 			SilentScreenCoordinator.tickWatchdog();
 			ShopAutoScanner.getInstance().tick(client);
 			ShopMarkerRenderer.getInstance().tick(client);
+			TeleportHighlight.getInstance().tick(client);
 			WorldDetector.getInstance().tick(client);
 			QolHookManager.onTick();
 

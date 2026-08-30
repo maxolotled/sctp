@@ -17,25 +17,62 @@
 //   GET /faq               -> faq entries
 //   GET /world-map         -> {squareId: {status, username, claimedAt, completedAt}}
 //
-// Admin-only (Authorization: Bearer <ADMIN_KEY>, set separately from API_KEY):
+// Admin auth (see requireAdminAuth): either Authorization: Bearer <ADMIN_KEY>
+// (the original shared secret — an unlosable master key with full access to
+// every route below), or Authorization: Bearer <session token from
+// POST /admin/login>, which is limited to whichever permission bucket each
+// route requires unless the logged-in admin is a head admin.
+//
+//   POST /admin/login                        body: {username, password} -> {token, isHeadAdmin, permissions, expiresAt}
+//
+// Head-admin-only (or master key) — managing other admin accounts:
+//   POST /admin/admins/create                body: {username, password, permissions: [...]}
+//   GET  /admin/admins
+//   POST /admin/admins/update-permissions    body: {id, permissions: [...]}
+//   POST /admin/admins/delete                body: {id}
+//   POST /admin/run-snapshot                 -> forces an item-history snapshot now (see the daily cron below)
+//
+// Any logged-in admin (own account only, unless caller is head admin):
+//   POST /admin/admins/change-password       body: {id?, oldPassword?, newPassword} -- id omitted = self; oldPassword required unless a head admin is resetting someone else's
+//
+// Permission bucket "reports":
 //   GET  /admin/reports
-//   GET  /admin/shared-shop-requests
 //   POST /admin/reports/resolve              body: {id, action: "approve"|"deny"|"edit", field?, value?}
+// Permission bucket "sharedShopRequests":
+//   GET  /admin/shared-shop-requests
 //   POST /admin/shared-shop-requests/resolve body: {id, action: "approve"|"deny"}
+// Permission bucket "faq":
 //   GET  /admin/faq
 //   POST /admin/faq/add                      body: {question, answer}
 //   POST /admin/faq/update                   body: {id, question, answer}
 //   POST /admin/faq/delete                   body: {id}
+// Permission bucket "worldMap":
 //   POST /admin/world-map/set                body: {squareId, status, username} -> force-set, bypasses username match
+// Permission bucket "manualListings":
 //   POST /admin/listings/manual-add          body: {seller, world, entries: [{itemName, price, currency, position, priceLabel?}]}
 //   GET  /admin/listings/manual              -> lists manually-added listings (lastSeen "M001" etc instead of a timestamp)
 //   POST /admin/listings/manual-delete       body: {id}  -> id is the "M001"-style identifier
-//   POST /admin/run-snapshot                 -> forces an item-history snapshot now (see the daily cron below)
+//   POST /admin/listings/delete-shop         body: {seller, world?} -> deletes every listing for a seller (world omitted = both)
+// Permission bucket "blockedSellers":
+//   GET  /admin/blocked-sellers
+//   POST /admin/blocked-sellers/add          body: {username, reason?} -> blocks a seller; strips their existing listings immediately
+//   POST /admin/blocked-sellers/remove       body: {username}
+// Permission bucket "rareApprovals":
+//   GET  /admin/rare-approvals               -> rare items priced 1-2 diamond, held pending approval (see pendingRareApprovals below)
+//   POST /admin/rare-approvals/resolve       body: {id, action: "approve"|"deny"}
 //
 // GET /items/history?itemKey=<key> (public, cached 1hr) -> daily price/stock/seller
 //   history for one item. itemKey is "v:<baseItem>|<exact display name>" (lowercased)
 //   for vanilla items. Populated by a daily cron trigger (see wrangler.toml), not
 //   by any upload — see computeDailySnapshots() below.
+//
+// Rare-item price-approval hold: on upload, a listing whose item name is in
+// the rare-items catalog (data/rare-items.json, fetched live — see
+// getRareNameSet) AND priced at exactly 1 or 2 diamond is stored in
+// pendingRareApprovals instead of `listings`, and doesn't appear anywhere
+// public until an admin approves it. A rowKey that's already been approved
+// once is exempt from future holds (see handleUploadListings) so re-scanning
+// an unchanged, already-vetted listing doesn't need re-approval every time.
 
 const BANNED_ITEMS = ["minecraft:diamond", "minecraft:diamond_block", "diamond", "diamondblock"];
 
@@ -74,8 +111,39 @@ function isBannedItem(baseItem, itemName) {
 
 function rowKey(r) {
 	// World is part of the key because the same seller can run independent
-	// shops on both Firefly and Honeybee.
-	return `${r.world}|${r.seller}|${r.baseItem}|${r.itemName}`.toLowerCase();
+	// shops on both Firefly and Honeybee. bulk/bundled are part of it too so
+	// a seller selling both a normal-priced stack AND a bulk/bundled batch of
+	// the same item ends up as two distinct rows instead of one overwriting
+	// the other — see migrate-rowkeys-bulk-bundled.sql for the one-time
+	// migration this required when the key changed shape.
+	return `${r.world}|${r.seller}|${r.baseItem}|${r.itemName}|${r.bulk ? 1 : 0}|${r.bundled ? 1 : 0}`.toLowerCase();
+}
+
+// Currency string (from a shop sign's line 3) -> the item id it actually
+// pays with — mirrors ShopEntryFactory's CURRENCY_ITEM_IDS in the mod.
+// Defense-in-depth here for older mod versions that upload without the
+// client-side filter yet: a shop's own payment item should never also show
+// up as something it's selling (e.g. an "ironingot" shop that also happens
+// to stock loose iron ingots shouldn't list "1 Iron Ingot for 1 Iron Ingot").
+const CURRENCY_ITEM_IDS = {
+	diamond: "minecraft:diamond",
+	diamondblock: "minecraft:diamond_block",
+	iron: "minecraft:iron_ingot",
+	ironingot: "minecraft:iron_ingot",
+	ironblock: "minecraft:iron_block",
+	gold: "minecraft:gold_ingot",
+	goldingot: "minecraft:gold_ingot",
+	goldblock: "minecraft:gold_block",
+	emerald: "minecraft:emerald",
+	emeraldblock: "minecraft:emerald_block",
+	netherite: "minecraft:netherite_ingot",
+	netheriteingot: "minecraft:netherite_ingot",
+	netheriteblock: "minecraft:netherite_block",
+	coal: "minecraft:coal",
+};
+function isPaymentItem(baseItem, currency) {
+	const mapped = CURRENCY_ITEM_IDS[String(currency || "").toLowerCase()];
+	return !!mapped && mapped === String(baseItem || "").toLowerCase();
 }
 
 function rowTimestamp(r) {
@@ -185,6 +253,393 @@ function chunkArray(arr, size) {
 // this size instead of one unbounded query (see handleUploadListings).
 const MAX_QUERY_PARAMS_PER_CHUNK = 50;
 
+// Shared by handleUploadListings and the rare-approval "approve" action so
+// both write to `listings` through the exact same upsert logic.
+function buildListingUpsertStmt(env, key, r) {
+	return env.DB.prepare(
+		`INSERT INTO listings (rowKey, itemName, baseItem, bulk, bundled, mixedContents, price, priceLabel, stackSize, amount, stacksInStock, currency, seller, world, position, lastSeen)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(rowKey) DO UPDATE SET
+		   itemName=excluded.itemName, baseItem=excluded.baseItem, bulk=excluded.bulk, bundled=excluded.bundled,
+		   mixedContents=excluded.mixedContents, price=excluded.price, priceLabel=excluded.priceLabel,
+		   stackSize=excluded.stackSize, amount=excluded.amount, stacksInStock=excluded.stacksInStock,
+		   currency=excluded.currency, seller=excluded.seller, world=excluded.world,
+		   position=excluded.position, lastSeen=excluded.lastSeen`
+	).bind(
+		key, r.itemName, r.baseItem, r.bulk ? 1 : 0, r.bundled ? 1 : 0, r.mixedContents ? 1 : 0,
+		r.price, r.priceLabel, r.stackSize, r.amount, r.stacksInStock,
+		r.currency, r.seller, r.world, r.position, r.lastSeen
+	);
+}
+
+async function getBlockedSellerSet(env, sellers) {
+	const keys = [...new Set(sellers.map((s) => String(s || "").toLowerCase()))].filter(Boolean);
+	if (keys.length === 0) return new Set();
+	const blocked = new Set();
+	for (const chunk of chunkArray(keys, MAX_QUERY_PARAMS_PER_CHUNK)) {
+		const placeholders = chunk.map(() => "?").join(",");
+		const res = await env.DB.prepare(`SELECT usernameKey FROM blockedSellers WHERE usernameKey IN (${placeholders})`).bind(...chunk).all();
+		for (const row of res.results) blocked.add(row.usernameKey);
+	}
+	return blocked;
+}
+
+// Rare-item catalog name set, fetched from the live site (the Worker has no
+// local copy of data/rare-items.json) and cached in module scope for
+// RARE_NAMES_CACHE_TTL_MS — same "fetch cross-origin, cache briefly"
+// approach computeDailySnapshots() already uses for the item-lang table.
+// NOTE: the existing `rareItems` D1 table is NOT this catalog — it's an
+// unrelated admin-curated "spotted on this world" list (see
+// handleGetRareItems / generate-backfill.js), not tied to the site's rare
+// item pages at all.
+const RARE_ITEMS_CATALOG_URL = "https://sctp.nl/data/rare-items.json";
+const RARE_NAMES_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+let rareNameSetCache = { names: null, fetchedAt: 0 };
+
+async function getRareNameSet() {
+	const now = Date.now();
+	if (rareNameSetCache.names && now - rareNameSetCache.fetchedAt < RARE_NAMES_CACHE_TTL_MS) {
+		return rareNameSetCache.names;
+	}
+	try {
+		const res = await fetch(RARE_ITEMS_CATALOG_URL);
+		if (res.ok) {
+			const catalog = await res.json();
+			const names = new Set(catalog.map((e) => String(e.name || "").trim().toLowerCase()));
+			rareNameSetCache = { names, fetchedAt: now };
+			return names;
+		}
+	} catch (e) {
+		// fall through to a stale cache below
+	}
+	// A failed fetch reuses whatever we last had rather than treating every
+	// item as "not rare," which would silently bypass the approval hold.
+	return rareNameSetCache.names || new Set();
+}
+
+// ---------------- admin auth: multi-account + granular permissions ----------------
+//
+// ADMIN_KEY (the original Cloudflare secret) keeps working forever as an
+// unlosable master key with full access to everything — it's also the only
+// way to create the first real head-admin account. Beyond that, admins are
+// real accounts (username + password) with a session token from
+// POST /admin/login, and non-head admins are limited to whichever of these
+// permission buckets they've been granted:
+const ADMIN_PERMISSION_BUCKETS = new Set([
+	"reports", "sharedShopRequests", "faq", "worldMap", "manualListings", "blockedSellers", "rareApprovals",
+]);
+const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000; // fixed 24h, not sliding — re-login after
+const PBKDF2_ITERATIONS = 100000;
+
+function bufToHex(buf) {
+	return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function hexToBuf(hex) {
+	const bytes = new Uint8Array(hex.length / 2);
+	for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+	return bytes.buffer;
+}
+// Manual constant-time comparison — Web Crypto has no built-in for arbitrary
+// buffers/hex strings, and a plain === would leak timing info about how many
+// leading characters matched.
+function timingSafeEqualHex(a, b) {
+	if (a.length !== b.length) return false;
+	let diff = 0;
+	for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	return diff === 0;
+}
+function newSaltHex() {
+	return bufToHex(crypto.getRandomValues(new Uint8Array(16)).buffer);
+}
+function newToken() {
+	return bufToHex(crypto.getRandomValues(new Uint8Array(32)).buffer);
+}
+async function hashPassword(password, saltHex) {
+	const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+	const bits = await crypto.subtle.deriveBits(
+		{ name: "PBKDF2", salt: hexToBuf(saltHex), iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
+		key,
+		256
+	);
+	return bufToHex(bits);
+}
+async function verifyPassword(password, saltHex, expectedHashHex) {
+	const actual = await hashPassword(password, saltHex);
+	return timingSafeEqualHex(actual, expectedHashHex);
+}
+
+/** Base auth: master key, or a valid unexpired session -> { ok, admin } / { ok:false, response }. */
+async function requireAnyAdmin(request, env) {
+	const auth = request.headers.get("Authorization") || "";
+	if (env.ADMIN_KEY && auth === `Bearer ${env.ADMIN_KEY}`) {
+		return { ok: true, admin: { id: null, username: "master-key", isHeadAdmin: true } };
+	}
+	const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+	if (!token) return { ok: false, response: json({ error: "Unauthorized" }, 401) };
+
+	const session = await env.DB.prepare("SELECT * FROM adminSessions WHERE token = ?").bind(token).first();
+	if (!session || Date.parse(session.expiresAt) < Date.now()) {
+		return { ok: false, response: json({ error: "Unauthorized" }, 401) };
+	}
+	const admin = await env.DB.prepare("SELECT * FROM admins WHERE id = ?").bind(session.adminId).first();
+	if (!admin) return { ok: false, response: json({ error: "Unauthorized" }, 401) };
+	return { ok: true, admin };
+}
+
+/** permission === null means "head admin (or master key) only" — e.g. admin management, run-snapshot. */
+async function requireAdminAuth(request, env, permission) {
+	const base = await requireAnyAdmin(request, env);
+	if (!base.ok) return base;
+	if (base.admin.isHeadAdmin) return base;
+	if (permission === null) return { ok: false, response: json({ error: "Forbidden" }, 403) };
+	let perms = [];
+	try { perms = JSON.parse(base.admin.permissions || "[]"); } catch (e) { /* treat as no permissions */ }
+	if (!perms.includes(permission)) return { ok: false, response: json({ error: "Forbidden" }, 403) };
+	return base;
+}
+
+async function handleAdminLogin(request, env) {
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const username = String(body.username || "").trim();
+	const password = String(body.password || "");
+	if (!username || !password) return json({ error: "username and password are required" }, 400);
+
+	const admin = await env.DB.prepare("SELECT * FROM admins WHERE username = ?").bind(username).first();
+	if (!admin || !(await verifyPassword(password, admin.passwordSalt, admin.passwordHash))) {
+		return json({ error: "Invalid username or password" }, 401);
+	}
+
+	const token = newToken();
+	const now = new Date();
+	const expiresAt = new Date(now.getTime() + ADMIN_SESSION_TTL_MS).toISOString();
+	await env.DB.prepare("INSERT INTO adminSessions (token, adminId, createdAt, expiresAt) VALUES (?, ?, ?, ?)")
+		.bind(token, admin.id, now.toISOString(), expiresAt).run();
+
+	let permissions = [];
+	try { permissions = JSON.parse(admin.permissions || "[]"); } catch (e) { /* ignore */ }
+	return json({ token, isHeadAdmin: !!admin.isHeadAdmin, permissions, expiresAt });
+}
+
+async function handleAdminCreateAdmin(request, env) {
+	const auth = await requireAdminAuth(request, env, null);
+	if (!auth.ok) return auth.response;
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const username = String(body.username || "").trim();
+	const password = String(body.password || "");
+	const permissions = Array.isArray(body.permissions) ? body.permissions.filter((p) => ADMIN_PERMISSION_BUCKETS.has(p)) : [];
+	if (!username) return json({ error: "username is required" }, 400);
+	if (password.length < 8) return json({ error: "password must be at least 8 characters" }, 400);
+
+	const existing = await env.DB.prepare("SELECT id FROM admins WHERE username = ?").bind(username).first();
+	if (existing) return json({ error: "Username already exists" }, 409);
+
+	const id = crypto.randomUUID();
+	const salt = newSaltHex();
+	const hash = await hashPassword(password, salt);
+	const createdAt = new Date().toISOString();
+
+	try {
+		await env.DB.prepare(
+			"INSERT INTO admins (id, username, passwordHash, passwordSalt, isHeadAdmin, permissions, createdAt, createdBy) VALUES (?, ?, ?, ?, 0, ?, ?, ?)"
+		).bind(id, username, hash, salt, JSON.stringify(permissions), createdAt, auth.admin.username).run();
+		return json({ ok: true, id });
+	} catch (e) {
+		return json({ error: String(e) }, 502);
+	}
+}
+
+async function handleAdminListAdmins(request, env) {
+	const auth = await requireAdminAuth(request, env, null);
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare("SELECT id, username, isHeadAdmin, permissions, createdAt, createdBy FROM admins ORDER BY createdAt").all();
+	return json(results.map((r) => ({ ...r, isHeadAdmin: !!r.isHeadAdmin, permissions: JSON.parse(r.permissions || "[]") })));
+}
+
+async function handleAdminUpdatePermissions(request, env) {
+	const auth = await requireAdminAuth(request, env, null);
+	if (!auth.ok) return auth.response;
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const id = String(body.id || "");
+	const permissions = Array.isArray(body.permissions) ? body.permissions.filter((p) => ADMIN_PERMISSION_BUCKETS.has(p)) : [];
+	if (!id) return json({ error: "id is required" }, 400);
+
+	const res = await env.DB.prepare("UPDATE admins SET permissions = ? WHERE id = ? AND isHeadAdmin = 0")
+		.bind(JSON.stringify(permissions), id).run();
+	if (res.meta.changes === 0) return json({ error: "Admin not found (or is a head admin, whose permissions can't be edited)" }, 404);
+	return json({ ok: true });
+}
+
+async function handleAdminDeleteAdmin(request, env) {
+	const auth = await requireAdminAuth(request, env, null);
+	if (!auth.ok) return auth.response;
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const id = String(body.id || "");
+	if (!id) return json({ error: "id is required" }, 400);
+
+	const target = await env.DB.prepare("SELECT isHeadAdmin FROM admins WHERE id = ?").bind(id).first();
+	if (!target) return json({ error: "Admin not found" }, 404);
+	if (target.isHeadAdmin) return json({ error: "Can't delete a head admin" }, 400);
+
+	await env.DB.prepare("DELETE FROM adminSessions WHERE adminId = ?").bind(id).run();
+	await env.DB.prepare("DELETE FROM admins WHERE id = ?").bind(id).run();
+	return json({ ok: true });
+}
+
+async function handleAdminChangePassword(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	if (!auth.admin.id) return json({ error: "The master key has no account to change a password for" }, 400);
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const newPassword = String(body.newPassword || "");
+	if (newPassword.length < 8) return json({ error: "newPassword must be at least 8 characters" }, 400);
+
+	const targetId = body.id ? String(body.id) : auth.admin.id;
+	const changingSelf = targetId === auth.admin.id;
+	if (!changingSelf && !auth.admin.isHeadAdmin) {
+		return json({ error: "Only a head admin can change another admin's password" }, 403);
+	}
+
+	if (changingSelf) {
+		const oldPassword = String(body.oldPassword || "");
+		if (!(await verifyPassword(oldPassword, auth.admin.passwordSalt, auth.admin.passwordHash))) {
+			return json({ error: "Current password is incorrect" }, 401);
+		}
+	} else {
+		const target = await env.DB.prepare("SELECT id FROM admins WHERE id = ?").bind(targetId).first();
+		if (!target) return json({ error: "Admin not found" }, 404);
+	}
+
+	const salt = newSaltHex();
+	const hash = await hashPassword(newPassword, salt);
+	await env.DB.prepare("UPDATE admins SET passwordHash = ?, passwordSalt = ? WHERE id = ?").bind(hash, salt, targetId).run();
+	await env.DB.prepare("DELETE FROM adminSessions WHERE adminId = ?").bind(targetId).run(); // force re-login everywhere
+	return json({ ok: true });
+}
+
+// ---------------- blocked sellers ----------------
+
+async function handleAdminListBlockedSellers(request, env) {
+	const auth = await requireAdminAuth(request, env, "blockedSellers");
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare("SELECT * FROM blockedSellers ORDER BY blockedAt DESC").all();
+	return json(results);
+}
+
+async function handleAdminBlockSeller(request, env) {
+	const auth = await requireAdminAuth(request, env, "blockedSellers");
+	if (!auth.ok) return auth.response;
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const username = String(body.username || "").trim();
+	if (!isValidUsername(username)) return json({ error: "Invalid username" }, 400);
+	const reason = String(body.reason || "").trim().slice(0, 300);
+	const usernameKey = username.toLowerCase();
+
+	try {
+		await env.DB.prepare(
+			`INSERT INTO blockedSellers (usernameKey, username, reason, blockedAt, blockedBy) VALUES (?, ?, ?, ?, ?)
+			 ON CONFLICT(usernameKey) DO UPDATE SET username=excluded.username, reason=excluded.reason, blockedAt=excluded.blockedAt, blockedBy=excluded.blockedBy`
+		).bind(usernameKey, username, reason, new Date().toISOString(), auth.admin.username).run();
+
+		// A block takes effect immediately, not just for future uploads.
+		await env.DB.prepare("DELETE FROM listings WHERE lower(seller) = ?").bind(usernameKey).run();
+		await env.DB.prepare("DELETE FROM pendingRareApprovals WHERE lower(seller) = ?").bind(usernameKey).run();
+		return json({ ok: true });
+	} catch (e) {
+		return json({ error: String(e) }, 502);
+	}
+}
+
+async function handleAdminUnblockSeller(request, env) {
+	const auth = await requireAdminAuth(request, env, "blockedSellers");
+	if (!auth.ok) return auth.response;
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const username = String(body.username || "").trim();
+	if (!username) return json({ error: "username is required" }, 400);
+
+	const res = await env.DB.prepare("DELETE FROM blockedSellers WHERE usernameKey = ?").bind(username.toLowerCase()).run();
+	if (res.meta.changes === 0) return json({ error: "Not found" }, 404);
+	return json({ ok: true });
+}
+
+// ---------------- rare-item price-approval queue ----------------
+
+async function handleAdminListRareApprovals(request, env) {
+	const auth = await requireAdminAuth(request, env, "rareApprovals");
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare("SELECT * FROM pendingRareApprovals ORDER BY submittedAt").all();
+	return json(results.map((r) => ({ ...r, bulk: !!r.bulk, bundled: !!r.bundled, mixedContents: !!r.mixedContents })));
+}
+
+async function handleAdminResolveRareApproval(request, env) {
+	const auth = await requireAdminAuth(request, env, "rareApprovals");
+	if (!auth.ok) return auth.response;
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const id = String(body.id || "");
+	const action = String(body.action || "");
+	if (!id) return json({ error: "id is required" }, 400);
+	if (!["approve", "deny"].includes(action)) return json({ error: "Invalid action" }, 400);
+
+	try {
+		const pending = await env.DB.prepare("SELECT * FROM pendingRareApprovals WHERE id = ?").bind(id).first();
+		if (!pending) return json({ error: "Not found" }, 404);
+
+		if (action === "approve") {
+			await buildListingUpsertStmt(env, pending.rowKey, pending).run();
+		}
+		await env.DB.prepare("DELETE FROM pendingRareApprovals WHERE id = ?").bind(id).run();
+		return json({ ok: true });
+	} catch (e) {
+		return json({ error: String(e) }, 502);
+	}
+}
+
 async function handleUploadListings(request, env) {
 	if (!isAuthorized(request, env.API_KEY)) return json({ error: "Unauthorized" }, 401);
 
@@ -208,16 +663,72 @@ async function handleUploadListings(request, env) {
 		? `Your Shop Logger version (${modVersion || "unknown"}) has a known bug that can misreport in-stock shops as removed, so listing cleanup has been disabled for this upload. Please update to the latest version to re-enable it.`
 		: undefined;
 
-	let added = 0, updated = 0, skipped = 0, removed = 0;
+	let added = 0, updated = 0, skipped = 0, removed = 0, heldForApproval = 0;
 	try {
+		const blockedSet = await getBlockedSellerSet(env, incoming.map((r) => r && r.seller));
+		const rareNames = await getRareNameSet();
+
 		const validRows = [];
+		// Rare items (data/rare-items.json) priced at exactly 1-2 diamond go to
+		// pendingRareApprovals instead of straight into `listings` — but only
+		// the FIRST time: once a rowKey has already been approved once (i.e.
+		// it's already sitting in `listings`), later re-scans of the same
+		// unchanged listing just update it normally instead of re-holding it
+		// forever. rareHoldCandidates collects the ones that MIGHT need
+		// holding; which of them actually do gets decided just below, once we
+		// know which of their keys already exist in `listings`.
+		const rareHoldCandidates = [];
 		for (const r of incoming) {
 			if (!r.itemName || !r.seller || !r.world) { skipped++; continue; }
 			if (isBannedItem(r.baseItem, r.itemName)) { skipped++; continue; }
-			validRows.push({ ...r, _key: rowKey(r) });
+			if (isPaymentItem(r.baseItem, r.currency)) { skipped++; continue; }
+			if (blockedSet.has(String(r.seller).toLowerCase())) { skipped++; continue; }
+
+			const key = rowKey(r);
+			const isCheapRare = String(r.currency || "").toLowerCase() === "diamond"
+				&& (r.price === 1 || r.price === 2)
+				&& rareNames.has(String(r.itemName || "").trim().toLowerCase());
+
+			if (isCheapRare) {
+				rareHoldCandidates.push({ ...r, _key: key });
+			} else {
+				validRows.push({ ...r, _key: key });
+			}
 		}
 
 		const stmts = [];
+
+		if (rareHoldCandidates.length > 0) {
+			const candidateKeys = [...new Set(rareHoldCandidates.map((r) => r._key))];
+			const alreadyApproved = new Set();
+			for (const chunk of chunkArray(candidateKeys, MAX_QUERY_PARAMS_PER_CHUNK)) {
+				const placeholders = chunk.map(() => "?").join(",");
+				const res = await env.DB.prepare(`SELECT rowKey FROM listings WHERE rowKey IN (${placeholders})`).bind(...chunk).all();
+				for (const row of res.results) alreadyApproved.add(row.rowKey);
+			}
+			const submittedAt = new Date().toISOString();
+			for (const r of rareHoldCandidates) {
+				if (alreadyApproved.has(r._key)) {
+					validRows.push(r); // already vetted once — flows through normally from here
+					continue;
+				}
+				heldForApproval++;
+				stmts.push(env.DB.prepare(
+					`INSERT INTO pendingRareApprovals (id, rowKey, itemName, baseItem, bulk, bundled, mixedContents, price, priceLabel, stackSize, amount, stacksInStock, currency, seller, world, position, lastSeen, submittedAt)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					 ON CONFLICT(id) DO UPDATE SET
+					   itemName=excluded.itemName, baseItem=excluded.baseItem, bulk=excluded.bulk, bundled=excluded.bundled,
+					   mixedContents=excluded.mixedContents, price=excluded.price, priceLabel=excluded.priceLabel,
+					   stackSize=excluded.stackSize, amount=excluded.amount, stacksInStock=excluded.stacksInStock,
+					   currency=excluded.currency, seller=excluded.seller, world=excluded.world,
+					   position=excluded.position, lastSeen=excluded.lastSeen, submittedAt=excluded.submittedAt`
+				).bind(
+					r._key, r._key, r.itemName, r.baseItem, r.bulk ? 1 : 0, r.bundled ? 1 : 0, r.mixedContents ? 1 : 0,
+					r.price, r.priceLabel, r.stackSize, r.amount, r.stacksInStock,
+					r.currency, r.seller, r.world, r.position, r.lastSeen, submittedAt
+				));
+			}
+		}
 
 		if (validRows.length > 0) {
 			// Look up existing lastSeen for these keys so an older/duplicate
@@ -243,20 +754,7 @@ async function handleUploadListings(request, env) {
 					if (rowTimestamp(r) < (Date.parse(prevLastSeen) || 0)) { skipped++; continue; }
 					updated++;
 				}
-				stmts.push(env.DB.prepare(
-					`INSERT INTO listings (rowKey, itemName, baseItem, bulk, bundled, mixedContents, price, priceLabel, stackSize, amount, stacksInStock, currency, seller, world, position, lastSeen)
-					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-					 ON CONFLICT(rowKey) DO UPDATE SET
-					   itemName=excluded.itemName, baseItem=excluded.baseItem, bulk=excluded.bulk, bundled=excluded.bundled,
-					   mixedContents=excluded.mixedContents, price=excluded.price, priceLabel=excluded.priceLabel,
-					   stackSize=excluded.stackSize, amount=excluded.amount, stacksInStock=excluded.stacksInStock,
-					   currency=excluded.currency, seller=excluded.seller, world=excluded.world,
-					   position=excluded.position, lastSeen=excluded.lastSeen`
-				).bind(
-					r._key, r.itemName, r.baseItem, r.bulk ? 1 : 0, r.bundled ? 1 : 0, r.mixedContents ? 1 : 0,
-					r.price, r.priceLabel, r.stackSize, r.amount, r.stacksInStock,
-					r.currency, r.seller, r.world, r.position, r.lastSeen
-				));
+				stmts.push(buildListingUpsertStmt(env, r._key, r));
 			}
 		}
 
@@ -287,11 +785,11 @@ async function handleUploadListings(request, env) {
 
 		if (stmts.length > 0) await env.DB.batch(stmts);
 
-		if (added === 0 && updated === 0 && removed === 0) {
-			return json({ added: 0, updated: 0, skipped, removed: 0, committed: false, ...(notice ? { notice } : {}) });
+		if (added === 0 && updated === 0 && removed === 0 && heldForApproval === 0) {
+			return json({ added: 0, updated: 0, skipped, removed: 0, heldForApproval: 0, committed: false, ...(notice ? { notice } : {}) });
 		}
 		const totalRow = await env.DB.prepare("SELECT COUNT(*) as c FROM listings").first();
-		return json({ added, updated, skipped, removed, total: totalRow.c, committed: true, ...(notice ? { notice } : {}) });
+		return json({ added, updated, skipped, removed, heldForApproval, total: totalRow.c, committed: true, ...(notice ? { notice } : {}) });
 	} catch (e) {
 		return json({ error: String(e) }, 502);
 	}
@@ -299,7 +797,12 @@ async function handleUploadListings(request, env) {
 
 async function handleGetListings(request, env, ctx) {
 	return cachedGet(request, ctx, CACHE_TTL_SECONDS, async () => {
-		const { results } = await env.DB.prepare("SELECT * FROM listings").all();
+		// Defense-in-depth: handleUploadListings already refuses new rows from
+		// a blocked seller, but this excludes anything already stored from
+		// before a block was added too, so a block takes effect immediately.
+		const { results } = await env.DB.prepare(
+			"SELECT * FROM listings WHERE lower(seller) NOT IN (SELECT usernameKey FROM blockedSellers)"
+		).all();
 		return results.map((r) => ({ ...r, bulk: !!r.bulk, bundled: !!r.bundled, mixedContents: !!r.mixedContents }));
 	});
 }
@@ -371,7 +874,9 @@ async function handleSubmitSharedShopRequest(request, env) {
 
 async function handleGetSharedShops(request, env, ctx) {
 	return cachedGet(request, ctx, CACHE_TTL_SECONDS, async () => {
-		const { results } = await env.DB.prepare("SELECT username, shopsJson, bio FROM sharedShops").all();
+		const { results } = await env.DB.prepare(
+			"SELECT username, shopsJson, bio FROM sharedShops WHERE usernameKey NOT IN (SELECT usernameKey FROM blockedSellers)"
+		).all();
 		return results.map((r) => ({ username: r.username, shops: JSON.parse(r.shopsJson), bio: r.bio }));
 	});
 }
@@ -404,7 +909,8 @@ async function handleGetWorldMap(request, env, ctx) {
 }
 
 async function handleListReports(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "reports");
+	if (!auth.ok) return auth.response;
 	try {
 		const { results } = await env.DB.prepare("SELECT * FROM reports ORDER BY createdAt").all();
 		const data = results.map((r) => ({
@@ -420,7 +926,8 @@ async function handleListReports(request, env) {
 }
 
 async function handleListSharedShopRequests(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "sharedShopRequests");
+	if (!auth.ok) return auth.response;
 	try {
 		const { results } = await env.DB.prepare("SELECT * FROM sharedShopRequests ORDER BY createdAt").all();
 		const data = results.map((r) => ({
@@ -434,7 +941,8 @@ async function handleListSharedShopRequests(request, env) {
 }
 
 async function handleResolveReport(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "reports");
+	if (!auth.ok) return auth.response;
 
 	let body;
 	try {
@@ -483,7 +991,8 @@ async function handleResolveReport(request, env) {
 }
 
 async function handleResolveSharedShopRequest(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "sharedShopRequests");
+	if (!auth.ok) return auth.response;
 
 	let body;
 	try {
@@ -526,7 +1035,8 @@ async function handleResolveSharedShopRequest(request, env) {
 }
 
 async function handleListFaq(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "faq");
+	if (!auth.ok) return auth.response;
 	try {
 		const { results } = await env.DB.prepare("SELECT * FROM faq ORDER BY createdAt").all();
 		return json(results);
@@ -536,7 +1046,8 @@ async function handleListFaq(request, env) {
 }
 
 async function handleAddFaq(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "faq");
+	if (!auth.ok) return auth.response;
 
 	let body;
 	try {
@@ -562,7 +1073,8 @@ async function handleAddFaq(request, env) {
 }
 
 async function handleUpdateFaq(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "faq");
+	if (!auth.ok) return auth.response;
 
 	let body;
 	try {
@@ -588,7 +1100,8 @@ async function handleUpdateFaq(request, env) {
 }
 
 async function handleDeleteFaq(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "faq");
+	if (!auth.ok) return auth.response;
 
 	let body;
 	try {
@@ -695,7 +1208,8 @@ async function handleCompleteSquare(request, env) {
 // doesn't check that the submitted username matches the existing claim; it
 // just sets whatever status/owner the admin typed in.
 async function handleAdminSetSquare(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "worldMap");
+	if (!auth.ok) return auth.response;
 
 	let body;
 	try {
@@ -756,7 +1270,8 @@ async function nextManualIds(env, count) {
 }
 
 async function handleAdminAddManualListings(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "manualListings");
+	if (!auth.ok) return auth.response;
 
 	let body;
 	try {
@@ -811,7 +1326,8 @@ async function handleAdminAddManualListings(request, env) {
 }
 
 async function handleAdminListManualListings(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "manualListings");
+	if (!auth.ok) return auth.response;
 	try {
 		const { results } = await env.DB.prepare("SELECT * FROM listings WHERE lastSeen LIKE 'M%' ORDER BY lastSeen").all();
 		return json(results.map((r) => ({ ...r, bulk: !!r.bulk, mixedContents: !!r.mixedContents })));
@@ -821,7 +1337,8 @@ async function handleAdminListManualListings(request, env) {
 }
 
 async function handleAdminDeleteManualListing(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "manualListings");
+	if (!auth.ok) return auth.response;
 
 	let body;
 	try {
@@ -848,7 +1365,8 @@ async function handleAdminDeleteManualListing(request, env) {
 // each scoped to. world is optional — omitted, this clears the seller on
 // both worlds at once (the same seller can run independent shops on each).
 async function handleAdminDeleteShopListings(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, "manualListings");
+	if (!auth.ok) return auth.response;
 
 	let body;
 	try {
@@ -966,7 +1484,8 @@ async function handleGetItemHistory(request, env, ctx) {
 // snapshot can be forced without waiting for the schedule (testing, or
 // backfilling today's data after a deploy).
 async function handleAdminRunSnapshot(request, env) {
-	if (!isAuthorized(request, env.ADMIN_KEY)) return json({ error: "Unauthorized" }, 401);
+	const auth = await requireAdminAuth(request, env, null); // ops trigger, not a delegable content-moderation bucket
+	if (!auth.ok) return auth.response;
 	try {
 		const result = await computeDailySnapshots(env);
 		return json({ ok: true, ...result });
@@ -1002,6 +1521,17 @@ const ROUTES = [
 	["POST", "/admin/faq/add", handleAddFaq],
 	["POST", "/admin/faq/update", handleUpdateFaq],
 	["POST", "/admin/faq/delete", handleDeleteFaq],
+	["POST", "/admin/login", handleAdminLogin],
+	["POST", "/admin/admins/create", handleAdminCreateAdmin],
+	["GET", "/admin/admins", handleAdminListAdmins],
+	["POST", "/admin/admins/update-permissions", handleAdminUpdatePermissions],
+	["POST", "/admin/admins/delete", handleAdminDeleteAdmin],
+	["POST", "/admin/admins/change-password", handleAdminChangePassword],
+	["GET", "/admin/blocked-sellers", handleAdminListBlockedSellers],
+	["POST", "/admin/blocked-sellers/add", handleAdminBlockSeller],
+	["POST", "/admin/blocked-sellers/remove", handleAdminUnblockSeller],
+	["GET", "/admin/rare-approvals", handleAdminListRareApprovals],
+	["POST", "/admin/rare-approvals/resolve", handleAdminResolveRareApproval],
 ];
 
 export default {

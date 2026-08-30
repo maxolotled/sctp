@@ -65,21 +65,21 @@ public final class ShopEntryFactory {
 				// contents instead of the shulker itself.
 				for (ItemStack inner : shulkerContents) {
 					if (inner == null || inner.isEmpty()) continue;
-					addTally(tallies, inner, inner.getCount(), true, false);
+					addTally(tallies, inner, inner.getCount(), true, false, sign.currency());
 				}
 			} else if (bundleContents != null && !bundleContents.isEmpty() && isSingleItemType(bundleContents)) {
 				// Same idea as a shulker, but marked "bundled" instead of "bulk" so
 				// the site can tell the two apart.
 				for (ItemStack inner : bundleContents) {
 					if (inner == null || inner.isEmpty()) continue;
-					addTally(tallies, inner, inner.getCount(), false, true);
+					addTally(tallies, inner, inner.getCount(), false, true, sign.currency());
 				}
 			} else {
 				// Empty/mixed-contents shulker or bundle (e.g. a curated bundle like
 				// a "Lunar New Year Box") — list the container itself rather than
 				// decomposing it. "Bulk"/"bundled" specifically mean "entirely one
 				// item type."
-				addTally(tallies, stack, stack.getCount(), false, false);
+				addTally(tallies, stack, stack.getCount(), false, false, sign.currency());
 			}
 		}
 
@@ -114,10 +114,41 @@ public final class ShopEntryFactory {
 		return out;
 	}
 
-	private static void addTally(Map<String, Tally> tallies, ItemStack stack, int amount, boolean bulk, boolean bundled) {
+	// Currency string (from a shop sign's line 3) -> the item id it actually
+	// pays with. Used to make sure a shop never lists its own payment item as
+	// something for sale (e.g. an "ironingot" shop that also happens to have
+	// loose iron ingots in the chest shouldn't show "1 Iron Ingot for 1 Iron
+	// Ingot"). Extend as new real-world currencies show up.
+	private static final Map<String, String> CURRENCY_ITEM_IDS = Map.ofEntries(
+			Map.entry("diamond", "minecraft:diamond"),
+			Map.entry("diamondblock", "minecraft:diamond_block"),
+			Map.entry("iron", "minecraft:iron_ingot"),
+			Map.entry("ironingot", "minecraft:iron_ingot"),
+			Map.entry("ironblock", "minecraft:iron_block"),
+			Map.entry("gold", "minecraft:gold_ingot"),
+			Map.entry("goldingot", "minecraft:gold_ingot"),
+			Map.entry("goldblock", "minecraft:gold_block"),
+			Map.entry("emerald", "minecraft:emerald"),
+			Map.entry("emeraldblock", "minecraft:emerald_block"),
+			Map.entry("netherite", "minecraft:netherite_ingot"),
+			Map.entry("netheriteingot", "minecraft:netherite_ingot"),
+			Map.entry("netheriteblock", "minecraft:netherite_block"),
+			Map.entry("coal", "minecraft:coal")
+	);
+
+	private static boolean isPaymentItem(String baseId, String currency) {
+		String mapped = CURRENCY_ITEM_IDS.get(String.valueOf(currency).toLowerCase());
+		return mapped != null && mapped.equals(baseId);
+	}
+
+	private static void addTally(Map<String, Tally> tallies, ItemStack stack, int amount, boolean bulk, boolean bundled, String currency) {
 		String baseId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+		if (isPaymentItem(baseId, currency)) return; // never list the item this shop is literally being paid in
 		String displayName = displayNameFor(stack);
-		String key = baseId + "|" + displayName;
+		// bulk/bundled are part of the key so a normal-priced stack and a
+		// bulk/bundled stack of the SAME item in the same container don't
+		// collapse into one tally, losing the fact both forms are sold.
+		String key = baseId + "|" + displayName + "|" + bulk + "|" + bundled;
 
 		Tally existing = tallies.get(key);
 		if (existing == null) {

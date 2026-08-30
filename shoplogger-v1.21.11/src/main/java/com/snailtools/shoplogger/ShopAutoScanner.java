@@ -1,9 +1,7 @@
 package com.snailtools.shoplogger;
 
 import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BarrelBlockEntity;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.world.ClientWorld;
@@ -287,7 +285,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 				for (Map.Entry<BlockPos, BlockEntity> e : chunk.getBlockEntities().entrySet()) {
 					BlockEntity be = e.getValue();
-					if (!(be instanceof ChestBlockEntity) && !(be instanceof BarrelBlockEntity)) continue;
+					if (!ShopContainers.isShopContainer(be)) continue;
 
 					BlockPos pos = e.getKey();
 					if (knownShops.containsKey(pos)) continue;
@@ -322,7 +320,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 			BlockEntity be = world.getBlockEntity(pos);
 			BlockState state = world.getBlockState(pos);
-			boolean stillValid = (be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity)
+			boolean stillValid = ShopContainers.isShopContainer(be)
 					&& SignFinder.find(world, pos, state) != null;
 
 			if (stillValid) {

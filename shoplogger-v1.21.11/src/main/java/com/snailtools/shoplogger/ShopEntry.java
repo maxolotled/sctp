@@ -30,10 +30,13 @@ public record ShopEntry(
 	 * "the same shop listing" even if the container moves (rebuilt, or a
 	 * different double-chest half gets scanned) — the newest scan always
 	 * replaces the older one. World is part of the key because the same
-	 * seller can run shops on both worlds independently.
+	 * seller can run shops on both worlds independently. bulk/bundled are
+	 * also part of the key so a seller selling both a normal-priced stack AND
+	 * a bulk/bundled batch of the same item ends up as two distinct listings
+	 * instead of one overwriting the other.
 	 */
 	public String key() {
-		return world + "|" + seller + "|" + baseItem + "|" + itemName;
+		return world + "|" + seller + "|" + baseItem + "|" + itemName + "|" + bulk + "|" + bundled;
 	}
 
 	/** Human-readable price, e.g. "2 dia" or "1 db" — or "DISPLAY" for a [DISPLAY] sign with no real price. */

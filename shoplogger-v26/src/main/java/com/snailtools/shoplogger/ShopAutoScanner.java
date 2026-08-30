@@ -8,9 +8,7 @@ import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.block.entity.BarrelBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.core.Direction;
@@ -288,7 +286,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 				for (Map.Entry<BlockPos, BlockEntity> e : chunk.getBlockEntities().entrySet()) {
 					BlockEntity be = e.getValue();
-					if (!(be instanceof ChestBlockEntity) && !(be instanceof BarrelBlockEntity)) continue;
+					if (!ShopContainers.isShopContainer(be)) continue;
 
 					BlockPos pos = e.getKey();
 					if (knownShops.containsKey(pos)) continue;
@@ -323,7 +321,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 			BlockEntity be = world.getBlockEntity(pos);
 			BlockState state = world.getBlockState(pos);
-			boolean stillValid = (be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity)
+			boolean stillValid = ShopContainers.isShopContainer(be)
 					&& SignFinder.find(world, pos, state) != null;
 
 			if (stillValid) {
