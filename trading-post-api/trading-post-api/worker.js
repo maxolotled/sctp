@@ -17,11 +17,12 @@
 //   GET /faq               -> faq entries
 //   GET /world-map         -> {squareId: {status, username, claimedAt, completedAt}}
 //
-// Admin auth (see requireAdminAuth): either Authorization: Bearer <ADMIN_KEY>
-// (the original shared secret — an unlosable master key with full access to
-// every route below), or Authorization: Bearer <session token from
-// POST /admin/login>, which is limited to whichever permission bucket each
-// route requires unless the logged-in admin is a head admin.
+// Admin auth (see requireAdminAuth): Authorization: Bearer <session token
+// from POST /admin/login>, limited to whichever permission bucket each route
+// requires unless the logged-in admin is a head admin. The old shared
+// ADMIN_KEY secret is no longer accepted anywhere — real accounts replaced
+// it entirely once the first head admin existed (env.ADMIN_KEY itself is
+// unused by this file now; the Cloudflare secret can be deleted).
 //
 //   POST /admin/login                        body: {username, password} -> {token, isHeadAdmin, permissions, expiresAt}
 //
@@ -319,12 +320,11 @@ async function getRareNameSet() {
 
 // ---------------- admin auth: multi-account + granular permissions ----------------
 //
-// ADMIN_KEY (the original Cloudflare secret) keeps working forever as an
-// unlosable master key with full access to everything — it's also the only
-// way to create the first real head-admin account. Beyond that, admins are
-// real accounts (username + password) with a session token from
-// POST /admin/login, and non-head admins are limited to whichever of these
-// permission buckets they've been granted:
+// Admins are real accounts (username + password) with a session token from
+// POST /admin/login. A head admin has full access to everything; everyone
+// else is limited to whichever of these permission buckets they've been
+// granted. The old shared ADMIN_KEY master-key bypass was removed once real
+// accounts existed — see requireAnyAdmin.
 const ADMIN_PERMISSION_BUCKETS = new Set([
 	"reports", "sharedShopRequests", "faq", "worldMap", "manualListings", "blockedSellers", "rareApprovals",
 ]);
@@ -368,12 +368,9 @@ async function verifyPassword(password, saltHex, expectedHashHex) {
 	return timingSafeEqualHex(actual, expectedHashHex);
 }
 
-/** Base auth: master key, or a valid unexpired session -> { ok, admin } / { ok:false, response }. */
+/** Base auth: a valid unexpired session -> { ok, admin } / { ok:false, response }. */
 async function requireAnyAdmin(request, env) {
 	const auth = request.headers.get("Authorization") || "";
-	if (env.ADMIN_KEY && auth === `Bearer ${env.ADMIN_KEY}`) {
-		return { ok: true, admin: { id: null, username: "master-key", isHeadAdmin: true } };
-	}
 	const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
 	if (!token) return { ok: false, response: json({ error: "Unauthorized" }, 401) };
 
