@@ -43,6 +43,7 @@ public final class WorldDetector implements SilentScreenCoordinator.Listener {
 	/** Call whenever we know (or suspect) the player's world may have changed. */
 	public void requestRedetect() {
 		pendingRequest = true;
+		WorldSelection.startDetectionGrace();
 	}
 
 	public void tick(Minecraft client) {
