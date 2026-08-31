@@ -129,7 +129,7 @@
 			<div class="brand-mark">🧱</div>
 			<div>
 				<h1>Build List</h1>
-				<p class="tag">Import a litematica material list or type it in — we'll figure out where to shop.</p>
+				<p class="tag">Currently in BETA; may make mistakes. Works better for Firefly. Please give feedback!</p>
 			</div>
 		</div>
 		<div class="nav-links">
@@ -174,7 +174,7 @@
 		</div>
 
 		<div class="tab-pane active" id="paneImport">
-			<p class="hint" style="margin-bottom:10px;">Accepts the .txt, .csv, or .json material list litematica exports (uses the "Missing" column — how much you still need).</p>
+			<p class="hint" style="margin-bottom:10px;">Accepts the .txt, .csv, or .json material list litematica exports.</p>
 			<input type="file" id="fileInput" accept=".txt,.csv,.json">
 		</div>
 
@@ -259,6 +259,22 @@
 	function currencyLabel(c){
 		var key = String(c||"").toLowerCase();
 		return CURRENCY_LABELS[key] || (key.charAt(0).toUpperCase() + key.slice(1));
+	}
+
+	// Real player-market rates: 64 iron = 1 diamond, 18 gold = 1 diamond, 1
+	// netherite ingot = 18 diamonds — block variants use the standard 9-per-block
+	// crafting ratio. Used ONLY to decide which offer is actually cheapest across
+	// different currencies; displayed costs still show the real currency/amount,
+	// never a converted number — see the totals bar and shop cards below.
+	var CURRENCY_VALUE = {
+		diamond: 1, diamondblock: 9,
+		iron: 1/64, ironingot: 1/64, ironblock: 9/64,
+		gold: 1/18, goldingot: 1/18, goldblock: 9/18,
+		netherite: 18, netheriteingot: 18, netheriteblock: 162
+	};
+	function diamondValue(currency){
+		var mult = CURRENCY_VALUE[String(currency||"").toLowerCase()];
+		return mult === undefined ? 1 : mult;
 	}
 
 	// Best-effort max-stack-size table for the "Stacks"/"Shulkers" manual-entry
@@ -534,10 +550,16 @@
 				var stackSize = toNum(o.stackSize) || 1;
 				var amount = toNum(o.amount);
 				var obtainable = Math.floor(amount / stackSize) * stackSize;
+				var currency = String(o.currency||"").toLowerCase();
+				var price = toNum(o.price);
 				return {
-					seller: o.seller, position: o.position, currency: String(o.currency||"").toLowerCase(),
-					price: toNum(o.price), stackSize: stackSize, obtainable: obtainable,
-					perUnit: toNum(o.price) / stackSize
+					seller: o.seller, position: o.position, currency: currency,
+					price: price, stackSize: stackSize, obtainable: obtainable,
+					perUnit: price / stackSize,
+					// The only value ever used to RANK offers against each other
+					// (including across different currencies) — perUnit above is
+					// kept purely for display, never compared between currencies.
+					perUnitDiamonds: (price * diamondValue(currency)) / stackSize
 				};
 			}).filter(function(o){ return o.obtainable > 0; });
 			if(offers.length) byMaterial[m.key] = offers;
@@ -564,7 +586,7 @@
 
 		if(mode === "cheap"){
 			Object.keys(remaining).forEach(function(key){
-				var offers = candidatesByMaterial[key].slice().sort(function(a, b){ return a.perUnit - b.perUnit; });
+				var offers = candidatesByMaterial[key].slice().sort(function(a, b){ return a.perUnitDiamonds - b.perUnitDiamonds; });
 				var need = remaining[key];
 				offers.forEach(function(o){
 					if(need <= 0) return;
@@ -579,13 +601,11 @@
 			// "efficiency" and "balanced" — greedily pick the seller who best
 			// covers the still-needed items (weighted by price competitiveness
 			// for "balanced"), buy everything they can supply, repeat.
-			var minPerUnit = {}; // materialKey -> currency -> lowest perUnit seen
+			var minPerUnitDiamonds = {}; // materialKey -> lowest perUnitDiamonds seen, across all currencies
 			Object.keys(candidatesByMaterial).forEach(function(key){
-				var byCur = {};
-				candidatesByMaterial[key].forEach(function(o){
-					if(byCur[o.currency] === undefined || o.perUnit < byCur[o.currency]) byCur[o.currency] = o.perUnit;
-				});
-				minPerUnit[key] = byCur;
+				var min = Infinity;
+				candidatesByMaterial[key].forEach(function(o){ if(o.perUnitDiamonds < min) min = o.perUnitDiamonds; });
+				minPerUnitDiamonds[key] = min;
 			});
 			var wEff = mode === "efficiency" ? 1 : 0.5;
 			var wCheap = mode === "efficiency" ? 0 : 0.5;
@@ -601,7 +621,7 @@
 						if(!bySeller[o.seller]) bySeller[o.seller] = { items: {}, coverage: 0 };
 						var bucket = bySeller[o.seller];
 						var existing = bucket.items[key];
-						if(!existing || o.perUnit < existing.perUnit){
+						if(!existing || o.perUnitDiamonds < existing.perUnitDiamonds){
 							if(!existing) bucket.coverage++;
 							bucket.items[key] = o;
 						}
@@ -614,8 +634,8 @@
 					var normSum = 0, normCount = 0;
 					Object.keys(bucket.items).forEach(function(key){
 						var o = bucket.items[key];
-						var minP = minPerUnit[key][o.currency];
-						normSum += (minP && minP > 0) ? (o.perUnit / minP) : 1;
+						var minP = minPerUnitDiamonds[key];
+						normSum += (minP && minP > 0 && isFinite(minP)) ? (o.perUnitDiamonds / minP) : 1;
 						normCount++;
 					});
 					var avgNorm = normCount ? normSum / normCount : 1;

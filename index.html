@@ -756,11 +756,18 @@
 		return m ? parseFloat(m[0]) : 0;
 	}
 
-	// Currency value relative to a single diamond — a diamond block crafts
-	// from 9 diamonds, so that's its worth for cross-currency comparisons.
-	// Unrecognized currencies fall back to 1 (treated as already diamond-scale)
-	// rather than distorting the sort.
-	var CURRENCY_VALUE = { diamond: 1, diamondblock: 9 };
+	// Currency value relative to a single diamond, from the server's actual
+	// player-market exchange rates: 64 iron = 1 diamond, 18 gold = 1 diamond,
+	// 1 netherite ingot = 18 diamonds. Block variants use vanilla's standard
+	// 9-per-block crafting ratio. Unrecognized currencies (emerald, coal, ...)
+	// fall back to 1 (treated as already diamond-scale) rather than distorting
+	// the sort — no known rate exists for them.
+	var CURRENCY_VALUE = {
+		diamond: 1, diamondblock: 9,
+		iron: 1/64, ironingot: 1/64, ironblock: 9/64,
+		gold: 1/18, goldingot: 1/18, goldblock: 9/18,
+		netherite: 18, netheriteingot: 18, netheriteblock: 162
+	};
 	function priceInDiamonds(r){
 		// [DISPLAY] listings have no real price — treat them as the single most
 		// expensive thing rather than the cheapest (price 0 would otherwise sort

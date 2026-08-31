@@ -29,7 +29,12 @@ public final class ShopSearch {
 
 	// Same convention as index.html's price sort/filter fix: normalize to a
 	// common "worth in diamonds" basis before comparing across currencies.
-	private static final Map<String, Double> CURRENCY_VALUE = Map.of("diamond", 1.0, "diamondblock", 9.0);
+	private static final Map<String, Double> CURRENCY_VALUE = Map.ofEntries(
+			Map.entry("diamond", 1.0), Map.entry("diamondblock", 9.0),
+			Map.entry("iron", 1.0 / 64), Map.entry("ironingot", 1.0 / 64), Map.entry("ironblock", 9.0 / 64),
+			Map.entry("gold", 1.0 / 18), Map.entry("goldingot", 1.0 / 18), Map.entry("goldblock", 9.0 / 18),
+			Map.entry("netherite", 18.0), Map.entry("netheriteingot", 18.0), Map.entry("netheriteblock", 162.0)
+	);
 
 	private static final HttpClient CLIENT = HttpClient.newBuilder()
 			.connectTimeout(Duration.ofSeconds(10))

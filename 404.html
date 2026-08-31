@@ -297,7 +297,15 @@
 		return new Date(t).toLocaleDateString();
 	}
 
-	var CURRENCY_VALUE = { diamond: 1, diamondblock: 9 };
+	// Real player-market rates: 64 iron = 1 diamond, 18 gold = 1 diamond, 1
+	// netherite ingot = 18 diamonds — block variants use the standard 9-per-block
+	// crafting ratio. Same table as index.html's CURRENCY_VALUE.
+	var CURRENCY_VALUE = {
+		diamond: 1, diamondblock: 9,
+		iron: 1/64, ironingot: 1/64, ironblock: 9/64,
+		gold: 1/18, goldingot: 1/18, goldblock: 9/18,
+		netherite: 18, netheriteingot: 18, netheriteblock: 162
+	};
 	function priceInDiamonds(r){
 		if(String(r.currency||"").toLowerCase() === "display") return Infinity;
 		var mult = CURRENCY_VALUE[String(r.currency||"").toLowerCase()];
