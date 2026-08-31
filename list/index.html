@@ -677,12 +677,15 @@
 	function renderResults(result){
 		document.getElementById("resultsSection").style.display = "block";
 
-		// group purchases by seller+world+position
+		// Group purchases by seller+world only — a seller counts as one shop
+		// even if their items happen to live in more than one chest, since
+		// that's also how the optimizer itself scores "efficiency" (fewest
+		// distinct sellers, not fewest distinct chests).
 		var groups = {};
 		var groupOrder = [];
 		result.purchases.forEach(function(p){
-			var gk = p.seller + "|" + p.world + "|" + p.position;
-			if(!groups[gk]){ groups[gk] = { seller: p.seller, world: p.world, position: p.position, lines: [] }; groupOrder.push(gk); }
+			var gk = p.seller + "|" + p.world;
+			if(!groups[gk]){ groups[gk] = { seller: p.seller, world: p.world, lines: [] }; groupOrder.push(gk); }
 			groups[gk].lines.push(p);
 		});
 
@@ -709,19 +712,32 @@
 			var g = groups[gk];
 			var card = document.createElement("div");
 			card.className = "shop-card";
+
+			// Most sellers only ever have one chest position across all their
+			// items — show that once in the header. If they genuinely differ
+			// (multiple chests), show each item's own position in its row
+			// instead, so navigation stays accurate either way.
+			var positions = {};
+			g.lines.forEach(function(p){ if(p.position) positions[p.position] = true; });
+			var positionKeys = Object.keys(positions);
+			var sharedPosition = positionKeys.length === 1 ? positionKeys[0] : null;
+			var showPositionColumn = positionKeys.length > 1;
+
 			var subtotals = {};
 			var rows = g.lines.map(function(p){
 				subtotals[p.currency] = (subtotals[p.currency]||0) + p.cost;
 				return '<tr><td>' + esc(nameForKey(p.materialKey)) + '</td>' +
 					'<td class="mat-qty">' + fmtNum(p.qty) + '</td>' +
 					'<td class="mat-qty">' + p.batches + ' × ' + fmtNum(p.unitPrice) + ' ' + esc(currencyLabel(p.currency)) + '</td>' +
-					'<td class="mat-qty">' + fmtNum(p.cost) + ' ' + esc(currencyLabel(p.currency)) + '</td></tr>';
+					'<td class="mat-qty">' + fmtNum(p.cost) + ' ' + esc(currencyLabel(p.currency)) + '</td>' +
+					(showPositionColumn ? '<td class="mat-qty">' + esc(p.position || "—") + '</td>' : '') +
+					'</tr>';
 			}).join("");
 			var subtotalText = Object.keys(subtotals).sort().map(function(c){ return fmtNum(subtotals[c]) + " " + currencyLabel(c); }).join(" + ");
 			card.innerHTML =
 				'<h3>' + esc(g.seller) + '</h3>' +
-				'<p class="shop-meta">' + esc(g.world) + (g.position ? " · " + esc(g.position) : "") + '</p>' +
-				'<table><thead><tr><th>Item</th><th>Qty</th><th>Batches</th><th>Cost</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+				'<p class="shop-meta">' + esc(g.world) + (sharedPosition ? " · " + esc(sharedPosition) : "") + '</p>' +
+				'<table><thead><tr><th>Item</th><th>Qty</th><th>Batches</th><th>Cost</th>' + (showPositionColumn ? '<th>Position</th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table>' +
 				'<div class="shop-subtotal">Subtotal: ' + subtotalText + '</div>';
 			shopCards.appendChild(card);
 		});
