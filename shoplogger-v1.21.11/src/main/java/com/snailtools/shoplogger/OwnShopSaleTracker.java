@@ -52,7 +52,16 @@ public final class OwnShopSaleTracker {
 				.anyMatch(e -> baseItemId.equalsIgnoreCase(e.baseItem()) && e.amountAvailable() > 0);
 		Boolean before = HAS_PENDING_PAYMENT.put(containerPos, nowHasPayment);
 
-		if (nowHasPayment && !Boolean.TRUE.equals(before)) {
+		// Only notify on a genuine LIVE transition (confirmed empty -> now has
+		// payment) observed within this session. If `before` is null, this is
+		// the first time we've seen this container since the game/mod started
+		// — we don't actually know whether the payment sitting there is a
+		// brand-new sale or one that's been waiting uncollected for a while,
+		// so just record the baseline silently instead of assuming it's new.
+		// Without this, a shop wall with several already-pending payments
+		// floods "Something sold!" for every chest the moment the auto-scanner
+		// discovers them each session, even though nothing new just happened.
+		if (nowHasPayment && Boolean.FALSE.equals(before)) {
 			ChatFormat.send(client, ChatFormat.SUCCESS, "Something sold from your shop at " + containerPos.toShortString() + "!");
 		}
 	}
