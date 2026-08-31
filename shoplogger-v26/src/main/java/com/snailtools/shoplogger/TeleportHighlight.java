@@ -9,9 +9,10 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Highlights one specific shop container after the player taps a "TP" button
  * in a listing row (see ListingListWidget), so they can actually spot the
- * right chest once /shop teleports them into the general area. Deliberately
- * far more obvious than ShopMarkerRenderer's subtle "recently scanned" dots —
- * this is a single active target, rendered every tick, not throttled.
+ * right chest once /shop teleports them into the general area. A line of
+ * particles is drawn fresh every tick from the player's current eye position
+ * straight to the container — not a static marker, so it visibly moves and
+ * re-aims as the player walks, always pointing the way there.
  */
 public final class TeleportHighlight {
 
@@ -20,14 +21,14 @@ public final class TeleportHighlight {
 
 	private static final int COLOR = 0x39FF14; // bright green, unmistakably different from the muted scan markers
 	private static final float SCALE = 1.6f;
-	private static final int BEAM_HEIGHT_BLOCKS = 6;
+	private static final double POINT_SPACING = 1.5; // blocks between particles along the beam
+	private static final int MAX_POINTS = 24; // caps the per-tick particle cost for very long beams
 	private static final double ARRIVAL_DISTANCE = 2.0;
 	private static final long TIMEOUT_MS = 5 * 60 * 1000L;
 
 	private BlockPos targetPos;
 	private String targetWorldLabel;
 	private long armedAtMillis;
-	private final java.util.Random random = new java.util.Random();
 
 	private TeleportHighlight() {}
 
@@ -62,19 +63,22 @@ public final class TeleportHighlight {
 		if (current == null || targetWorldLabel == null || !targetWorldLabel.equalsIgnoreCase(current.label())) return;
 
 		Vec3 eye = client.player.getEyePosition();
-		double dist = Math.sqrt(new Vec3(targetPos.getX(), targetPos.getY(), targetPos.getZ()).distanceToSqr(eye));
+		Vec3 target = new Vec3(targetPos.getX() + 0.5, targetPos.getY() + 0.5, targetPos.getZ() + 0.5);
+		double dist = eye.distanceTo(target);
 		if (dist <= ARRIVAL_DISTANCE) {
 			clear();
 			return;
 		}
 
-		client.player.sendOverlayMessage(Component.literal(String.format("Target chest: %.0f blocks away", dist)));
+		client.player.sendOverlayMessage(Component.literal("Press X to cancel beam"));
 
-		for (int i = 0; i <= BEAM_HEIGHT_BLOCKS; i++) {
+		int points = Math.max(2, Math.min(MAX_POINTS, (int) Math.round(dist / POINT_SPACING)));
+		for (int i = 0; i <= points; i++) {
+			double t = i / (double) points;
 			DustParticleOptions effect = new DustParticleOptions(COLOR, SCALE);
-			double x = targetPos.getX() + 0.5 + (random.nextDouble() - 0.5) * 0.2;
-			double y = targetPos.getY() + 0.5 + i;
-			double z = targetPos.getZ() + 0.5 + (random.nextDouble() - 0.5) * 0.2;
+			double x = eye.x + (target.x - eye.x) * t;
+			double y = eye.y + (target.y - eye.y) * t;
+			double z = eye.z + (target.z - eye.z) * t;
 			client.level.addParticle(effect, x, y, z, 0.0, 0.0, 0.0);
 		}
 	}

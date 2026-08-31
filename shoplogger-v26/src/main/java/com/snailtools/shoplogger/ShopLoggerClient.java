@@ -189,7 +189,11 @@ public class ShopLoggerClient implements ClientModInitializer {
 				togglePrint(client);
 			}
 			if (openLibraryKey != null && openLibraryKey.consumeClick()) {
-				client.setScreenAndShow(new com.snailtools.shoplogger.gui.HomeScreen());
+				if (TeleportHighlight.getInstance().isArmed()) {
+					TeleportHighlight.getInstance().clear();
+				} else {
+					client.setScreenAndShow(new com.snailtools.shoplogger.gui.HomeScreen());
+				}
 			}
 			if (pendingSearchQuery != null) {
 				String query = pendingSearchQuery;
