@@ -605,17 +605,17 @@
 		<h2>Download Shop Logger</h2>
 		<p>Pick the version that matches the Minecraft version you're playing.</p>
 		<div class="download-options">
-			<a class="download-option" href="shoplogger-1.21.11-1.3.jar" download="shoplogger-1.21.11-1.3.jar">
+			<a class="download-option" href="shoplogger-1.21.11-1.4.jar" download="shoplogger-1.21.11-1.4.jar">
 				<strong>Minecraft 1.21.11</strong>
-				<span>shoplogger-1.21.11-1.3.jar</span>
+				<span>shoplogger-1.21.11-1.4.jar</span>
 			</a>
-			<a class="download-option" href="shoplogger-26.1-1.3.jar" download="shoplogger-26.1-1.3.jar">
+			<a class="download-option" href="shoplogger-26.1-1.4.jar" download="shoplogger-26.1-1.4.jar">
 				<strong>Minecraft 26.1</strong>
-				<span>shoplogger-26.1-1.3.jar</span>
+				<span>shoplogger-26.1-1.4.jar</span>
 			</a>
-			<a class="download-option" href="shoplogger-26.2-1.3.jar" download="shoplogger-26.2-1.3.jar">
+			<a class="download-option" href="shoplogger-26.2-1.4.jar" download="shoplogger-26.2-1.4.jar">
 				<strong>Minecraft 26.2</strong>
-				<span>shoplogger-26.2-1.3.jar</span>
+				<span>shoplogger-26.2-1.4.jar</span>
 			</a>
 		</div>
 		<p class="download-reminder">Requires <strong>Fabric API</strong> installed alongside the mod, and <strong>Fabric Loader 0.19.3</strong> or newer.</p>
@@ -745,7 +745,8 @@
 		position:"position",
 		lastseen:"lastSeen",
 		mixedcontents:"mixedContents",
-		bundled:"bundled"
+		bundled:"bundled",
+		availablesince:"availableSince"
 	};
 
 	// Pulls the leading number out of a price label like "2 dia" or "1.5 db".
@@ -853,8 +854,23 @@
 			world: String(row.world||"").trim() || "Unknown",
 			position: String(row.position||"").trim(),
 			lastSeen: String(row.lastSeen||"").trim(),
+			availableSince: String(row.availableSince||"").trim(), // "" for listings that predate this field — see availableSinceCell()
 			_uploadedAt: Date.now()
 		};
+	}
+
+	// Rows from before this field existed have no real first-seen date — show
+	// the date this tracking started instead of a blank cell, so it reads as
+	// "at least since" rather than looking broken. Real values get formatted
+	// the same way, so the fallback isn't visually distinguishable as a hack.
+	var AVAILABLE_SINCE_FALLBACK = new Date(Date.UTC(2026, 7, 31)); // when availableSince tracking began
+	function shortDate(d){
+		return d.getUTCDate()+"/"+(d.getUTCMonth()+1);
+	}
+	function availableSinceCell(r){
+		var d = r.availableSince ? new Date(r.availableSince) : null;
+		if(!d || isNaN(d.getTime())) d = AVAILABLE_SINCE_FALLBACK;
+		return shortDate(d);
 	}
 
 	// Must match worker.js's rowKey() exactly — this is how report approvals
@@ -1439,6 +1455,7 @@
 			'<th>World</th>'+
 			'<th>Position</th>'+
 			'<th data-k="recent">Last seen</th>'+
+			'<th>Available since</th>'+
 			'<th></th>'+
 			'</tr></thead><tbody>';
 
@@ -1477,6 +1494,7 @@
 				'<td>'+esc(r.world)+'</td>'+
 				'<td class="position">'+esc(r.position)+'</td>'+
 				'<td>'+lastSeenCell+'</td>'+
+				'<td>'+availableSinceCell(r)+'</td>'+
 				'<td><button class="report-btn" type="button" data-row-idx="'+idx+'">Report</button></td>'+
 				'</tr>';
 		});
