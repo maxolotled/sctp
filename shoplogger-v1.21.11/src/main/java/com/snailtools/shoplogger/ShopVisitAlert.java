@@ -23,9 +23,18 @@ import java.util.Locale;
 public final class ShopVisitAlert {
 
 	private static final long COOLDOWN_MS = 60 * 60 * 1000L; // 1 hour
+	private static final String CONFIG_ENABLED = "visitAlerts/enabled";
 	private static final String CONFIG_RARES_ONLY = "visitAlerts/raresOnly";
 
 	private ShopVisitAlert() {}
+
+	public static boolean isEnabled() {
+		return Config.getOrCreate(CONFIG_ENABLED, Boolean.class, true);
+	}
+
+	public static void setEnabled(boolean value) {
+		Config.update(CONFIG_ENABLED, value);
+	}
 
 	public static boolean isRaresOnly() {
 		return Config.getOrCreate(CONFIG_RARES_ONLY, Boolean.class, false);
@@ -41,7 +50,7 @@ public final class ShopVisitAlert {
 
 	/** Call after any scan (manual or silent) that read a valid sign — world/seller come straight off that sign. */
 	public static void maybeAlert(MinecraftClient client, String world, String seller) {
-		if (world == null || seller == null) return;
+		if (world == null || seller == null || !isEnabled()) return;
 
 		String key = configKey(world, seller);
 		long now = System.currentTimeMillis();

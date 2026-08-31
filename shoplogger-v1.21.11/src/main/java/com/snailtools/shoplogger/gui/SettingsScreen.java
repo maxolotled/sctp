@@ -21,11 +21,14 @@ import net.minecraft.text.Text;
 
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
- * Everything that used to be hotkey-only, plus the two new settings
- * (chat-log format, recently-scanned cooldown), gathered in one screen.
+ * Everything that used to be hotkey-only, gathered in one screen. Laid out as
+ * two side-by-side categories (Scanning / Search & Alerts) rather than one
+ * long vertical list — the list outgrew a single column a while ago.
  * Reachable from HomeScreen — the hotkeys themselves keep working unchanged,
  * this is just an additional way to reach the same actions.
  */
@@ -33,6 +36,9 @@ public class SettingsScreen extends Screen {
 
 	private final Screen parent;
 	private TextFieldWidget cooldownField;
+	private final List<HeaderLabel> headers = new ArrayList<>();
+
+	private record HeaderLabel(String text, int x, int y) {}
 
 	public SettingsScreen(Screen parent) {
 		super(Text.literal("Shop Logger Settings"));
@@ -41,54 +47,45 @@ public class SettingsScreen extends Screen {
 
 	@Override
 	protected void init() {
+		headers.clear();
 		int centerX = width / 2;
-		int rowW = 220;
-		int y = height / 2 - 100;
+		int colW = 200;
+		int colGap = 20;
+		int leftX = centerX - colGap / 2 - colW;
+		int rightX = centerX + colGap / 2;
 		int gap = 24;
+		int topY = 56;
+
+		// ---- left column: Scanning ----
+		int y = topY;
+		headers.add(new HeaderLabel("Scanning", leftX, y));
+		y += 16;
 
 		addDrawableChild(CyclingButtonWidget.onOffBuilder(ShopAutoScanner.getInstance().isEnabled())
-				.build(centerX - rowW / 2, y, rowW, 20, Text.literal("Auto-scan"),
+				.build(leftX, y, colW, 20, Text.literal("Auto-scan"),
 						(btn, value) -> ShopAutoScanner.getInstance().setEnabled(value)));
 		y += gap;
 
 		addDrawableChild(CyclingButtonWidget.onOffBuilder(ShopMarkerRenderer.getInstance().isEnabled())
-				.build(centerX - rowW / 2, y, rowW, 20, Text.literal("Recently-scanned markers"),
+				.build(leftX, y, colW, 20, Text.literal("Recently-scanned markers"),
 						(btn, value) -> ShopMarkerRenderer.getInstance().setEnabled(value)));
 		y += gap;
 
 		addDrawableChild(CyclingButtonWidget.onOffBuilder(ScanChatLogger.isEnabled())
-				.build(centerX - rowW / 2, y, rowW, 20, Text.literal("Print scans in chat"),
+				.build(leftX, y, colW, 20, Text.literal("Print scans in chat"),
 						(btn, value) -> ScanChatLogger.setEnabled(value)));
-		y += gap;
-
-		addDrawableChild(CyclingButtonWidget.onOffBuilder(ShopVisitAlert.isRaresOnly())
-				.build(centerX - rowW / 2, y, rowW, 20, Text.literal("New-item alerts: rares only"),
-						(btn, value) -> ShopVisitAlert.setRaresOnly(value)));
-		y += gap;
-
-		addDrawableChild(CyclingButtonWidget.builder((TeleportHighlight.BeamStyle v) -> Text.literal(v.label), TeleportHighlight.getStyle())
-				.values(TeleportHighlight.BeamStyle.values())
-				.build(centerX - rowW / 2, y, rowW, 20, Text.literal("Teleport beam style"),
-						(btn, value) -> TeleportHighlight.setStyle(value)));
 		y += gap;
 
 		addDrawableChild(CyclingButtonWidget.builder((Boolean v) -> Text.literal(v ? "Single line" : "Multiple lines"), ScanChatLogger.isSingleLine())
 				.values(Boolean.FALSE, Boolean.TRUE)
-				.build(centerX - rowW / 2, y, rowW, 20, Text.literal("Chat log format"),
+				.build(leftX, y, colW, 20, Text.literal("Chat log format"),
 						(btn, value) -> ScanChatLogger.setSingleLine(value)));
-		y += gap;
-
-		addDrawableChild(CyclingButtonWidget.builder((Boolean v) -> Text.literal(v ? "GUI" : "Chat"), SearchPreferences.isGuiSearch())
-				.values(Boolean.TRUE, Boolean.FALSE)
-				.build(centerX - rowW / 2, y, rowW, 20, Text.literal("/search opens"),
-						(btn, value) -> SearchPreferences.setGuiSearch(value)));
-		// Extra room here (vs. the plain "gap" used between the on/off toggles
-		// above) because the cooldown field's label is drawn 10px above it —
-		// a plain gap left that label overlapping this row's button.
+		// Extra room here (vs. the plain "gap" used between the toggles above)
+		// because the cooldown field's label is drawn 10px above it — a plain
+		// gap left that label overlapping this row's button.
 		y += gap + 12;
 
-		int cooldownFieldY = y;
-		cooldownField = new TextFieldWidget(textRenderer, centerX - rowW / 2, cooldownFieldY, rowW, 20, Text.literal("Cooldown (minutes)"));
+		cooldownField = new TextFieldWidget(textRenderer, leftX, y, colW, 20, Text.literal("Cooldown (minutes)"));
 		cooldownField.setText(Integer.toString((int) (ShopAutoScanner.getPerShopCooldownMs() / 60000L)));
 		cooldownField.setTextPredicate(s -> s.isEmpty() || s.matches("\\d{1,3}"));
 		cooldownField.setChangedListener(s -> {
@@ -101,17 +98,50 @@ public class SettingsScreen extends Screen {
 		});
 		addDrawableChild(cooldownField);
 		y += gap + 12;
+		int leftBottom = y;
 
-		addDrawableChild(ButtonWidget.builder(Text.literal("Export now (CSV + Excel)"), btn -> exportBoth())
-				.dimensions(centerX - rowW / 2, y, rowW, 20).build());
+		// ---- right column: Search & Alerts ----
+		y = topY;
+		headers.add(new HeaderLabel("Search & Alerts", rightX, y));
+		y += 16;
+
+		addDrawableChild(CyclingButtonWidget.builder((Boolean v) -> Text.literal(v ? "GUI" : "Chat"), SearchPreferences.isGuiSearch())
+				.values(Boolean.TRUE, Boolean.FALSE)
+				.build(rightX, y, colW, 20, Text.literal("/search opens"),
+						(btn, value) -> SearchPreferences.setGuiSearch(value)));
 		y += gap;
 
+		addDrawableChild(CyclingButtonWidget.onOffBuilder(ShopVisitAlert.isEnabled())
+				.build(rightX, y, colW, 20, Text.literal("New-item alerts"),
+						(btn, value) -> ShopVisitAlert.setEnabled(value)));
+		y += gap;
+
+		addDrawableChild(CyclingButtonWidget.onOffBuilder(ShopVisitAlert.isRaresOnly())
+				.build(rightX, y, colW, 20, Text.literal("New-item alerts: rares only"),
+						(btn, value) -> ShopVisitAlert.setRaresOnly(value)));
+		y += gap;
+
+		addDrawableChild(CyclingButtonWidget.builder((TeleportHighlight.BeamStyle v) -> Text.literal(v.label), TeleportHighlight.getStyle())
+				.values(TeleportHighlight.BeamStyle.values())
+				.build(rightX, y, colW, 20, Text.literal("Teleport beam style"),
+						(btn, value) -> TeleportHighlight.setStyle(value)));
+		y += gap;
+		int rightBottom = y;
+
+		// ---- bottom: actions, shared full width across both columns ----
+		int bottomY = Math.max(leftBottom, rightBottom) + 12;
+		int actionW = colW * 2 + colGap;
+
+		addDrawableChild(ButtonWidget.builder(Text.literal("Export now (CSV + Excel)"), btn -> exportBoth())
+				.dimensions(leftX, bottomY, actionW, 20).build());
+		bottomY += gap;
+
 		addDrawableChild(ButtonWidget.builder(Text.literal("Upload now to Trading Post"), btn -> ShopUploader.uploadAsync(client, true))
-				.dimensions(centerX - rowW / 2, y, rowW, 20).build());
-		y += gap + 12;
+				.dimensions(leftX, bottomY, actionW, 20).build());
+		bottomY += gap + 12;
 
 		addDrawableChild(ButtonWidget.builder(Text.literal("Back"), btn -> close())
-				.dimensions(centerX - rowW / 2, y, rowW, 20).build());
+				.dimensions(leftX, bottomY, actionW, 20).build());
 	}
 
 	private void exportBoth() {
@@ -134,7 +164,10 @@ public class SettingsScreen extends Screen {
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		super.render(context, mouseX, mouseY, delta);
-		context.drawCenteredTextWithShadow(textRenderer, title, width / 2, height / 2 - 130, 0xFFFFFFFF);
+		context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 20, 0xFFFFFFFF);
+		for (HeaderLabel h : headers) {
+			context.drawTextWithShadow(textRenderer, h.text(), h.x(), h.y(), 0xFFB7E23D);
+		}
 		// TextFieldWidget has no built-in visible label (its Text constructor arg is
 		// narration-only), unlike the toggle buttons above which show "Label: value"
 		// on their own — so this one needs an explicit label drawn above it.
