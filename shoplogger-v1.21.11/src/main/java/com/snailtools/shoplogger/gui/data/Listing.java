@@ -17,6 +17,7 @@ public class Listing {
 	public String world;
 	public String position;
 	public String lastSeen;
+	public String availableSince; // null for listings that predate this field
 
 	/** Price per single item in diamonds — same basis as the website's priceInDiamonds()/stackSize. */
 	public double pricePerItemInDiamonds() {

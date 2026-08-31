@@ -9,6 +9,7 @@ import com.snailtools.shoplogger.ShopLog;
 import com.snailtools.shoplogger.SearchPreferences;
 import com.snailtools.shoplogger.ShopMarkerRenderer;
 import com.snailtools.shoplogger.ShopUploader;
+import com.snailtools.shoplogger.ShopVisitAlert;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -57,6 +58,11 @@ public class SettingsScreen extends Screen {
 		addDrawableChild(CyclingButtonWidget.onOffBuilder(ScanChatLogger.isEnabled())
 				.build(centerX - rowW / 2, y, rowW, 20, Text.literal("Print scans in chat"),
 						(btn, value) -> ScanChatLogger.setEnabled(value)));
+		y += gap;
+
+		addDrawableChild(CyclingButtonWidget.onOffBuilder(ShopVisitAlert.isRaresOnly())
+				.build(centerX - rowW / 2, y, rowW, 20, Text.literal("New-item alerts: rares only"),
+						(btn, value) -> ShopVisitAlert.setRaresOnly(value)));
 		y += gap;
 
 		addDrawableChild(CyclingButtonWidget.builder((Boolean v) -> Text.literal(v ? "Single line" : "Multiple lines"), ScanChatLogger.isSingleLine())

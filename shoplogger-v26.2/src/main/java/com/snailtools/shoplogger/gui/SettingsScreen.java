@@ -9,6 +9,7 @@ import com.snailtools.shoplogger.ShopAutoScanner;
 import com.snailtools.shoplogger.ShopLog;
 import com.snailtools.shoplogger.ShopMarkerRenderer;
 import com.snailtools.shoplogger.ShopUploader;
+import com.snailtools.shoplogger.ShopVisitAlert;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -57,6 +58,11 @@ public class SettingsScreen extends Screen {
 		addRenderableWidget(CycleButton.onOffBuilder(ScanChatLogger.isEnabled())
 				.create(centerX - rowW / 2, y, rowW, 20, Component.literal("Print scans in chat"),
 						(btn, value) -> ScanChatLogger.setEnabled(value)));
+		y += gap;
+
+		addRenderableWidget(CycleButton.onOffBuilder(ShopVisitAlert.isRaresOnly())
+				.create(centerX - rowW / 2, y, rowW, 20, Component.literal("New-item alerts: rares only"),
+						(btn, value) -> ShopVisitAlert.setRaresOnly(value)));
 		y += gap;
 
 		addRenderableWidget(CycleButton.builder((Boolean v) -> Component.literal(v ? "Single line" : "Multiple lines"), ScanChatLogger.isSingleLine())

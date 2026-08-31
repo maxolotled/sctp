@@ -55,6 +55,10 @@ public final class ShopLog {
 	 */
 	public static synchronized void replaceForPosition(String world, BlockPos pos, Iterable<ShopEntry> freshEntries) {
 		if (world == null || pos == null) return;
+		// A manual chest/barrel/ender-chest open happened within the last (or
+		// next) 3 seconds and this scan is for a DIFFERENT container — there's
+		// a narrow race where its data could be contaminated. See ScanQuarantine.
+		if (ScanQuarantine.shouldDiscard(pos)) return;
 
 		Set<String> freshKeys = new HashSet<>();
 		for (ShopEntry e : freshEntries) freshKeys.add(e.key());
@@ -69,6 +73,21 @@ public final class ShopLog {
 		for (ShopEntry e : freshEntries) put(e);
 
 		SCANNED_POSITIONS.add(world + "|" + pos.toShortString());
+	}
+
+	/**
+	 * Removes any entry logged in [startMillis, endMillis], except ones at
+	 * exemptPos — used by ScanQuarantine to retroactively drop scans that
+	 * might have raced with a manual chest/barrel/ender-chest open, without
+	 * touching the legitimate scan of the container that was actually opened.
+	 */
+	public static synchronized void purgeLoggedBetween(long startMillis, long endMillis, BlockPos exemptPos) {
+		ENTRIES.entrySet().removeIf(en -> {
+			ShopEntry v = en.getValue();
+			long t = v.lastSeenEpochMillis();
+			if (t < startMillis || t > endMillis) return false;
+			return exemptPos == null || !exemptPos.equals(v.containerPos());
+		});
 	}
 
 	public static synchronized List<String> getScannedPositions() {

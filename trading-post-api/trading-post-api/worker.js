@@ -257,9 +257,16 @@ const MAX_QUERY_PARAMS_PER_CHUNK = 50;
 // Shared by handleUploadListings and the rare-approval "approve" action so
 // both write to `listings` through the exact same upsert logic.
 function buildListingUpsertStmt(env, key, r) {
+	// availableSince is intentionally NOT in the ON CONFLICT...DO UPDATE SET
+	// list below — SQLite only applies the bound value on a genuine INSERT;
+	// an existing row keeps whatever it already had regardless of what's
+	// bound here. r.submittedAt (present on a pendingRareApprovals row being
+	// approved) reflects when the item was actually first submitted, which is
+	// more accurate than "now" (the approval moment) for a held rare item.
+	const availableSince = r.submittedAt || new Date().toISOString();
 	return env.DB.prepare(
-		`INSERT INTO listings (rowKey, itemName, baseItem, bulk, bundled, mixedContents, price, priceLabel, stackSize, amount, stacksInStock, currency, seller, world, position, lastSeen)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO listings (rowKey, itemName, baseItem, bulk, bundled, mixedContents, price, priceLabel, stackSize, amount, stacksInStock, currency, seller, world, position, lastSeen, availableSince)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(rowKey) DO UPDATE SET
 		   itemName=excluded.itemName, baseItem=excluded.baseItem, bulk=excluded.bulk, bundled=excluded.bundled,
 		   mixedContents=excluded.mixedContents, price=excluded.price, priceLabel=excluded.priceLabel,
@@ -269,7 +276,7 @@ function buildListingUpsertStmt(env, key, r) {
 	).bind(
 		key, r.itemName, r.baseItem, r.bulk ? 1 : 0, r.bundled ? 1 : 0, r.mixedContents ? 1 : 0,
 		r.price, r.priceLabel, r.stackSize, r.amount, r.stacksInStock,
-		r.currency, r.seller, r.world, r.position, r.lastSeen
+		r.currency, r.seller, r.world, r.position, r.lastSeen, availableSince
 	);
 }
 

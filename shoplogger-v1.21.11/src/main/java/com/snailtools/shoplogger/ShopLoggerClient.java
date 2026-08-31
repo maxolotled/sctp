@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.minecraft.block.entity.EnderChestBlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
 import net.minecraft.client.option.KeyBinding;
@@ -117,11 +118,19 @@ public class ShopLoggerClient implements ClientModInitializer {
 			var be = world.getBlockEntity(pos);
 			// UseBlockCallback also fires for autoscan's own silent interactBlock() call —
 			// only treat this as a real manual click if that's not what's happening.
-			if (ShopContainers.isShopContainer(be)
-					&& !ShopAutoScanner.getInstance().isSelfInteracting()) {
-				// Manual clicking always wins over autoscan's silent background scanning.
-				ShopAutoScanner.getInstance().onManualContainerInteract();
-				manualScanner.onContainerInteract(pos.toImmutable());
+			if (!ShopAutoScanner.getInstance().isSelfInteracting()) {
+				if (ShopContainers.isShopContainer(be)) {
+					// Quarantine other in-flight scans against a race with THIS
+					// open, but trust this container's own scan — see ScanQuarantine.
+					ScanQuarantine.markManualOpen(pos.toImmutable());
+					// Manual clicking always wins over autoscan's silent background scanning.
+					ShopAutoScanner.getInstance().onManualContainerInteract();
+					manualScanner.onContainerInteract(pos.toImmutable());
+				} else if (be instanceof EnderChestBlockEntity) {
+					// No legitimate ShopLog scan of an ender chest exists to
+					// exempt — anything logged nearby in time is suspect.
+					ScanQuarantine.markManualOpen(null);
+				}
 			}
 			return ActionResult.PASS; // never cancel/alter normal interaction
 		});

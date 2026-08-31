@@ -62,6 +62,7 @@ public class ShopScanner {
 			ShopAutoScanner.getInstance().markScanned(containerPos);
 			ScanChatLogger.maybePrint(client, entries);
 			OwnShopSaleTracker.check(client, sign, containerPos, entries);
+			if (world != null) ShopVisitAlert.maybeAlert(client, world.label(), sign.seller());
 		}
 	}
 }
