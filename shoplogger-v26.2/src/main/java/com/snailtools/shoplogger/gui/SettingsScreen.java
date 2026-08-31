@@ -3,6 +3,7 @@ package com.snailtools.shoplogger.gui;
 import com.snailtools.shoplogger.ChatFormat;
 import com.snailtools.shoplogger.CsvExporter;
 import com.snailtools.shoplogger.ExcelExporter;
+import com.snailtools.shoplogger.OwnShopSaleTracker;
 import com.snailtools.shoplogger.RareRentalHighlighter;
 import com.snailtools.shoplogger.ScanChatLogger;
 import com.snailtools.shoplogger.SearchPreferences;
@@ -124,6 +125,11 @@ public class SettingsScreen extends Screen {
 		addRenderableWidget(CycleButton.onOffBuilder(RareRentalHighlighter.isEnabled())
 				.create(rightX, y, colW, 20, Component.literal("Rare rental highlights"),
 						(btn, value) -> RareRentalHighlighter.setEnabled(value)));
+		y += gap;
+
+		addRenderableWidget(CycleButton.onOffBuilder(OwnShopSaleTracker.isMessagesEnabled())
+				.create(rightX, y, colW, 20, Component.literal("Own-shop sale alerts"),
+						(btn, value) -> OwnShopSaleTracker.setMessagesEnabled(value)));
 		y += gap;
 
 		addRenderableWidget(CycleButton.builder((TeleportHighlight.BeamStyle v) -> Component.literal(v.label), TeleportHighlight.getStyle())

@@ -1,5 +1,6 @@
 package com.snailtools.shoplogger;
 
+import com.snailtools.shoplogger.config.Config;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.math.BlockPos;
 
@@ -30,11 +31,20 @@ public final class OwnShopSaleTracker {
 	);
 
 	private static final Map<BlockPos, Boolean> HAS_PENDING_PAYMENT = new HashMap<>();
+	private static final String CONFIG_MESSAGES_ENABLED = "ownShopSale/messagesEnabled";
 
 	private OwnShopSaleTracker() {}
 
 	public static boolean hasPendingPayment(BlockPos containerPos) {
 		return HAS_PENDING_PAYMENT.getOrDefault(containerPos, false);
+	}
+
+	public static boolean isMessagesEnabled() {
+		return Config.getOrCreate(CONFIG_MESSAGES_ENABLED, Boolean.class, true);
+	}
+
+	public static void setMessagesEnabled(boolean value) {
+		Config.update(CONFIG_MESSAGES_ENABLED, value);
 	}
 
 	/** Call after every real (sign-having) scan of a container, manual or silent. */
@@ -61,7 +71,7 @@ public final class OwnShopSaleTracker {
 		// Without this, a shop wall with several already-pending payments
 		// floods "Something sold!" for every chest the moment the auto-scanner
 		// discovers them each session, even though nothing new just happened.
-		if (nowHasPayment && Boolean.FALSE.equals(before)) {
+		if (nowHasPayment && Boolean.FALSE.equals(before) && isMessagesEnabled()) {
 			ChatFormat.send(client, ChatFormat.SUCCESS, "Something sold from your shop at " + containerPos.toShortString() + "!");
 		}
 	}
