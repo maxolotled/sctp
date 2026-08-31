@@ -3,6 +3,7 @@ package com.snailtools.shoplogger.gui;
 import com.snailtools.shoplogger.ChatFormat;
 import com.snailtools.shoplogger.CsvExporter;
 import com.snailtools.shoplogger.ExcelExporter;
+import com.snailtools.shoplogger.RareRentalHighlighter;
 import com.snailtools.shoplogger.ScanChatLogger;
 import com.snailtools.shoplogger.SearchPreferences;
 import com.snailtools.shoplogger.ShopAutoScanner;
@@ -118,6 +119,11 @@ public class SettingsScreen extends Screen {
 		addRenderableWidget(CycleButton.onOffBuilder(ShopVisitAlert.isRaresOnly())
 				.create(rightX, y, colW, 20, Component.literal("New-item alerts: rares only"),
 						(btn, value) -> ShopVisitAlert.setRaresOnly(value)));
+		y += gap;
+
+		addRenderableWidget(CycleButton.onOffBuilder(RareRentalHighlighter.isEnabled())
+				.create(rightX, y, colW, 20, Component.literal("Rare rental highlights"),
+						(btn, value) -> RareRentalHighlighter.setEnabled(value)));
 		y += gap;
 
 		addRenderableWidget(CycleButton.builder((TeleportHighlight.BeamStyle v) -> Component.literal(v.label), TeleportHighlight.getStyle())

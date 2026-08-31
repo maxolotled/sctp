@@ -237,6 +237,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 			ScanChatLogger.maybePrint(client, entries);
 			OwnShopSaleTracker.check(client, armedSign, armedContainerPos, entries);
 			if (world != null) ShopVisitAlert.maybeAlert(client, world.label(), armedSign.seller());
+			WatchlistAlert.maybeAlert(client, entries);
 		}
 
 		markScanned(armedContainerPos);

@@ -1,0 +1,76 @@
++----------------------------+-------+---------+----------------------+
+| Material List for schematic 'coralafkhub_by_dunat' (1 of 1 regions) |
++----------------------------+-------+---------+----------------------+
+| Item                       | Total | Missing |            Available |
++----------------------------+-------+---------+----------------------+
+| Acacia Wood                |   457 |     457 |                    0 |
+| Andesite                   |    27 |      27 |                    0 |
+| Birch Fence                |     2 |       2 |                    0 |
+| Birch Planks               |   149 |     149 |                    0 |
+| Birch Sign                 |    30 |      30 |                    0 |
+| Birch Slab                 |    13 |      13 |                    0 |
+| Black Concrete             |  3573 |    3573 |                    0 |
+| Black Concrete Powder      |   304 |     304 |                    0 |
+| Black Stained Glass        |    18 |      18 |                    0 |
+| Black Stained Glass Pane   |     4 |       4 |                    0 |
+| Black Terracotta           |  1686 |    1686 |                    0 |
+| Blackstone                 |   417 |     417 |                    0 |
+| Block of Coal              |   873 |     873 |                    0 |
+| Blue Concrete Powder       |     1 |       1 |                    0 |
+| Blue Stained Glass         |    39 |      39 |                    0 |
+| Brown Terracotta           |   667 |     667 |                    0 |
+| Bush                       |   286 |     286 |                    0 |
+| Calcite                    |    72 |      72 |                    0 |
+| Cauldron                   |     4 |       4 |                    0 |
+| Coarse Dirt                |   584 |     584 |                    0 |
+| Cobbled Deepslate          |  1341 |    1341 |                    0 |
+| Cobblestone                |  1369 |    1369 |                    0 |
+| Cracked Deepslate Tiles    |   149 |     149 |                    0 |
+| Cyan Stained Glass         |    51 |      51 |                    0 |
+| Dark Oak Slab              |   342 |     342 |                    0 |
+| Dead Brain Coral Block     |   334 |     334 |                    0 |
+| Dead Fire Coral Block      |   261 |     261 |                    0 |
+| Deepslate Tiles            |   485 |     485 |                    0 |
+| Diorite                    |   337 |     337 |                    0 |
+| Dirt                       |   413 |     413 |                    0 |
+| Green Concrete             |   225 |     225 |                    0 |
+| Green Concrete Powder      |    68 |      68 |                    0 |
+| Green Stained Glass        |   155 |     155 |                    0 |
+| Green Stained Glass Pane   |   478 |     478 |                    0 |
+| Green Terracotta           |    11 |      11 |                    0 |
+| Green Wool                 |   366 |     366 |                    0 |
+| Grey Carpet                |     4 |       4 |                    0 |
+| Jungle Planks              |   279 |     279 |                    0 |
+| Large Fern                 |    13 |      13 |                    0 |
+| Light Blue Stained Glass   |   384 |     384 |                    0 |
+| Light Grey Concrete        |   330 |     330 |                    0 |
+| Light Grey Concrete Powder |    81 |      81 |                    0 |
+| Light Grey Wool            |   178 |     178 |                    0 |
+| Mangrove Wood              |  1578 |    1578 |                    0 |
+| Moss Block                 |   303 |     303 |                    0 |
+| Mossy Cobblestone          |   191 |     191 |                    0 |
+| Mud                        |   505 |     505 |                    0 |
+| Mushroom Stem              |    26 |      26 |                    0 |
+| Oak Planks                 |   221 |     221 |                    0 |
+| Purple Concrete            |   605 |     605 |                    0 |
+| Purple Concrete Powder     |   212 |     212 |                    0 |
+| Red Carpet                 |    30 |      30 |                    0 |
+| Red Glazed Terracotta      |    12 |      12 |                    0 |
+| Redstone Lamp              |     1 |       1 |                    0 |
+| Rooted Dirt                |   337 |     337 |                    0 |
+| Sand                       |    53 |      53 |                    0 |
+| Sandstone Wall             |     8 |       8 |                    0 |
+| Short Grass                |   247 |     247 |                    0 |
+| Smooth Basalt              |   546 |     546 |                    0 |
+| Smooth Quartz Block        |     6 |       6 |                    0 |
+| Smooth Sandstone           |     6 |       6 |                    0 |
+| Spruce Wood                |  1715 |    1715 |                    0 |
+| Stone                      |    29 |      29 |                    0 |
+| Stripped Dark Oak Wood     |  1319 |    1319 |                    0 |
+| Tall Grass                 |   169 |     169 |                    0 |
+| Tuff                       |  1872 |    1872 |                    0 |
+| Water Bucket               |    79 |      79 |                    0 |
+| White Stained Glass        |    15 |      15 |                    0 |
++----------------------------+-------+---------+----------------------+
+| Item                       | Total | Missing |            Available |
++----------------------------+-------+---------+----------------------+

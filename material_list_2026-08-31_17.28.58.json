@@ -1,0 +1,484 @@
+{
+  "Name": "coralafkhub_by_dunat",
+  "Title": "Material List for schematic \u0027coralafkhub_by_dunat\u0027 (1 of 1 regions)",
+  "Multiplier": 1,
+  "Date": "Mon, 31 Aug 2026 17:28:58 +0200",
+  "Materials": [
+    {
+      "Item": "minecraft:acacia_wood",
+      "Total": 457,
+      "Missing": 457,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:andesite",
+      "Total": 27,
+      "Missing": 27,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:birch_fence",
+      "Total": 2,
+      "Missing": 2,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:birch_planks",
+      "Total": 149,
+      "Missing": 149,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:birch_sign",
+      "Total": 30,
+      "Missing": 30,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:birch_slab",
+      "Total": 13,
+      "Missing": 13,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:black_concrete",
+      "Total": 3573,
+      "Missing": 3573,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:black_concrete_powder",
+      "Total": 304,
+      "Missing": 304,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:black_stained_glass",
+      "Total": 18,
+      "Missing": 18,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:black_stained_glass_pane",
+      "Total": 4,
+      "Missing": 4,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:black_terracotta",
+      "Total": 1686,
+      "Missing": 1686,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:blackstone",
+      "Total": 417,
+      "Missing": 417,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:coal_block",
+      "Total": 873,
+      "Missing": 873,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:blue_concrete_powder",
+      "Total": 1,
+      "Missing": 1,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:blue_stained_glass",
+      "Total": 39,
+      "Missing": 39,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:brown_terracotta",
+      "Total": 667,
+      "Missing": 667,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:bush",
+      "Total": 286,
+      "Missing": 286,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:calcite",
+      "Total": 72,
+      "Missing": 72,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:cauldron",
+      "Total": 4,
+      "Missing": 4,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:coarse_dirt",
+      "Total": 584,
+      "Missing": 584,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:cobbled_deepslate",
+      "Total": 1341,
+      "Missing": 1341,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:cobblestone",
+      "Total": 1369,
+      "Missing": 1369,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:cracked_deepslate_tiles",
+      "Total": 149,
+      "Missing": 149,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:cyan_stained_glass",
+      "Total": 51,
+      "Missing": 51,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:dark_oak_slab",
+      "Total": 342,
+      "Missing": 342,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:dead_brain_coral_block",
+      "Total": 334,
+      "Missing": 334,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:dead_fire_coral_block",
+      "Total": 261,
+      "Missing": 261,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:deepslate_tiles",
+      "Total": 485,
+      "Missing": 485,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:diorite",
+      "Total": 337,
+      "Missing": 337,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:dirt",
+      "Total": 413,
+      "Missing": 413,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:green_concrete",
+      "Total": 225,
+      "Missing": 225,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:green_concrete_powder",
+      "Total": 68,
+      "Missing": 68,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:green_stained_glass",
+      "Total": 155,
+      "Missing": 155,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:green_stained_glass_pane",
+      "Total": 478,
+      "Missing": 478,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:green_terracotta",
+      "Total": 11,
+      "Missing": 11,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:green_wool",
+      "Total": 366,
+      "Missing": 366,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:gray_carpet",
+      "Total": 4,
+      "Missing": 4,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:jungle_planks",
+      "Total": 279,
+      "Missing": 279,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:large_fern",
+      "Total": 13,
+      "Missing": 13,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:light_blue_stained_glass",
+      "Total": 384,
+      "Missing": 384,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:light_gray_concrete",
+      "Total": 330,
+      "Missing": 330,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:light_gray_concrete_powder",
+      "Total": 81,
+      "Missing": 81,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:light_gray_wool",
+      "Total": 178,
+      "Missing": 178,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:mangrove_wood",
+      "Total": 1578,
+      "Missing": 1578,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:moss_block",
+      "Total": 303,
+      "Missing": 303,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:mossy_cobblestone",
+      "Total": 191,
+      "Missing": 191,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:mud",
+      "Total": 505,
+      "Missing": 505,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:mushroom_stem",
+      "Total": 26,
+      "Missing": 26,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:oak_planks",
+      "Total": 221,
+      "Missing": 221,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:purple_concrete",
+      "Total": 605,
+      "Missing": 605,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:purple_concrete_powder",
+      "Total": 212,
+      "Missing": 212,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:red_carpet",
+      "Total": 30,
+      "Missing": 30,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:red_glazed_terracotta",
+      "Total": 12,
+      "Missing": 12,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:redstone_lamp",
+      "Total": 1,
+      "Missing": 1,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:rooted_dirt",
+      "Total": 337,
+      "Missing": 337,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:sand",
+      "Total": 53,
+      "Missing": 53,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:sandstone_wall",
+      "Total": 8,
+      "Missing": 8,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:short_grass",
+      "Total": 247,
+      "Missing": 247,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:smooth_basalt",
+      "Total": 546,
+      "Missing": 546,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:smooth_quartz",
+      "Total": 6,
+      "Missing": 6,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:smooth_sandstone",
+      "Total": 6,
+      "Missing": 6,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:spruce_wood",
+      "Total": 1715,
+      "Missing": 1715,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:stone",
+      "Total": 29,
+      "Missing": 29,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:stripped_dark_oak_wood",
+      "Total": 1319,
+      "Missing": 1319,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:tall_grass",
+      "Total": 169,
+      "Missing": 169,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:tuff",
+      "Total": 1872,
+      "Missing": 1872,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:water_bucket",
+      "Total": 79,
+      "Missing": 79,
+      "Mismatched": 0,
+      "Available": 0
+    },
+    {
+      "Item": "minecraft:white_stained_glass",
+      "Total": 15,
+      "Missing": 15,
+      "Mismatched": 0,
+      "Available": 0
+    }
+  ]
+}

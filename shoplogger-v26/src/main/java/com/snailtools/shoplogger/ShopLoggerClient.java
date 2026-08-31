@@ -1,5 +1,6 @@
 package com.snailtools.shoplogger;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -20,6 +21,7 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.EnderChestBlockEntity;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -152,16 +154,35 @@ public class ShopLoggerClient implements ClientModInitializer {
 			dispatcher.register(ClientCommands.literal("search")
 					.then(ClientCommands.argument("item", StringArgumentType.greedyString())
 							.executes(ShopLoggerClient::search)));
+
+			// Both client-only, used as the click targets on WatchlistAlert's chat
+			// message — never typed by hand, but registered as real commands (same
+			// as setworld/search) so a ClickEvent.RunCommand can trigger them.
+			dispatcher.register(ClientCommands.literal("watchtp")
+					.then(ClientCommands.argument("world", StringArgumentType.word())
+							.then(ClientCommands.argument("x", IntegerArgumentType.integer())
+									.then(ClientCommands.argument("y", IntegerArgumentType.integer())
+											.then(ClientCommands.argument("z", IntegerArgumentType.integer())
+													.then(ClientCommands.argument("seller", StringArgumentType.greedyString())
+															.executes(ShopLoggerClient::watchTp)))))));
+
+			dispatcher.register(ClientCommands.literal("watchremove")
+					.then(ClientCommands.argument("item", StringArgumentType.greedyString())
+							.executes(ShopLoggerClient::watchRemove)));
 		});
 
 		// Redetect the world on every fresh join (covers singleplayer -> a real
 		// server later in the same session too), and again whenever a
 		// "Reconfiguring..." transition completes — that's how players switch
 		// Snailcraft worlds without a full disconnect/rejoin.
-		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
-				WorldDetector.getInstance().requestRedetect());
-		ClientConfigurationConnectionEvents.COMPLETE.register((handler, client) ->
-				WorldDetector.getInstance().requestRedetect());
+		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+			WorldDetector.getInstance().requestRedetect();
+			WatchlistJoinCheck.requestCheck();
+		});
+		ClientConfigurationConnectionEvents.COMPLETE.register((handler, client) -> {
+			WorldDetector.getInstance().requestRedetect();
+			WatchlistJoinCheck.requestCheck();
+		});
 
 		// Automatic path: silent proximity scanning (requires the mixin).
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -170,6 +191,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 			ShopMarkerRenderer.getInstance().tick(client);
 			TeleportHighlight.getInstance().tick(client);
 			WorldDetector.getInstance().tick(client);
+			WatchlistJoinCheck.tick(client);
 			QolHookManager.onTick();
 
 
@@ -235,6 +257,28 @@ public class ShopLoggerClient implements ClientModInitializer {
 		} else {
 			ShopSearch.searchAsync(ctx.getSource().getClient(), item);
 		}
+		return 1;
+	}
+
+	private static int watchTp(CommandContext<FabricClientCommandSource> ctx) {
+		String world = StringArgumentType.getString(ctx, "world");
+		int x = IntegerArgumentType.getInteger(ctx, "x");
+		int y = IntegerArgumentType.getInteger(ctx, "y");
+		int z = IntegerArgumentType.getInteger(ctx, "z");
+		String seller = StringArgumentType.getString(ctx, "seller");
+
+		Minecraft client = ctx.getSource().getClient();
+		if (client.getConnection() != null) {
+			client.getConnection().sendCommand("shop " + seller);
+		}
+		TeleportHighlight.getInstance().arm(world, new BlockPos(x, y, z));
+		return 1;
+	}
+
+	private static int watchRemove(CommandContext<FabricClientCommandSource> ctx) {
+		String item = StringArgumentType.getString(ctx, "item");
+		WatchlistStore.remove(item);
+		ctx.getSource().sendFeedback(ChatFormat.prefixed(ChatFormat.NEUTRAL, "Stopped watching " + item + "."));
 		return 1;
 	}
 

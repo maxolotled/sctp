@@ -38,6 +38,11 @@ public class HomeScreen extends Screen {
 				.dimensions(centerX - w / 2, y, w, 20).build());
 		y += 24;
 
+		addDrawableChild(ButtonWidget.builder(Text.literal("Watchlist"), btn ->
+				client.setScreen(new WatchlistScreen(this)))
+				.dimensions(centerX - w / 2, y, w, 20).build());
+		y += 24;
+
 		addDrawableChild(ButtonWidget.builder(Text.literal("Settings"), btn ->
 				client.setScreen(new SettingsScreen(this)))
 				.dimensions(centerX - w / 2, y, w, 20).build());

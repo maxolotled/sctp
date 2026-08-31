@@ -21,4 +21,10 @@ public final class MatchUtil {
 	public static String vanillaItemKey(String baseItem, String name) {
 		return "v:" + (baseItem == null ? "" : baseItem.toLowerCase()) + "|" + (name == null ? "" : name.toLowerCase());
 	}
+
+	/** Matches index.html's alphaOnly() — used against the /rare-items rentable-name lists (stricter, a-z only, than rareNormalize above). */
+	public static String alphaOnly(String s) {
+		if (s == null) return "";
+		return s.toLowerCase().replaceAll("[^a-z]", "");
+	}
 }

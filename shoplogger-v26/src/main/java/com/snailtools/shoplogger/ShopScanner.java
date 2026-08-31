@@ -25,6 +25,18 @@ public class ShopScanner {
 	private ShopSign pendingSign = null;
 	private long pendingSetAtMillis = 0L;
 
+	/**
+	 * The handler of the currently-open screen, IF ShopEntryFactory just built
+	 * real shop entries for it (a sign was found nearby, not stale) — used by
+	 * RareRentalHighlighter to tell a real shop chest apart from any other
+	 * container the player might open (their own storage, an ender chest).
+	 */
+	private static AbstractContainerMenu currentShopHandler = null;
+
+	public static boolean isCurrentShopScreen(AbstractContainerMenu handler) {
+		return handler != null && handler == currentShopHandler;
+	}
+
 	/** Call this from a UseBlockCallback when the player right-clicks a chest/barrel. */
 	public void onContainerInteract(BlockPos containerPos) {
 		Minecraft client = Minecraft.getInstance();
@@ -41,7 +53,8 @@ public class ShopScanner {
 	/** Call this from ScreenEvents.AFTER_INIT when a container screen opens. */
 	public void onContainerScreenOpened(AbstractContainerMenu handler) {
 		if (pendingSign == null || pendingContainerPos == null) {
-			return; // opened a container with no shop sign on its front; ignore
+			currentShopHandler = null; // opened a container with no shop sign on its front; ignore
+			return;
 		}
 		boolean stale = System.currentTimeMillis() - pendingSetAtMillis > PENDING_TIMEOUT_MS;
 		BlockPos containerPos = pendingContainerPos;
@@ -49,8 +62,10 @@ public class ShopScanner {
 		pendingSign = null;
 		pendingContainerPos = null;
 		if (stale) {
-			return; // this screen almost certainly isn't the one we clicked — see PENDING_TIMEOUT_MS
+			currentShopHandler = null; // this screen almost certainly isn't the one we clicked — see PENDING_TIMEOUT_MS
+			return;
 		}
+		currentShopHandler = handler;
 
 		Minecraft client = Minecraft.getInstance();
 		if (WorldSelection.ensureSet(client)) {
@@ -63,6 +78,7 @@ public class ShopScanner {
 			ScanChatLogger.maybePrint(client, entries);
 			OwnShopSaleTracker.check(client, sign, containerPos, entries);
 			if (world != null) ShopVisitAlert.maybeAlert(client, world.label(), sign.seller());
+			WatchlistAlert.maybeAlert(client, entries);
 		}
 	}
 }

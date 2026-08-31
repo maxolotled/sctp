@@ -52,6 +52,10 @@ public final class WebDataClient {
 		return getJson(API_BASE + "/shared-shops", new TypeToken<List<SharedShop>>() {}.getType());
 	}
 
+	public static CompletableFuture<RareRentals> fetchRareRentals() {
+		return getJson(API_BASE + "/rare-items", RareRentals.class);
+	}
+
 	/** Downloads raw bytes — used for item/avatar textures (not JSON). */
 	public static CompletableFuture<byte[]> fetchBytes(String url) {
 		HttpRequest request = HttpRequest.newBuilder()

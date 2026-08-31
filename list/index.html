@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Build List - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14;
+		--panel:#1B2A20;
+		--panel-alt:#22332A;
+		--line:#33453A;
+		--muted:#8FA593;
+		--text:#EAEFE7;
+		--shell:#D9C89A;
+		--accent:#B7E23D;
+		--accent-dim:#87AE29;
+		--accent-ink:#16210F;
+		--info:#8C93E8;
+		--warn:#E2A33D;
+		--bad:#E2643D;
+		--font-display:'Fraunces',serif;
+		--font-body:'Inter',sans-serif;
+		--font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{
+		margin:0;
+		background:radial-gradient(1200px 500px at 15% -10%, rgba(183,226,61,0.07), transparent 60%), var(--bg);
+		color:var(--text);
+		font-family:var(--font-body);
+		line-height:1.5;
+	}
+	a{color:var(--accent);}
+	.wrap{max-width:1100px;margin:0 auto;padding:0 24px;}
+
+	header.site{border-bottom:1px solid var(--line);padding:28px 0 22px;}
+	.brand-row{display:flex;align-items:center;gap:14px;}
+	.brand-mark{flex:0 0 auto;width:36px;height:36px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:18px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:26px;letter-spacing:0.2px;margin:0 0 2px;}
+	header.site .tag{color:var(--muted);font-size:14px;margin:0;}
+	.nav-links{display:flex;gap:16px;align-items:center;}
+	.nav-links a{color:var(--shell);text-decoration:none;font-size:14px;font-weight:600;}
+	.nav-links a:hover{color:var(--accent);}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+
+	main{padding:28px 0 70px;}
+	h2{font-family:var(--font-display);font-weight:600;font-size:19px;margin:0 0 4px;}
+	.section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:18px;}
+	.section .hint{color:var(--muted);font-size:13px;margin:0 0 14px;}
+	.step-num{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-right:8px;vertical-align:middle;}
+
+	.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;}
+	.field{display:flex;flex-direction:column;gap:5px;}
+	.field label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.03em;}
+	select,input[type=text],input[type=number],input[type=file]{
+		background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
+		border-radius:8px;padding:9px 12px;font-family:var(--font-body);font-size:14px;
+	}
+	select:focus,input:focus{outline:none;border-color:var(--accent-dim);}
+
+	.segmented{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;width:fit-content;}
+	.segmented button{background:var(--panel-alt);border:none;color:var(--muted);padding:9px 16px;font-family:var(--font-body);font-weight:600;font-size:13.5px;cursor:pointer;border-right:1px solid var(--line);}
+	.segmented button:last-child{border-right:none;}
+	.segmented button.active{background:var(--accent);color:var(--accent-ink);}
+	.segmented button:hover:not(.active){color:var(--text);}
+	.balance-desc{color:var(--muted);font-size:13px;margin-top:8px;}
+
+	.tabs{display:flex;gap:6px;margin-bottom:16px;}
+	.tab-btn{background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-weight:600;font-size:13.5px;padding:8px 14px;cursor:pointer;}
+	.tab-btn.active{background:var(--panel-alt);color:var(--accent);border-color:var(--accent-dim);}
+	.tab-pane{display:none;}
+	.tab-pane.active{display:block;}
+
+	.manual-row{display:grid;grid-template-columns:1fr 110px 130px 34px;gap:10px;margin-bottom:8px;align-items:center;}
+	.manual-row input,.manual-row select{width:100%;}
+	.icon-btn{background:var(--panel-alt);border:1px solid var(--line);color:var(--muted);border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:15px;line-height:1;}
+	.icon-btn:hover{color:var(--bad);border-color:var(--bad);}
+	.add-row-btn{background:transparent;border:1px dashed var(--line);color:var(--muted);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;margin-top:4px;}
+	.add-row-btn:hover{color:var(--accent);border-color:var(--accent-dim);}
+
+	table{width:100%;border-collapse:collapse;font-size:13.5px;}
+	th{text-align:left;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:0.03em;padding:6px 10px;border-bottom:1px solid var(--line);}
+	td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+	tr:last-child td{border-bottom:none;}
+	.mat-name{font-weight:600;}
+	.mat-qty{color:var(--muted);font-family:var(--font-mono);}
+	.remove-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:15px;}
+	.remove-btn:hover{color:var(--bad);}
+
+	.unmatched-row{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+	.unmatched-row:last-child{border-bottom:none;}
+	.unmatched-name{flex:1 1 200px;font-weight:600;color:var(--warn);}
+	.unmatched-qty{color:var(--muted);font-family:var(--font-mono);font-size:12.5px;}
+
+	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:11px 20px;font-weight:700;font-size:14px;cursor:pointer;font-family:var(--font-body);}
+	.btn:hover{background:var(--accent-dim);}
+	.btn:disabled{background:var(--panel-alt);color:var(--muted);cursor:not-allowed;}
+	.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer;}
+	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
+
+	.shop-card{background:var(--panel-alt);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px;}
+	.shop-card h3{font-family:var(--font-display);font-size:16px;margin:0 0 2px;}
+	.shop-card .shop-meta{color:var(--muted);font-size:12.5px;margin:0 0 12px;}
+	.shop-subtotal{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-weight:700;color:var(--accent);font-size:13.5px;}
+
+	.totals-bar{display:flex;gap:22px;flex-wrap:wrap;background:var(--panel-alt);border:1px solid var(--accent-dim);border-radius:12px;padding:16px 20px;margin-bottom:18px;}
+	.totals-bar .total-item{font-family:var(--font-mono);font-size:15px;color:var(--accent);font-weight:700;}
+	.totals-bar .total-item span{color:var(--muted);font-weight:400;font-family:var(--font-body);font-size:12px;display:block;}
+
+	.shortfall-item,.noOffers-item{padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+	.shortfall-item:last-child,.noOffers-item:last-child{border-bottom:none;}
+	.shortfall-item b,.noOffers-item b{color:var(--bad);}
+
+	.empty-state{color:var(--muted);font-size:13.5px;padding:10px 0;}
+	footer.site{padding:20px 0 40px;color:var(--muted);font-size:12.5px;text-align:center;}
+
+	datalist{display:none;}
+</style>
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">🧱</div>
+			<div>
+				<h1>Build List</h1>
+				<p class="tag">Import a litematica material list or type it in — we'll figure out where to shop.</p>
+			</div>
+		</div>
+		<div class="nav-links">
+			<a href="../">Listings</a>
+			<a href="../items/">Items</a>
+			<a href="../docs.html">Info</a>
+		</div>
+	</div>
+</header>
+
+<main class="wrap">
+
+	<div class="section">
+		<h2><span class="step-num">1</span>World &amp; priority</h2>
+		<p class="hint">Which world are you shopping on, and what matters more to you: price, or fewer stops?</p>
+		<div class="row">
+			<div class="field">
+				<label for="worldSelect">World</label>
+				<select id="worldSelect">
+					<option value="Firefly">Firefly</option>
+					<option value="Honeybee">Honeybee</option>
+				</select>
+			</div>
+			<div class="field">
+				<label>Priority</label>
+				<div class="segmented" id="balanceSeg">
+					<button type="button" data-v="cheap">Cheap</button>
+					<button type="button" data-v="balanced" class="active">Balanced</button>
+					<button type="button" data-v="efficiency">Efficiency</button>
+				</div>
+			</div>
+		</div>
+		<p class="balance-desc" id="balanceDesc"></p>
+	</div>
+
+	<div class="section">
+		<h2><span class="step-num">2</span>Materials</h2>
+		<p class="hint">Import a litematica material list export, or add items by hand. Both can be used together.</p>
+		<div class="tabs">
+			<button type="button" class="tab-btn active" data-tab="import">Import file</button>
+			<button type="button" class="tab-btn" data-tab="manual">Enter manually</button>
+		</div>
+
+		<div class="tab-pane active" id="paneImport">
+			<p class="hint" style="margin-bottom:10px;">Accepts the .txt, .csv, or .json material list litematica exports (uses the "Missing" column — how much you still need).</p>
+			<input type="file" id="fileInput" accept=".txt,.csv,.json">
+		</div>
+
+		<div class="tab-pane" id="paneManual">
+			<div id="manualRows"></div>
+			<button type="button" class="add-row-btn" id="addManualRow">+ Add item</button>
+		</div>
+
+		<div id="unmatchedSection" style="display:none;margin-top:18px;">
+			<h2 style="font-size:15px;">Couldn't match these to a known item</h2>
+			<div id="unmatchedList"></div>
+		</div>
+
+		<div id="materialsSection" style="margin-top:18px;">
+			<h2 style="font-size:15px;">Your list (<span id="materialsCount">0</span> items)</h2>
+			<table id="materialsTable">
+				<thead><tr><th>Item</th><th>Amount</th><th></th></tr></thead>
+				<tbody id="materialsBody"></tbody>
+			</table>
+			<p class="empty-state" id="materialsEmpty">Nothing added yet.</p>
+		</div>
+	</div>
+
+	<div class="section">
+		<h2><span class="step-num">3</span>Calculate</h2>
+		<button type="button" class="btn" id="calcBtn" disabled>Find shops</button>
+		<p class="hint" id="calcStatus" style="margin-top:10px;"></p>
+	</div>
+
+	<div id="resultsSection" style="display:none;">
+		<div class="totals-bar" id="totalsBar"></div>
+		<div id="shopCards"></div>
+		<div class="section" id="shortfallSection" style="display:none;">
+			<h2 style="font-size:16px;color:var(--bad);">Not enough stock</h2>
+			<p class="hint">These items were partly or fully unavailable on this world right now.</p>
+			<div id="shortfallList"></div>
+		</div>
+		<div class="section" id="noOffersSection" style="display:none;">
+			<h2 style="font-size:16px;color:var(--warn);">No shop found</h2>
+			<p class="hint">Nobody on this world currently lists these items for sale.</p>
+			<div id="noOffersList"></div>
+		</div>
+	</div>
+
+</main>
+
+<datalist id="vanillaItemsList"></datalist>
+
+<footer class="site">
+	<div class="wrap">Prices come from live shop scans — always double-check in person, stock changes fast.</div>
+</footer>
+
+<script>
+(function(){
+	"use strict";
+
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var DATA_URL = API_BASE + "/listings";
+	var VANILLA_ITEMS_URL = "../data/vanilla-items.json";
+
+	var allListings = [];
+	var vanillaItems = [];
+	var vanillaByNormName = {};   // alphaOnly(name) -> vanilla item
+	var vanillaByBaseItem = {};   // "minecraft:foo" -> vanilla item
+
+	// materials actually in the list: { key, name, qty, sourceLabel }
+	var materials = [];
+	// items we couldn't match yet: { rawName, qty, sourceLabel }
+	var unmatched = [];
+
+	var balance = "balanced";
+	var manualRowSeq = 0;
+
+	// ---------------- helpers shared with the rest of the site ----------------
+
+	function alphaOnly(s){ return String(s||"").toLowerCase().replace(/[^a-z]/g, ""); }
+	function toNum(v){ var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+	function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+	function fmtNum(n){ return Number(n).toLocaleString(); }
+
+	var CURRENCY_LABELS = { diamond:"Diamonds", diamondblock:"Diamond Blocks" };
+	function currencyLabel(c){
+		var key = String(c||"").toLowerCase();
+		return CURRENCY_LABELS[key] || (key.charAt(0).toUpperCase() + key.slice(1));
+	}
+
+	// Best-effort max-stack-size table for the "Stacks"/"Shulkers" manual-entry
+	// units — litematica imports never need this (they give exact raw counts
+	// already). Not exhaustive; defaults to 64 like most blocks/items.
+	function maxStackSizeFor(baseItem){
+		var id = String(baseItem||"").replace("minecraft:", "");
+		if(/_(sword|pickaxe|axe|shovel|hoe|helmet|chestplate|leggings|boots|horse_armor)$/.test(id)) return 1;
+		if(/^(shield|elytra|saddle|totem_of_undying|trident|fishing_rod|carrot_on_a_stick|warped_fungus_on_a_stick|bow|crossbow|flint_and_steel|shears|lead|name_tag|brush|spyglass|clock|compass|recovery_compass|written_book|knowledge_book|filled_map)$/.test(id)) return 1;
+		if(/_(boat|chest_boat|minecart)$/.test(id)) return 1;
+		if(/^(ender_pearl|egg|snowball|honey_bottle)$/.test(id)) return 16;
+		if(/_(sign|hanging_sign|banner)$/.test(id)) return 16;
+		return 64;
+	}
+	function unitMultiplier(unit, baseItem){
+		if(unit === "blocks") return 1;
+		var stack = maxStackSizeFor(baseItem);
+		if(unit === "stacks") return stack;
+		return stack * 27; // shulkers
+	}
+
+	// ---------------- catalog loading ----------------
+
+	function loadCatalog(){
+		return fetch(VANILLA_ITEMS_URL).then(function(res){ return res.ok ? res.json() : []; }).then(function(items){
+			vanillaItems = items;
+			var datalist = document.getElementById("vanillaItemsList");
+			items.forEach(function(it){
+				if(!it.name) return;
+				var key = alphaOnly(it.name);
+				if(key && !vanillaByNormName[key]) vanillaByNormName[key] = it;
+				var baseKey = String(it.baseItem||"").toLowerCase();
+				if(baseKey && !vanillaByBaseItem[baseKey]) vanillaByBaseItem[baseKey] = it;
+				var opt = document.createElement("option");
+				opt.value = it.name;
+				datalist.appendChild(opt);
+			});
+		}).catch(function(){ vanillaItems = []; });
+	}
+
+	function loadListings(){
+		return fetch(DATA_URL).then(function(res){ return res.ok ? res.json() : []; }).then(function(rows){
+			allListings = rows;
+		}).catch(function(){ allListings = []; });
+	}
+
+	function matchMaterial(rawName, isBaseItemId){
+		if(isBaseItemId){
+			var hit = vanillaByBaseItem[rawName.toLowerCase()];
+			if(hit) return hit;
+		}
+		return vanillaByNormName[alphaOnly(rawName)] || null;
+	}
+
+	// ---------------- material list management ----------------
+
+	function addMaterialQty(baseItem, name, qty){
+		var key = baseItem.toLowerCase();
+		var existing = materials.filter(function(m){ return m.key === key; })[0];
+		if(existing){ existing.qty += qty; } else { materials.push({ key:key, name:name, qty:qty }); }
+	}
+
+	function addUnmatched(rawName, qty){
+		unmatched.push({ rawName:rawName, qty:qty, id:"u" + (unmatched.length + Date.now()) });
+	}
+
+	function ingestRawItem(rawName, qty, isBaseItemId){
+		if(!rawName || qty <= 0) return;
+		var hit = matchMaterial(rawName, isBaseItemId);
+		if(hit) addMaterialQty(hit.baseItem, hit.name, qty);
+		else addUnmatched(rawName, qty);
+	}
+
+	// ---------------- file parsing ----------------
+
+	function parseCsvLine(line){
+		var out = [], cur = "", inQuotes = false;
+		for(var i=0; i<line.length; i++){
+			var c = line[i];
+			if(inQuotes){
+				if(c === '"'){
+					if(line[i+1] === '"'){ cur += '"'; i++; } else inQuotes = false;
+				} else cur += c;
+			} else {
+				if(c === '"') inQuotes = true;
+				else if(c === ','){ out.push(cur); cur = ""; }
+				else cur += c;
+			}
+		}
+		out.push(cur);
+		return out;
+	}
+
+	function parseCsv(text){
+		var lines = text.split(/\r?\n/).filter(function(l){ return l.trim().length > 0; });
+		if(!lines.length) return;
+		var header = parseCsvLine(lines[0]).map(function(h){ return h.trim().toLowerCase(); });
+		var itemIdx = header.indexOf("item");
+		var missingIdx = header.indexOf("missing");
+		if(itemIdx === -1 || missingIdx === -1) throw new Error('Expected "Item" and "Missing" columns.');
+		for(var i=1; i<lines.length; i++){
+			var cells = parseCsvLine(lines[i]);
+			ingestRawItem((cells[itemIdx]||"").trim(), toNum(cells[missingIdx]), false);
+		}
+	}
+
+	function parseTxt(text){
+		var lines = text.split(/\r?\n/);
+		lines.forEach(function(line){
+			var t = line.trim();
+			if(!t.startsWith("|") || !t.endsWith("|")) return; // skip title row and +---+ separators
+			var cells = t.slice(1, -1).split("|").map(function(c){ return c.trim(); });
+			if(cells.length < 4) return;
+			if(cells[0].toLowerCase() === "item" && cells[1].toLowerCase() === "total") return; // header, appears top+bottom
+			ingestRawItem(cells[0], toNum(cells[2]), false); // cells[2] = Missing
+		});
+	}
+
+	function parseJson(text){
+		var data = JSON.parse(text);
+		var mats = data.Materials || data.materials || [];
+		mats.forEach(function(m){
+			var id = String(m.Item !== undefined ? m.Item : m.item || "").trim();
+			var missing = m.Missing !== undefined ? m.Missing : m.missing;
+			ingestRawItem(id, toNum(missing), true);
+		});
+	}
+
+	document.getElementById("fileInput").addEventListener("change", function(e){
+		var file = e.target.files[0];
+		if(!file) return;
+		var reader = new FileReader();
+		reader.onload = function(){
+			try {
+				var name = file.name.toLowerCase();
+				if(name.endsWith(".json")) parseJson(reader.result);
+				else if(name.endsWith(".csv")) parseCsv(reader.result);
+				else parseTxt(reader.result);
+				renderMaterials();
+				renderUnmatched();
+			} catch(err){
+				alert("Couldn't read that file: " + err.message);
+			}
+		};
+		reader.readAsText(file);
+		e.target.value = "";
+	});
+
+	// ---------------- manual entry ----------------
+
+	function addManualRow(){
+		var id = "m" + (manualRowSeq++);
+		var row = document.createElement("div");
+		row.className = "manual-row";
+		row.id = id;
+		row.innerHTML =
+			'<input type="text" list="vanillaItemsList" placeholder="Item name…" class="manual-name">' +
+			'<input type="number" min="1" value="1" class="manual-qty">' +
+			'<select class="manual-unit"><option value="blocks">Blocks</option><option value="stacks">Stacks</option><option value="shulkers">Shulkers</option></select>' +
+			'<button type="button" class="icon-btn manual-add" title="Add to list">✓</button>';
+		document.getElementById("manualRows").appendChild(row);
+		row.querySelector(".manual-add").addEventListener("click", function(){
+			var name = row.querySelector(".manual-name").value.trim();
+			var qty = toNum(row.querySelector(".manual-qty").value);
+			var unit = row.querySelector(".manual-unit").value;
+			if(!name || qty <= 0) return;
+			var hit = matchMaterial(name, false);
+			var mult = unit === "blocks" ? 1 : unitMultiplier(unit, hit ? hit.baseItem : null);
+			ingestRawItem(name, qty * mult, false);
+			row.querySelector(".manual-name").value = "";
+			row.querySelector(".manual-qty").value = "1";
+			renderMaterials();
+			renderUnmatched();
+		});
+	}
+	document.getElementById("addManualRow").addEventListener("click", addManualRow);
+	addManualRow();
+
+	// ---------------- tabs ----------------
+
+	document.querySelectorAll(".tab-btn").forEach(function(btn){
+		btn.addEventListener("click", function(){
+			document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active"); });
+			document.querySelectorAll(".tab-pane").forEach(function(p){ p.classList.remove("active"); });
+			btn.classList.add("active");
+			document.getElementById(btn.dataset.tab === "import" ? "paneImport" : "paneManual").classList.add("active");
+		});
+	});
+
+	// ---------------- balance segmented control ----------------
+
+	var BALANCE_DESC = {
+		cheap: "Always picks the cheapest offer for each item, even if that means visiting many different shops.",
+		balanced: "Weighs price and shop-consolidation evenly.",
+		efficiency: "Prioritizes buying as many items as possible from the same shop, even if it costs a bit more."
+	};
+	document.querySelectorAll("#balanceSeg button").forEach(function(btn){
+		btn.addEventListener("click", function(){
+			document.querySelectorAll("#balanceSeg button").forEach(function(b){ b.classList.remove("active"); });
+			btn.classList.add("active");
+			balance = btn.dataset.v;
+			document.getElementById("balanceDesc").textContent = BALANCE_DESC[balance];
+		});
+	});
+	document.getElementById("balanceDesc").textContent = BALANCE_DESC[balance];
+
+	// ---------------- rendering: materials / unmatched ----------------
+
+	function renderMaterials(){
+		var body = document.getElementById("materialsBody");
+		body.innerHTML = "";
+		materials.forEach(function(m, idx){
+			var tr = document.createElement("tr");
+			tr.innerHTML =
+				'<td class="mat-name">' + esc(m.name) + '</td>' +
+				'<td class="mat-qty">' + fmtNum(m.qty) + '</td>' +
+				'<td><button type="button" class="remove-btn" data-idx="' + idx + '">✕</button></td>';
+			body.appendChild(tr);
+		});
+		body.querySelectorAll(".remove-btn").forEach(function(btn){
+			btn.addEventListener("click", function(){
+				materials.splice(parseInt(btn.dataset.idx, 10), 1);
+				renderMaterials();
+			});
+		});
+		document.getElementById("materialsCount").textContent = materials.length;
+		document.getElementById("materialsEmpty").style.display = materials.length ? "none" : "block";
+		document.getElementById("materialsTable").style.display = materials.length ? "table" : "none";
+		document.getElementById("calcBtn").disabled = materials.length === 0;
+	}
+
+	function renderUnmatched(){
+		var section = document.getElementById("unmatchedSection");
+		var list = document.getElementById("unmatchedList");
+		list.innerHTML = "";
+		section.style.display = unmatched.length ? "block" : "none";
+		unmatched.forEach(function(u){
+			var row = document.createElement("div");
+			row.className = "unmatched-row";
+			row.innerHTML =
+				'<span class="unmatched-name">' + esc(u.rawName) + '</span>' +
+				'<span class="unmatched-qty">×' + fmtNum(u.qty) + '</span>' +
+				'<input type="text" list="vanillaItemsList" placeholder="Pick alternative…" class="alt-input" style="flex:1 1 180px;">' +
+				'<button type="button" class="btn-ghost alt-use">Use</button>' +
+				'<button type="button" class="btn-ghost alt-ignore">Ignore</button>';
+			list.appendChild(row);
+			row.querySelector(".alt-use").addEventListener("click", function(){
+				var altName = row.querySelector(".alt-input").value.trim();
+				var hit = matchMaterial(altName, false);
+				if(!hit){ alert("Pick a valid item from the list first."); return; }
+				addMaterialQty(hit.baseItem, hit.name, u.qty);
+				unmatched = unmatched.filter(function(x){ return x.id !== u.id; });
+				renderMaterials();
+				renderUnmatched();
+			});
+			row.querySelector(".alt-ignore").addEventListener("click", function(){
+				unmatched = unmatched.filter(function(x){ return x.id !== u.id; });
+				renderUnmatched();
+			});
+		});
+	}
+
+	// ---------------- optimizer ----------------
+
+	function buildCandidates(world){
+		var byMaterial = {};
+		materials.forEach(function(m){
+			var offers = allListings.filter(function(l){
+				return String(l.world||"") === world
+					&& String(l.currency||"").toLowerCase() !== "display"
+					&& String(l.baseItem||"").toLowerCase() === m.key;
+			}).map(function(o){
+				var stackSize = toNum(o.stackSize) || 1;
+				var amount = toNum(o.amount);
+				var obtainable = Math.floor(amount / stackSize) * stackSize;
+				return {
+					seller: o.seller, position: o.position, currency: String(o.currency||"").toLowerCase(),
+					price: toNum(o.price), stackSize: stackSize, obtainable: obtainable,
+					perUnit: toNum(o.price) / stackSize
+				};
+			}).filter(function(o){ return o.obtainable > 0; });
+			if(offers.length) byMaterial[m.key] = offers;
+		});
+		return byMaterial;
+	}
+
+	function runOptimizer(world, mode){
+		var candidatesByMaterial = buildCandidates(world);
+		var noOffers = materials.filter(function(m){ return !candidatesByMaterial[m.key]; });
+		var remaining = {};
+		materials.forEach(function(m){ if(candidatesByMaterial[m.key]) remaining[m.key] = m.qty; });
+
+		var purchases = [];
+
+		function pushPurchase(key, o, assignQty){
+			var batches = Math.ceil(assignQty / o.stackSize);
+			purchases.push({
+				materialKey: key, seller: o.seller, world: world, position: o.position,
+				currency: o.currency, stackSize: o.stackSize, unitPrice: o.price,
+				qty: batches * o.stackSize, batches: batches, cost: batches * o.price
+			});
+		}
+
+		if(mode === "cheap"){
+			Object.keys(remaining).forEach(function(key){
+				var offers = candidatesByMaterial[key].slice().sort(function(a, b){ return a.perUnit - b.perUnit; });
+				var need = remaining[key];
+				offers.forEach(function(o){
+					if(need <= 0) return;
+					var assignQty = Math.min(need, o.obtainable);
+					if(assignQty <= 0) return;
+					pushPurchase(key, o, assignQty);
+					need -= assignQty;
+				});
+				remaining[key] = Math.max(0, need);
+			});
+		} else {
+			// "efficiency" and "balanced" — greedily pick the seller who best
+			// covers the still-needed items (weighted by price competitiveness
+			// for "balanced"), buy everything they can supply, repeat.
+			var minPerUnit = {}; // materialKey -> currency -> lowest perUnit seen
+			Object.keys(candidatesByMaterial).forEach(function(key){
+				var byCur = {};
+				candidatesByMaterial[key].forEach(function(o){
+					if(byCur[o.currency] === undefined || o.perUnit < byCur[o.currency]) byCur[o.currency] = o.perUnit;
+				});
+				minPerUnit[key] = byCur;
+			});
+			var wEff = mode === "efficiency" ? 1 : 0.5;
+			var wCheap = mode === "efficiency" ? 0 : 0.5;
+
+			var guard = 0;
+			while(guard++ < 5000){
+				var remainingKeys = Object.keys(remaining).filter(function(k){ return remaining[k] > 0 && candidatesByMaterial[k].length; });
+				if(!remainingKeys.length) break;
+
+				var bySeller = {}; // seller -> { items: {key: offer}, coverage }
+				remainingKeys.forEach(function(key){
+					candidatesByMaterial[key].forEach(function(o){
+						if(!bySeller[o.seller]) bySeller[o.seller] = { items: {}, coverage: 0 };
+						var bucket = bySeller[o.seller];
+						var existing = bucket.items[key];
+						if(!existing || o.perUnit < existing.perUnit){
+							if(!existing) bucket.coverage++;
+							bucket.items[key] = o;
+						}
+					});
+				});
+
+				var bestSeller = null, bestScore = -Infinity, bestCoverage = -1;
+				Object.keys(bySeller).forEach(function(seller){
+					var bucket = bySeller[seller];
+					var normSum = 0, normCount = 0;
+					Object.keys(bucket.items).forEach(function(key){
+						var o = bucket.items[key];
+						var minP = minPerUnit[key][o.currency];
+						normSum += (minP && minP > 0) ? (o.perUnit / minP) : 1;
+						normCount++;
+					});
+					var avgNorm = normCount ? normSum / normCount : 1;
+					var cheapScore = avgNorm > 0 ? 1 / avgNorm : 1;
+					var coverageScore = bucket.coverage / remainingKeys.length;
+					var score = wEff * coverageScore + wCheap * cheapScore;
+					if(score > bestScore || (score === bestScore && bucket.coverage > bestCoverage)){
+						bestScore = score; bestSeller = seller; bestCoverage = bucket.coverage;
+					}
+				});
+
+				if(!bestSeller) break;
+				var chosen = bySeller[bestSeller];
+				Object.keys(chosen.items).forEach(function(key){
+					if(!(remaining[key] > 0)) return;
+					var o = chosen.items[key];
+					var assignQty = Math.min(remaining[key], o.obtainable);
+					if(assignQty <= 0) return;
+					pushPurchase(key, o, assignQty);
+					remaining[key] = Math.max(0, remaining[key] - assignQty);
+					candidatesByMaterial[key] = candidatesByMaterial[key].filter(function(c){ return c !== o; });
+				});
+			}
+		}
+
+		var shortfalls = materials.filter(function(m){ return candidatesByMaterial[m.key] !== undefined && remaining[m.key] > 0; })
+			.map(function(m){ return { name: m.name, stillNeeded: remaining[m.key] }; });
+
+		return { purchases: purchases, noOffers: noOffers, shortfalls: shortfalls };
+	}
+
+	// ---------------- results rendering ----------------
+
+	function nameForKey(key){
+		var m = materials.filter(function(x){ return x.key === key; })[0];
+		return m ? m.name : key;
+	}
+
+	function renderResults(result){
+		document.getElementById("resultsSection").style.display = "block";
+
+		// group purchases by seller+world+position
+		var groups = {};
+		var groupOrder = [];
+		result.purchases.forEach(function(p){
+			var gk = p.seller + "|" + p.world + "|" + p.position;
+			if(!groups[gk]){ groups[gk] = { seller: p.seller, world: p.world, position: p.position, lines: [] }; groupOrder.push(gk); }
+			groups[gk].lines.push(p);
+		});
+
+		var totals = {}; // currency -> amount
+		result.purchases.forEach(function(p){ totals[p.currency] = (totals[p.currency]||0) + p.cost; });
+
+		var totalsBar = document.getElementById("totalsBar");
+		totalsBar.innerHTML = "";
+		var curKeys = Object.keys(totals);
+		if(!curKeys.length){
+			totalsBar.innerHTML = '<div class="total-item">Nothing could be purchased on this world.</div>';
+		} else {
+			curKeys.sort().forEach(function(c){
+				var div = document.createElement("div");
+				div.className = "total-item";
+				div.innerHTML = fmtNum(totals[c]) + '<span>' + esc(currencyLabel(c)) + '</span>';
+				totalsBar.appendChild(div);
+			});
+		}
+
+		var shopCards = document.getElementById("shopCards");
+		shopCards.innerHTML = "";
+		groupOrder.forEach(function(gk){
+			var g = groups[gk];
+			var card = document.createElement("div");
+			card.className = "shop-card";
+			var subtotals = {};
+			var rows = g.lines.map(function(p){
+				subtotals[p.currency] = (subtotals[p.currency]||0) + p.cost;
+				return '<tr><td>' + esc(nameForKey(p.materialKey)) + '</td>' +
+					'<td class="mat-qty">' + fmtNum(p.qty) + '</td>' +
+					'<td class="mat-qty">' + p.batches + ' × ' + fmtNum(p.unitPrice) + ' ' + esc(currencyLabel(p.currency)) + '</td>' +
+					'<td class="mat-qty">' + fmtNum(p.cost) + ' ' + esc(currencyLabel(p.currency)) + '</td></tr>';
+			}).join("");
+			var subtotalText = Object.keys(subtotals).sort().map(function(c){ return fmtNum(subtotals[c]) + " " + currencyLabel(c); }).join(" + ");
+			card.innerHTML =
+				'<h3>' + esc(g.seller) + '</h3>' +
+				'<p class="shop-meta">' + esc(g.world) + (g.position ? " · " + esc(g.position) : "") + '</p>' +
+				'<table><thead><tr><th>Item</th><th>Qty</th><th>Batches</th><th>Cost</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+				'<div class="shop-subtotal">Subtotal: ' + subtotalText + '</div>';
+			shopCards.appendChild(card);
+		});
+
+		var shortfallSection = document.getElementById("shortfallSection");
+		var shortfallList = document.getElementById("shortfallList");
+		shortfallList.innerHTML = "";
+		shortfallSection.style.display = result.shortfalls.length ? "block" : "none";
+		result.shortfalls.forEach(function(s){
+			var div = document.createElement("div");
+			div.className = "shortfall-item";
+			div.innerHTML = '<b>' + esc(s.name) + '</b> — still need ' + fmtNum(s.stillNeeded) + ' more than any shop currently has in stock.';
+			shortfallList.appendChild(div);
+		});
+
+		var noOffersSection = document.getElementById("noOffersSection");
+		var noOffersList = document.getElementById("noOffersList");
+		noOffersList.innerHTML = "";
+		noOffersSection.style.display = result.noOffers.length ? "block" : "none";
+		result.noOffers.forEach(function(m){
+			var div = document.createElement("div");
+			div.className = "noOffers-item";
+			div.innerHTML = '<b>' + esc(m.name) + '</b> — nobody is currently selling this on this world.';
+			noOffersList.appendChild(div);
+		});
+	}
+
+	document.getElementById("calcBtn").addEventListener("click", function(){
+		var world = document.getElementById("worldSelect").value;
+		var status = document.getElementById("calcStatus");
+		status.textContent = "Calculating…";
+		setTimeout(function(){
+			var result = runOptimizer(world, balance);
+			renderResults(result);
+			status.textContent = "Done — " + result.purchases.length + " purchase" + (result.purchases.length === 1 ? "" : "s") + " planned.";
+		}, 10);
+	});
+
+	// ---------------- boot ----------------
+
+	Promise.all([loadCatalog(), loadListings()]).then(function(){
+		document.getElementById("calcStatus").textContent = "";
+	});
+
+})();
+</script>
+</body>
+</html>

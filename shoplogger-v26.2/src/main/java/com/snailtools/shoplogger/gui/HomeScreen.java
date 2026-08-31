@@ -38,6 +38,11 @@ public class HomeScreen extends Screen {
 				.bounds(centerX - w / 2, y, w, 20).build());
 		y += 24;
 
+		addRenderableWidget(Button.builder(Component.literal("Watchlist"), btn ->
+				minecraft.setScreenAndShow(new WatchlistScreen(this)))
+				.bounds(centerX - w / 2, y, w, 20).build());
+		y += 24;
+
 		addRenderableWidget(Button.builder(Component.literal("Settings"), btn ->
 				minecraft.setScreenAndShow(new SettingsScreen(this)))
 				.bounds(centerX - w / 2, y, w, 20).build());
