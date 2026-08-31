@@ -10,6 +10,7 @@ import com.snailtools.shoplogger.ShopLog;
 import com.snailtools.shoplogger.ShopMarkerRenderer;
 import com.snailtools.shoplogger.ShopUploader;
 import com.snailtools.shoplogger.ShopVisitAlert;
+import com.snailtools.shoplogger.TeleportHighlight;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -63,6 +64,12 @@ public class SettingsScreen extends Screen {
 		addRenderableWidget(CycleButton.onOffBuilder(ShopVisitAlert.isRaresOnly())
 				.create(centerX - rowW / 2, y, rowW, 20, Component.literal("New-item alerts: rares only"),
 						(btn, value) -> ShopVisitAlert.setRaresOnly(value)));
+		y += gap;
+
+		addRenderableWidget(CycleButton.builder((TeleportHighlight.BeamStyle v) -> Component.literal(v.label), TeleportHighlight.getStyle())
+				.withValues(TeleportHighlight.BeamStyle.values())
+				.create(centerX - rowW / 2, y, rowW, 20, Component.literal("Teleport beam style"),
+						(btn, value) -> TeleportHighlight.setStyle(value)));
 		y += gap;
 
 		addRenderableWidget(CycleButton.builder((Boolean v) -> Component.literal(v ? "Single line" : "Multiple lines"), ScanChatLogger.isSingleLine())
