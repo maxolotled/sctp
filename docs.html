@@ -93,21 +93,7 @@
 	.feature-card h3{margin:0 0 6px;font-size:14.5px;color:var(--shell);}
 	.feature-card p{margin:0;color:var(--muted);font-size:13px;}
 
-	/* ---------- how it works ---------- */
-	.flow{display:flex;flex-direction:column;gap:10px;}
-	.flow-step{
-		display:flex;gap:14px;align-items:flex-start;
-		background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;
-	}
-	.flow-step .num{
-		flex:0 0 auto;width:26px;height:26px;border-radius:50%;
-		background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:13px;
-		display:flex;align-items:center;justify-content:center;
-	}
-	.flow-step p{margin:0;color:var(--muted);font-size:13.5px;}
-	.flow-step strong{color:var(--text);}
-
-	/* ---------- dropdowns (more features / FAQ) ---------- */
+	/* ---------- dropdowns (FAQ) ---------- */
 	details.disclosure{
 		background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
 		padding:0;margin-bottom:10px;overflow:hidden;
@@ -124,11 +110,6 @@
 	details.disclosure .content{padding:0 16px 16px;color:var(--muted);font-size:13.5px;}
 	details.disclosure .content p{margin:0 0 8px;}
 	details.disclosure .content p:last-child{margin-bottom:0;}
-
-	.minor-feature-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;}
-	.minor-feature-list li{padding-bottom:12px;border-bottom:1px solid var(--line);}
-	.minor-feature-list li:last-child{border-bottom:none;padding-bottom:0;}
-	.minor-feature-list strong{display:block;color:var(--text);font-size:13.5px;margin-bottom:2px;}
 
 	.faq-empty{color:var(--muted);font-size:13.5px;padding:8px 0;}
 
@@ -158,8 +139,91 @@
 <div class="wrap">
 <main>
 
+	<section id="features">
+		<h2>Features</h2>
+		<p class="lede">Everything Shop Logger and the Trading Post website can do, and how to use each one.</p>
+		<div class="feature-grid">
+			<div class="feature-card">
+				<h3>Manual &amp; automatic scanning</h3>
+				<p>Right-click a shop chest or barrel to log it instantly. Or toggle auto-scan (Controls → Shop Logger, unbound by default) to have the mod silently scan known shops as you walk within ~4 blocks.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Automatic world detection</h3>
+				<p>Automatic — on join, or when you switch worlds via a server reconfigure, the mod figures out whether you're on Firefly or Honeybee on its own. <code>/setworld firefly</code> / <code>/setworld honeybee</code> is only needed as a manual fallback.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Shared Trading Post upload</h3>
+				<p>Uploads your scan log automatically every 15 minutes, or press the Upload keybind (Controls → Shop Logger) to send immediately.</p>
+			</div>
+			<div class="feature-card">
+				<h3>In-game <code>/search</code></h3>
+				<p>Type <code>/search &lt;item&gt;</code> in chat. Opens a browsable results screen by default, or plain chat output if you'd rather (switchable in Settings).</p>
+			</div>
+			<div class="feature-card">
+				<h3>Teleport beam</h3>
+				<p>Click the <strong>TP</strong> button on any listing row (search results, an item page, or a seller profile). Sends <code>/shop &lt;seller&gt;</code> and draws a particle beam from you straight to the chest that moves with you as you walk — press <strong>X</strong> to cancel it early.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Shop visit alerts</h3>
+				<p>Automatic — the first time you scan any chest at a shop each hour, the mod checks what's appeared there since your last visit and tells you in chat, rares first. Restrict it to rares-only in Settings.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Searchable website</h3>
+				<p>Filter by world, currency, price, stock, listing type, and more on the <a href="index.html">Trading Post homepage</a> — see when each listing first appeared with the "Available since" column.</p>
+			</div>
+			<div class="feature-card">
+				<h3>In-game item library</h3>
+				<p>Press <strong>X</strong> (default) to open a home screen with the vanilla &amp; rare item libraries, item pages with price history, and seller profiles — the website's data, without tabbing out.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Website item library</h3>
+				<p>Browse every vanilla and rare item at <a href="items/">/items/</a> on the website, with icons, filters, and price history.</p>
+			</div>
+			<div class="feature-card">
+				<h3>[DISPLAY] signs</h3>
+				<p>Use <code>[DISPLAY]</code> as a sign's first line instead of <code>[PRICE]</code> to showcase a build without it being logged as a real sale.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Bulk detection</h3>
+				<p>Automatic — a shulker box in a shop chest that's entirely one item type is logged as a bulk listing. Selling both a bulk batch and a normal stack of the same item shows as two separate listings, not one overwriting the other.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Bundle detection</h3>
+				<p>Automatic — same idea as bulk shulkers: a bundle that's entirely one item type is logged as "bundled," so it's not mistaken for a single sale.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Enchanted book naming</h3>
+				<p>Automatic — enchanted books are logged by their actual enchantment (e.g. "Sharpness V") instead of the generic "Enchanted Book".</p>
+			</div>
+			<div class="feature-card">
+				<h3>Chat scan log</h3>
+				<p>Optional toggle (Controls → Shop Logger, or Settings) that prints everything found in a scan to chat — choose one consolidated line or the full per-item breakdown.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Recently-scanned markers</h3>
+				<p>Optional toggle — shows a subtle particle over the sign of chests you've scanned recently, so you can see what's already logged. How long "recently" lasts is configurable in Settings.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Automatic cleanup</h3>
+				<p>Automatic — sold-out items, emptied chests, and shops that no longer exist are removed from the website the next time that spot gets scanned.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Item cooldown countdowns</h3>
+				<p>Automatic — hover over a rotating quest scroll or a rare item with a use cooldown to see a live countdown right in the tooltip.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Butterfly Garden helper</h3>
+				<p>Automatic — just visit the Butterfly Garden. A resizable, collapsible HUD shows your butterfly counts, and highlights which items in the exchange screen are actually yours to sell.</p>
+			</div>
+			<div class="feature-card">
+				<h3>Keybindings &amp; Settings</h3>
+				<p>Everything above can be bound under Controls → Shop Logger, or tuned from the in-game Settings screen (X → Settings) — cooldowns, chat format, search mode, and the rares-only alert toggle all live there.</p>
+			</div>
+		</div>
+	</section>
+
 	<section id="install">
-		<h2>Installing the mod</h2>
+		<h2>How to download &amp; install the mod</h2>
 		<p class="lede">Shop Logger is a client-side <a href="https://fabricmc.net/" target="_blank" rel="noopener">Fabric</a> mod, and it only needs to be installed on your own computer, not the server.</p>
 
 		<div class="install-steps">
@@ -227,88 +291,6 @@
 		<div class="install-note">
 			Note: The above steps are for the official Minecraft launcher. If you use a third-party launcher, the steps may differ slightly, but the general idea is the same:  make sure to use Fabric, then put both jars in your mods folder.
 		</div>
-	</section>
-
-	<section id="how-it-works">
-		<h2>How it works</h2>
-		<p class="lede">The mod reads shop signs and their  chest contents, and shares that data with a website everyone can search.</p>
-
-		<div class="flow">
-			<div class="flow-step">
-				<div class="num">1</div>
-				<p><strong>World detection.</strong> On join, the mod figures out whether you're on Firefly or Honeybee by sending /help silently.</p>
-			</div>
-			<div class="flow-step">
-				<div class="num">2</div>
-				<p><strong>Scanning.</strong> Right-click a shop chest yourself, or let the mod scan known shops automatically if you walk within range. It will read the sign and whatever's in the chest. This causes the chest textures to look like they're opening!</p>
-			</div>
-			<div class="flow-step">
-				<div class="num">3</div>
-				<p><strong>Logging.</strong> Every scan updates a locally stored log with item, price, stock, seller, and position, and sold-out/removed shops get cleaned up as well.</p>
-			</div>
-			<div class="flow-step">
-				<div class="num">4</div>
-				<p><strong>Uploading.</strong> Your log gets uploaded to the shared Trading Post (manually with a keybind, or automatically every 15 minutes), and added to the big list!</p>
-			</div>
-			<div class="flow-step">
-				<div class="num">5</div>
-				<p><strong>Browsing.</strong> The <a href="index.html">website</a> reads that shared data, so you can search, filter, and sort every shop on the server in one place. You can also search from in-game with <code>/search &lt;item&gt;</code>.</p>
-			</div>
-		</div>
-	</section>
-
-	<section id="features">
-		<h2>Main features</h2>
-		<div class="feature-grid">
-			<div class="feature-card">
-				<h3>Manual &amp; automatic scanning</h3>
-				<p>Right-click a shop to log it, or let the mod scan nearby known shops silently as you walk past.</p>
-			</div>
-			<div class="feature-card">
-				<h3>Shared Trading Post upload</h3>
-				<p>Sends your scans to the shared website everyone can browse.</p>
-			</div>
-			<div class="feature-card">
-				<h3>In-game <code>/search</code></h3>
-				<p>Look up an item without leaving the game — opens a browsable results screen by default, or plain chat output if you'd rather (switchable in Settings).</p>
-			</div>
-			<div class="feature-card">
-				<h3>Searchable website</h3>
-				<p>Filter by world, currency, price, stock, listing type, and more!</p>
-			</div>
-			<div class="feature-card">
-				<h3>In-game item library</h3>
-				<p>Press X to open a home screen with the vanilla &amp; rare item libraries, item pages with price history, and seller profiles — the website's data, without tabbing out.</p>
-			</div>
-			<div class="feature-card">
-				<h3>QOL features by ZYSKI!!</h3>
-				<p>Overlay in the butterfly garden, and item cooldowns!</p>
-			</div>
-		</div>
-	</section>
-
-	<section id="more-features">
-		<h2>More features</h2>
-		<p class="lede">Smaller things the mod does that are worth knowing about!</p>
-
-		<details class="disclosure">
-			<summary>Smaller features explained</summary>
-			<div class="content">
-				<ul class="minor-feature-list">
-					<li><strong>[DISPLAY] signs</strong><p>are supported as well!</p></li>
-					<li><strong>Shulker / bulk detection</strong><p>A shulker box that's full of one item gets logged as bulk!</p></li>
-					<li><strong>Bundle detection</strong><p>Same idea as bulk shulkers — a bundle that's full of one item gets logged as bundled, so it's not mistaken for a single sale.</p></li>
-					<li><strong>Enchanted book naming</strong><p>Enchanted books are logged with the actual enchantment name instead of the useless "Enchanted Book".</p></li>
-					<li><strong>Chat scan log</strong><p>An optional toggle that tells you everything found in a scan in chat, especially for tina :D — choose one consolidated line or the full per-item breakdown.</p></li>
-					<li><strong>Recently-scanned markers</strong><p>An optional particle over the sign of chests you've scanned recently, so you can see what's already been logged. How long "recently" means is configurable.</p></li>
-					<li><strong>Automatic cleanup</strong><p>Sold items, emptied chests, and shops that no longer exist get removed from the website automatically</p></li>
-					<li><strong>Item library page</strong><p>Browse every vanilla and rare item on the website at <a href="items/">/items/</a>, with icons, filters, and price history.</p></li>
-					<li><strong>Item cooldown countdowns</strong><p>Rotating quest scrolls and rare items with a use cooldown show a live countdown!.</p></li>
-					<li><strong>Butterfly Garden helper</strong><p>A HUD overlay while you're in the Butterfly Garden shows your butterfly counts (resizable, collapsible), and highlights which items in the exchange screen are actually yours to sell.</p></li>
-					<li><strong>Keybindings</strong><p>Export, toggle auto-scan, toggle markers, toggle chat log, manual upload, and opening the item library (X by default) are all bindable under Controls → Shop Logger (unbound by default except auto-scan and the item library).</p></li>
-				</ul>
-			</div>
-		</details>
 	</section>
 
 	<section id="faq">
