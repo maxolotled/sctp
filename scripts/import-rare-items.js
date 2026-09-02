@@ -47,7 +47,12 @@ const { execFileSync } = require("child_process");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const OLD_XLSX = path.join(REPO_ROOT, "Snailcraft Items.xlsx");
-const NEW_XLSX = path.join(REPO_ROOT, "Snailcraft Items New.xlsx");
+// The original import compared a separate "...New.xlsx" against this one;
+// since then the workflow has become "edit this same file in place, re-run
+// the import" — so both point at the same file now. The old-file validation
+// step below still runs (harmlessly trivial when it's the same file) as a
+// pipeline sanity check before trusting the diff.
+const NEW_XLSX = OLD_XLSX;
 const RARE_ITEMS_JSON = path.join(REPO_ROOT, "data", "rare-items.json");
 const TEXTURES_DIR = path.join(REPO_ROOT, "items", "textures");
 const STATE_FILE = path.join(os.tmpdir(), "sctp-import-rare-items-state.json");

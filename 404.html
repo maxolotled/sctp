@@ -129,6 +129,16 @@
 	.badge.display{background:rgba(217,200,154,0.16);color:var(--shell);}
 	.position{font-family:var(--font-mono);color:var(--muted);font-size:12px;}
 	.currency-cell{font-family:var(--font-mono);font-size:12px;color:var(--muted);text-transform:capitalize;}
+	td.item-icon{padding-right:0;}
+	td.item-icon img{width:24px;height:24px;image-rendering:pixelated;vertical-align:middle;display:block;}
+	th[data-k]{cursor:pointer;}
+	th[data-k]:hover{color:var(--text);}
+	.pagination{display:flex;align-items:center;justify-content:center;gap:14px;padding:14px;color:var(--muted);font-size:13px;}
+	.pagination button{
+		background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
+		border-radius:8px;padding:6px 12px;cursor:pointer;
+	}
+	.pagination button:disabled{opacity:.4;cursor:not-allowed;}
 
 	.info-icon{
 		display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;
@@ -282,6 +292,14 @@
 		// columns, which sit at the right edge of the scrollable table.
 		return '<span class="info-icon right" tabindex="0">i<span class="tooltip">'+esc(text)+'</span></span>';
 	}
+	// Shared by relTime()'s 30-day-plus fallback and availableSinceCell() below
+	// — one absolute-date format everywhere on the site, unambiguous regardless
+	// of the viewer's locale (unlike a bare toLocaleDateString(), which can read
+	// as either D/M or M/D depending on where you are).
+	var MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+	function shortDate(d){
+		return d.getUTCDate()+" "+MONTH_ABBR[d.getUTCMonth()]+" '"+String(d.getUTCFullYear()).slice(2);
+	}
 	function relTime(iso){
 		var t = Date.parse(iso);
 		// Manually-added listings store an "M001"-style id here instead of a
@@ -294,7 +312,16 @@
 		if(h < 24) return h+"h ago";
 		var days = Math.floor(h/24);
 		if(days < 30) return days+"d ago";
-		return new Date(t).toLocaleDateString();
+		return shortDate(new Date(t));
+	}
+	// Rows from before availableSince existed have no real first-seen date —
+	// show the date this tracking started instead of a blank cell, same
+	// fallback convention as the homepage.
+	var AVAILABLE_SINCE_FALLBACK = new Date(Date.UTC(2026, 7, 30));
+	function availableSinceCell(r){
+		var d = r.availableSince ? new Date(r.availableSince) : null;
+		if(!d || isNaN(d.getTime())) d = AVAILABLE_SINCE_FALLBACK;
+		return shortDate(d);
 	}
 
 	// Real player-market rates: 64 iron = 1 diamond, 18 gold = 1 diamond, 1
@@ -356,8 +383,103 @@
 			seller: String(raw.seller||""),
 			world: String(raw.world||""),
 			position: String(raw.position||""),
-			lastSeen: String(raw.lastSeen||"")
+			lastSeen: String(raw.lastSeen||""),
+			availableSince: String(raw.availableSince||"")
 		};
+	}
+
+	// ---------------- shared: thumbnails + item-page links ----------------
+	// Same maps/lookup convention as the homepage (index.html) — populated
+	// once by loadTextureCatalogs(), used by both the seller page and the
+	// item page's own listings table.
+	var textureByName = {}, textureByBaseItem = {}, slugByName = {}, slugByBaseItem = {};
+	var PLACEHOLDER_ICON = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2322332A'/><path d='M4 4 L12 12 M12 4 L4 12' stroke='%2333453A' stroke-width='1.5'/></svg>";
+	var PLACEHOLDER_ICON_JS = PLACEHOLDER_ICON.replace(/'/g, "\\'");
+	function iconFor(r){
+		var tex = textureByName[alphaOnly(r.itemNameDisplay || r.itemName)];
+		if(!tex) tex = textureByBaseItem[String(r.baseItem||"").trim().toLowerCase()];
+		return tex || PLACEHOLDER_ICON;
+	}
+	function itemLibraryUrlFor(r){
+		// Every enchanted book shares one catalog entry — link straight to its
+		// own specific-form page (?name=...) instead of the generic one, since
+		// that's the only URL that actually carries which book this row is.
+		if(String(r.baseItem||"").trim().toLowerCase() === "minecraft:enchanted_book"){
+			var name = r.itemNameDisplay || r.itemName;
+			return name ? "/items/enchanted_book?name=" + encodeURIComponent(name) : null;
+		}
+		var slug = slugByName[alphaOnly(r.itemNameDisplay || r.itemName)];
+		if(!slug) slug = slugByBaseItem[String(r.baseItem||"").trim().toLowerCase()];
+		return slug ? "/items/" + encodeURIComponent(slug) : null;
+	}
+	async function loadTextureCatalogs(onLoaded){
+		try {
+			var results = await Promise.all([fetch("/data/vanilla-items.json"), fetch("/data/rare-items.json")]);
+			var vanilla = results[0].ok ? await results[0].json() : [];
+			var rare = results[1].ok ? await results[1].json() : [];
+			vanilla.forEach(function(it){
+				if(!it.name || !it.texture || !it.id) return;
+				var nameKey = alphaOnly(it.name);
+				if(nameKey && !textureByName[nameKey]){ textureByName[nameKey] = it.texture; slugByName[nameKey] = it.id; }
+				var baseKey = String(it.baseItem||"").toLowerCase();
+				if(baseKey && !textureByBaseItem[baseKey]){ textureByBaseItem[baseKey] = it.texture; slugByBaseItem[baseKey] = it.id; }
+			});
+			rare.forEach(function(it){
+				if(!it.name || !it.texture || !it.id) return;
+				var nameKey = alphaOnly(it.name);
+				if(nameKey){ textureByName[nameKey] = it.texture; slugByName[nameKey] = it.id; }
+			});
+			if(onLoaded) onLoaded();
+		} catch(e){ /* rows just fall back to the placeholder icon */ }
+	}
+
+	// ---------------- shared: paginated + sortable table shell ----------------
+	// Same system as the homepage: 50 rows/page, prev/next controls, click a
+	// <th data-k="..."> to sort by it. Pure rendering + callbacks — each
+	// caller owns its own page-number/sort-key state and just re-invokes this
+	// after updating it. Returns the (possibly clamped) page number actually
+	// rendered, so the caller's own state stays in sync.
+	var PAGE_SIZE = 50;
+	function renderPaginatedRows(area, pag, rows, page, headerHtml, buildRow, onPageChange, onSortClick){
+		var totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+		if(page > totalPages) page = totalPages;
+		if(page < 1) page = 1;
+		var start = (page-1)*PAGE_SIZE;
+		var pageRows = rows.slice(start, start+PAGE_SIZE);
+		area.innerHTML = '<div class="table-scroll"><table><thead><tr>'+headerHtml+'</tr></thead><tbody>'+pageRows.map(buildRow).join("")+'</tbody></table></div>';
+
+		area.querySelectorAll("thead th[data-k]").forEach(function(th){
+			th.addEventListener("click", function(){ onSortClick(th.getAttribute("data-k")); });
+		});
+
+		if(rows.length <= PAGE_SIZE){
+			pag.style.display = "none";
+			return page;
+		}
+		pag.style.display = "flex";
+		pag.innerHTML = '<button type="button" id="prevPageBtn"'+(page<=1?' disabled':'')+'>&larr; Prev</button>'+
+			'<span>Page '+page+' of '+totalPages+'</span>'+
+			'<button type="button" id="nextPageBtn"'+(page>=totalPages?' disabled':'')+'>Next &rarr;</button>';
+		document.getElementById("prevPageBtn").addEventListener("click", function(){ onPageChange(page-1); });
+		document.getElementById("nextPageBtn").addEventListener("click", function(){ onPageChange(page+1); });
+		return page;
+	}
+	// Generic ascending/descending comparator used by both pages' sortKey
+	// handling — mirrors the homepage's per-column sort semantics (price/stock
+	// low-high by default, text columns A-Z, recency newest-first).
+	function compareListingsBy(key, a, b){
+		switch(key){
+			case "price-asc": return pricePerItem(a) - pricePerItem(b);
+			case "price-desc": return pricePerItem(b) - pricePerItem(a);
+			case "stock-asc": return a.amount - b.amount;
+			case "stock-desc": return b.amount - a.amount;
+			case "item-az": return (a.itemNameDisplay||a.itemName).localeCompare(b.itemNameDisplay||b.itemName);
+			case "seller-az": return String(a.seller).localeCompare(String(b.seller));
+			case "recent":
+			default:
+				var ta = Date.parse(a.lastSeen), tb = Date.parse(b.lastSeen);
+				return (isNaN(tb)?0:tb) - (isNaN(ta)?0:ta);
+		}
 	}
 
 	// ---------------- routing ----------------
@@ -367,7 +489,11 @@
 	if(sellerMatch){
 		runSellerPage(sellerMatch[1], sellerMatch[2]);
 	} else if(itemMatch){
-		runItemPage(decodeURIComponent(itemMatch[1]));
+		// Enchanted books all share one catalog entry (baseItem, not a real
+		// per-enchantment id) — a specific form's own page is reached via
+		// ?name=..., not a distinct slug. See runItemPage.
+		var exactName = new URLSearchParams(window.location.search).get("name");
+		runItemPage(decodeURIComponent(itemMatch[1]), exactName);
 	} else {
 		document.getElementById("app").innerHTML =
 			'<div class="notfound"><h1>Page not found</h1>'+
@@ -392,6 +518,7 @@
 	var hasOtherWorldListings = false;
 	var currencyFilters = {};
 	var activeSort = "recent";
+	var page = 1;
 
 	async function loadAll(){
 		var listingsRaw = [], approved = [];
@@ -406,6 +533,7 @@
 		} catch(e){ approved = []; }
 
 		await loadItemLangTable();
+		loadTextureCatalogs(renderTable); // fires off in parallel — re-renders once icons/links are ready, doesn't block the first render
 
 		var mine = listingsRaw.filter(function(r){ return String(r.seller||"").toLowerCase() === usernameKey; });
 		allListings = mine.filter(function(r){ return r.world === world; }).map(normalizeRow);
@@ -501,6 +629,7 @@
 			'<section class="table-card">'+
 				'<div class="table-toolbar"><span class="count" id="resultCount"></span></div>'+
 				'<div id="tableArea"></div>'+
+				'<div class="pagination" id="pagination" style="display:none;"></div>'+
 			'</section>'+
 		'</div>';
 		document.getElementById("app").insertAdjacentHTML("beforeend", html);
@@ -530,17 +659,6 @@
 	}
 
 	// ---------------- filtering + sorting ----------------
-	function compareByKey(key, a, b){
-		switch(key){
-			case "price-asc": return pricePerItem(a) - pricePerItem(b);
-			case "price-desc": return pricePerItem(b) - pricePerItem(a);
-			case "stock-asc": return a.amount - b.amount;
-			case "stock-desc": return b.amount - a.amount;
-			case "item-az": return a.itemNameDisplay.localeCompare(b.itemNameDisplay);
-			default: return Date.parse(b.lastSeen||0) - Date.parse(a.lastSeen||0);
-		}
-	}
-
 	function applyFilters(){
 		var q = document.getElementById("fSearch").value.trim().toLowerCase();
 		var bulkMode = document.getElementById("fBulk").value;
@@ -555,7 +673,10 @@
 			if(bulkMode === "bulk" && !r.bulk) return false;
 			if(bulkMode === "bundled" && !r.bundled) return false;
 			if(bulkMode === "single" && r.bulk) return false;
-			if(bulkMode === "nonstacked" && r.stackSize === 64) return false;
+			// "Non-stacked" means the ITEM itself doesn't stack to 64 (tools,
+			// armor, ...) — a bulk listing's stackSize is scaled by 27 (one whole
+			// shulker), so undo that first rather than comparing it directly.
+			if(bulkMode === "nonstacked" && (r.bulk ? r.stackSize / 27 : r.stackSize) === 64) return false;
 			var currency = String(r.currency||"").toLowerCase();
 			if(hideDisplay && currency === "display") return false;
 			if(currency !== "display" && currencyFilters.hasOwnProperty(currency) && !currencyFilters[currency]) return false;
@@ -565,7 +686,19 @@
 			return true;
 		});
 
-		filtered.sort(function(a,b){ return compareByKey(activeSort, a, b); });
+		filtered.sort(function(a,b){ return compareListingsBy(activeSort, a, b); });
+		page = 1;
+		renderTable();
+	}
+
+	// Clicking a sortable column header does the same thing the "Sort by"
+	// dropdown does — kept in sync both ways so either control reflects the
+	// other.
+	function setSort(key){
+		activeSort = key;
+		document.getElementById("fSort").value = key;
+		filtered.sort(function(a,b){ return compareListingsBy(activeSort, a, b); });
+		page = 1;
 		renderTable();
 	}
 
@@ -573,29 +706,39 @@
 	function renderTable(){
 		document.getElementById("resultCount").textContent = fmtNum(filtered.length)+" listing"+(filtered.length===1?"":"s");
 		var area = document.getElementById("tableArea");
+		var pag = document.getElementById("pagination");
 
 		if(filtered.length === 0){
+			pag.style.display = "none";
 			area.innerHTML = allListings.length === 0
 				? '<div class="empty-state"><h3>No listings found</h3><p>'+esc(username)+' doesn\'t have any current listings on '+esc(world)+'.</p></div>'
 				: '<div class="empty-state"><h3>No listings match those filters</h3><p>Try widening your price range or clearing the search.</p></div>';
 			return;
 		}
 
-		var html = '<div class="table-scroll"><table><thead><tr>'+
-			'<th>Item</th><th>Base item</th><th>Type</th><th>Currency</th><th>Price</th>'+
-			'<th>In stock</th><th>Position</th><th>Last seen</th>'+
-			'</tr></thead><tbody>';
+		var headerHtml =
+			'<th></th>'+
+			'<th data-k="item-az">Item</th>'+
+			'<th>Base item</th><th>Type</th><th>Currency</th>'+
+			'<th data-k="price-asc">Price</th>'+
+			'<th data-k="stock-desc">In stock</th>'+
+			'<th>Position</th>'+
+			'<th data-k="recent">Last seen</th>'+
+			'<th>Available since</th>';
 
-		filtered.forEach(function(r){
+		function buildRow(r){
 			var manual = isManualListing(r);
 			var stockCell = manual
 				? '&infin;'+manualIcon("Added manually by an admin — stock isn't tracked for this listing.")
-				: fmtNum(r.amount)+'<br><span class="price-sub">'+r.stacksInStock+' '+(r.stackSize === 64 ? 'stacks' : 'groups')+'</span>';
+				: fmtNum(r.amount)+'<br><span class="price-sub">'+r.stacksInStock+' '+(r.bulk ? 'shulks' : r.stackSize === 64 ? 'stacks' : 'groups')+'</span>';
 			var lastSeenCell = manual
 				? 'None ('+esc(r.lastSeen)+')'+manualIcon("Added manually by an admin — there's no real scan time for this listing.")
 				: relTime(r.lastSeen);
-			html += '<tr>'+
-				'<td>'+esc(r.itemNameDisplay)+'</td>'+
+			var itemUrl = itemLibraryUrlFor(r);
+			var itemNameHtml = itemUrl ? '<a href="'+esc(itemUrl)+'">'+esc(r.itemNameDisplay)+'</a>' : esc(r.itemNameDisplay);
+			return '<tr>'+
+				'<td class="item-icon"><img src="'+esc(iconFor(r))+'" alt="" loading="lazy" onerror="this.onerror=null;this.src=\''+PLACEHOLDER_ICON_JS+'\';"></td>'+
+				'<td>'+itemNameHtml+'</td>'+
 				'<td class="position">'+esc(r.baseItem)+'</td>'+
 				'<td>'+
 					(String(r.currency).toLowerCase() === "display" ? '<span class="badge display">Display</span>' : (r.bulk ? '<span class="badge bulk">Bulk</span>' : r.bundled ? '<span class="badge bundled">Bundled</span>' : '<span class="badge single">Single</span>'))+
@@ -606,21 +749,25 @@
 				'<td>'+stockCell+'</td>'+
 				'<td class="position">'+esc(r.position)+'</td>'+
 				'<td>'+lastSeenCell+'</td>'+
+				'<td>'+availableSinceCell(r)+'</td>'+
 				'</tr>';
-		});
-		html += '</tbody></table></div>';
-		area.innerHTML = html;
+		}
+
+		page = renderPaginatedRows(area, pag, filtered, page, headerHtml, buildRow,
+			function onPageChange(p){ page = p; renderTable(); },
+			function onSortClick(key){ setSort(key); });
 	}
 
 	loadAll();
 	}
 
 	// ================= item page =================
-	function runItemPage(slug){
+	function runItemPage(slug, exactName){
 		document.title = "Item — SC Trading Post";
 
 		var catalogEntry = null;
 		var isRare = false;
+		var isEnchantedBookDirectory = false; // the generic /items/enchanted_book page with no ?name= — see loadItem
 		var itemKey = null;
 		var currentListings = []; // both worlds, normalized
 		var worldFilter = ""; // "" = both, else "Firefly" or "Honeybee"
@@ -681,6 +828,7 @@
 						'</select>'+
 					'</div>'+
 					'<div id="itemTableArea"></div>'+
+					'<div class="pagination" id="itemPagination" style="display:none;"></div>'+
 				'</section>';
 			document.getElementById("app").insertAdjacentHTML("beforeend", html);
 			document.getElementById("itemWorldFilter").addEventListener("change", function(){
@@ -772,29 +920,41 @@
 			});
 		}
 
+		var itemPage = 1;
+		var itemSort = "recent";
+
 		function renderItemTable(){
 			var area = document.getElementById("itemTableArea");
+			var pag = document.getElementById("itemPagination");
 			var rows = worldFilter ? currentListings.filter(function(r){ return r.world === worldFilter; }) : currentListings;
+			rows = rows.slice().sort(function(a,b){ return compareListingsBy(itemSort, a, b); });
 			document.getElementById("itemResultCount").textContent = fmtNum(rows.length) + " current listing" + (rows.length===1?"":"s");
 			if(rows.length === 0){
+				pag.style.display = "none";
 				area.innerHTML = currentListings.length === 0
 					? '<div class="empty-state"><h3>No current listings</h3><p>Nobody is currently selling this exact item on either world.</p></div>'
 					: '<div class="empty-state"><h3>No listings on '+esc(worldFilter)+'</h3><p>Try switching the world filter above.</p></div>';
 				return;
 			}
-			var html = '<div class="table-scroll"><table><thead><tr>'+
-				'<th>Seller</th><th>World</th><th>Type</th><th>Currency</th><th>Price</th><th>In stock</th><th>Position</th><th>Last seen</th>'+
-				'</tr></thead><tbody>';
-			rows.forEach(function(r){
+
+			var headerHtml =
+				'<th data-k="seller-az">Seller</th><th>World</th><th>Type</th><th>Currency</th>'+
+				'<th data-k="price-asc">Price</th>'+
+				'<th data-k="stock-desc">In stock</th>'+
+				'<th>Position</th>'+
+				'<th data-k="recent">Last seen</th>'+
+				'<th>Available since</th>';
+
+			function buildRow(r){
 				var manual = isManualListing(r);
 				var stockCell = manual
 					? '&infin;'+manualIcon("Added manually by an admin — stock isn't tracked for this listing.")
-					: fmtNum(r.amount)+'<br><span class="price-sub">'+r.stacksInStock+' '+(r.stackSize === 64 ? 'stacks' : 'groups')+'</span>';
+					: fmtNum(r.amount)+'<br><span class="price-sub">'+r.stacksInStock+' '+(r.bulk ? 'shulks' : r.stackSize === 64 ? 'stacks' : 'groups')+'</span>';
 				var lastSeenCell = manual
 					? 'None ('+esc(r.lastSeen)+')'+manualIcon("Added manually by an admin — there's no real scan time for this listing.")
 					: relTime(r.lastSeen);
 				var sellerUrl = sellerUrlFor(r);
-				html += '<tr>'+
+				return '<tr>'+
 					'<td class="seller">'+(sellerUrl ? '<a href="'+sellerUrl+'">'+esc(r.seller)+'</a>' : esc(r.seller))+'</td>'+
 					'<td>'+esc(r.world)+'</td>'+
 					'<td>'+
@@ -806,10 +966,52 @@
 					'<td>'+stockCell+'</td>'+
 					'<td class="position">'+esc(r.position)+'</td>'+
 					'<td>'+lastSeenCell+'</td>'+
+					'<td>'+availableSinceCell(r)+'</td>'+
 				'</tr>';
+			}
+
+			itemPage = renderPaginatedRows(area, pag, rows, itemPage, headerHtml, buildRow,
+				function onPageChange(p){ itemPage = p; renderItemTable(); },
+				function onSortClick(key){ itemSort = key; itemPage = 1; renderItemTable(); });
+		}
+
+		// The generic /items/enchanted_book page (no ?name=) — since there's no
+		// single "the" enchanted book to show graphs for, list every distinct
+		// form currently for sale instead, each linking to its own real page
+		// (?name=..., handled by loadItem above) with its own real stats.
+		async function renderEnchantedBookDirectory(){
+			var listingsRaw = await fetch(DATA_URL).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; });
+			await loadItemLangTable();
+
+			var byName = {}; // exact display name -> {name, count, worlds:Set}
+			listingsRaw.forEach(function(r){
+				if(String(r.baseItem||"").toLowerCase() !== "minecraft:enchanted_book") return;
+				var display = localizedNameToEnglish(r.baseItem, r.itemName);
+				if(!byName[display]) byName[display] = { name: display, count: 0, worlds: {} };
+				byName[display].count++;
+				byName[display].worlds[r.world] = true;
 			});
-			html += '</tbody></table></div>';
-			area.innerHTML = html;
+			var forms = Object.keys(byName).map(function(k){ return byName[k]; }).sort(function(a,b){ return b.count - a.count; });
+
+			var rowsHtml = forms.map(function(f){
+				var worldsText = Object.keys(f.worlds).sort().join(", ");
+				var url = "/items/enchanted_book?name=" + encodeURIComponent(f.name);
+				return '<tr><td><a href="'+esc(url)+'">'+esc(f.name)+'</a></td>'+
+					'<td>'+fmtNum(f.count)+' listing'+(f.count===1?'':'s')+'</td>'+
+					'<td>'+esc(worldsText)+'</td></tr>';
+			}).join("");
+
+			var html = '<div class="item-header">'+
+					'<img src="'+esc(catalogEntry.texture)+'" class="item-header-icon" alt="" onerror="this.style.visibility=\'hidden\'">'+
+					'<div><h1 class="item-header-name">Enchanted Books</h1>'+
+					'<p class="tag">Every enchantment/level combination is its own item, each with its own price history &middot; <a href="/items/">&larr; Item Library</a></p></div>'+
+				'</div>'+
+				(forms.length === 0
+					? '<div class="empty-state"><h3>No enchanted books currently for sale</h3><p>Check back once someone lists one.</p></div>'
+					: '<section class="table-card"><div class="table-toolbar"><span class="count">'+fmtNum(forms.length)+' current form'+(forms.length===1?'':'s')+'</span></div>'+
+						'<div class="table-scroll"><table><thead><tr><th>Form</th><th>Listings</th><th>Worlds</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
+					'</section>');
+			document.getElementById("app").insertAdjacentHTML("beforeend", html);
 		}
 
 		async function loadItem(){
@@ -829,6 +1031,27 @@
 					'<div class="notfound"><h1>Item not found</h1>'+
 					'<p>No catalog entry for "'+esc(slug)+'".</p>'+
 					'<p><a href="/items/">&larr; Back to the Item Library</a></p></div>';
+				return;
+			}
+
+			// Enchanted books all share one catalog entry (their own display name
+			// is just "Enchanted Book" — the real name, e.g. "Sharpness V", only
+			// ever shows up on the actual listing, see ShopEntryFactory). A
+			// specific form's own page is /items/enchanted_book?name=Sharpness+V
+			// (see itemLibraryUrlFor + the routing block above) — swap the generic
+			// catalog entry for a synthetic one carrying that exact name, so
+			// everything below (graphs, table, history) works exactly like any
+			// other single real item. No ?name= at all means "the directory" —
+			// list every form currently for sale instead of empty generic-name graphs.
+			var isEnchantedBookGeneric = String(catalogEntry.baseItem||"").toLowerCase() === "minecraft:enchanted_book";
+			if(isEnchantedBookGeneric && exactName){
+				catalogEntry = { id: catalogEntry.id, baseItem: catalogEntry.baseItem, name: exactName, texture: catalogEntry.texture };
+				isEnchantedBookGeneric = false;
+			}
+			if(isEnchantedBookGeneric){
+				isEnchantedBookDirectory = true;
+				document.title = "Enchanted Books — SC Trading Post";
+				await renderEnchantedBookDirectory();
 				return;
 			}
 

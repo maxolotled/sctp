@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.snailtools.shoplogger.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "ClientPlayNetworkHandlerMixin",
+    "MinecraftClientMixin",
+    "MouseHandlerMixin",
+    "ScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -606,17 +606,17 @@
 		<h2>Download Shop Logger</h2>
 		<p>Pick the version that matches the Minecraft version you're playing.</p>
 		<div class="download-options">
-			<a class="download-option" href="shoplogger-1.21.11-1.5.jar" download="shoplogger-1.21.11-1.5.jar">
+			<a class="download-option" href="shoplogger-1.21.11-1.5.1.jar" download="shoplogger-1.21.11-1.5.1.jar">
 				<strong>Minecraft 1.21.11</strong>
-				<span>shoplogger-1.21.11-1.5.jar</span>
+				<span>shoplogger-1.21.11-1.5.1.jar</span>
 			</a>
-			<a class="download-option" href="shoplogger-26.1-1.5.jar" download="shoplogger-26.1-1.5.jar">
+			<a class="download-option" href="shoplogger-26.1-1.5.1.jar" download="shoplogger-26.1-1.5.1.jar">
 				<strong>Minecraft 26.1</strong>
-				<span>shoplogger-26.1-1.5.jar</span>
+				<span>shoplogger-26.1-1.5.1.jar</span>
 			</a>
-			<a class="download-option" href="shoplogger-26.2-1.5.jar" download="shoplogger-26.2-1.5.jar">
+			<a class="download-option" href="shoplogger-26.2-1.5.1.jar" download="shoplogger-26.2-1.5.1.jar">
 				<strong>Minecraft 26.2</strong>
-				<span>shoplogger-26.2-1.5.jar</span>
+				<span>shoplogger-26.2-1.5.1.jar</span>
 			</a>
 		</div>
 		<p class="download-reminder">Requires <strong>Fabric API</strong> installed alongside the mod, and <strong>Fabric Loader 0.19.3</strong> or newer.</p>
@@ -871,9 +871,15 @@
 	// the date this tracking started instead of a blank cell, so it reads as
 	// "at least since" rather than looking broken. Real values get formatted
 	// the same way, so the fallback isn't visually distinguishable as a hack.
-	var AVAILABLE_SINCE_FALLBACK = new Date(Date.UTC(2026, 7, 31)); // when availableSince tracking began
+	var AVAILABLE_SINCE_FALLBACK = new Date(Date.UTC(2026, 7, 30)); // when availableSince tracking began
+	// Shared by relTime()'s 30-day-plus fallback and availableSinceCell() below
+	// — one absolute-date format everywhere on the site (same on 404.html's
+	// shop/item pages too), unambiguous regardless of the viewer's locale
+	// (unlike a bare toLocaleDateString(), which reads as either D/M or M/D
+	// depending on where you are).
+	var MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 	function shortDate(d){
-		return d.getUTCDate()+"/"+(d.getUTCMonth()+1);
+		return d.getUTCDate()+" "+MONTH_ABBR[d.getUTCMonth()]+" '"+String(d.getUTCFullYear()).slice(2);
 	}
 	function availableSinceCell(r){
 		var d = r.availableSince ? new Date(r.availableSince) : null;
@@ -911,7 +917,7 @@
 		if(h < 24) return h+"h ago";
 		var d = Math.floor(h/24);
 		if(d < 30) return d+"d ago";
-		return new Date(t).toLocaleDateString();
+		return shortDate(new Date(t));
 	}
 
 	function fmtNum(n){
@@ -1093,6 +1099,13 @@
 	// actually served this page. Returns null (no link) when the listing's
 	// name/baseItem doesn't resolve to any catalog entry at all.
 	function itemLibraryUrlFor(r){
+		// Every enchanted book shares one catalog entry — link straight to its
+		// own specific-form page (?name=...) instead of the generic one, since
+		// that's the only URL that actually carries which book this row is.
+		if(String(r.baseItem || "").trim().toLowerCase() === "minecraft:enchanted_book"){
+			var name = r.itemNameDisplay || r.itemName;
+			return name ? "items/enchanted_book?name=" + encodeURIComponent(name) : null;
+		}
 		var slug = slugByName[alphaOnly(r.itemNameDisplay || r.itemName)];
 		if(!slug){
 			var baseKey = String(r.baseItem || "").trim().toLowerCase();
@@ -1370,7 +1383,10 @@
 			if(bulkMode === "bulk" && !r.bulk) return false;
 			if(bulkMode === "bundled" && !r.bundled) return false;
 			if(bulkMode === "single" && r.bulk) return false;
-			if(bulkMode === "nonstacked" && r.stackSize === 64) return false;
+			// "Non-stacked" means the ITEM itself doesn't stack to 64 (tools,
+			// armor, ...) — a bulk listing's stackSize is scaled by 27 (one whole
+			// shulker), so undo that first rather than comparing it directly.
+			if(bulkMode === "nonstacked" && (r.bulk ? r.stackSize / 27 : r.stackSize) === 64) return false;
 			var currency = String(r.currency||"").toLowerCase();
 			if(hideDisplay && currency === "display") return false;
 			if(currency !== "display" && currencyFilters.hasOwnProperty(currency) && !currencyFilters[currency]) return false;
@@ -1479,7 +1495,7 @@
 			var manual = isManualListing(r);
 			var stockCell = manual
 				? '&infin;'+manualIcon("Added manually by an admin — stock isn't tracked for this listing.")
-				: fmtNum(r.amount)+'<br><span class="price-sub">'+r.stacksInStock+' '+(r.stackSize === 64 ? 'stacks' : 'groups')+'</span>';
+				: fmtNum(r.amount)+'<br><span class="price-sub">'+r.stacksInStock+' '+(r.bulk ? 'shulks' : r.stackSize === 64 ? 'stacks' : 'groups')+'</span>';
 			var lastSeenCell = manual
 				? 'None ('+esc(r.lastSeen)+')'+manualIcon("Added manually by an admin — there's no real scan time for this listing.")
 				: relTime(r.lastSeen);

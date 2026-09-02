@@ -1,0 +1,9 @@
+{
+  "key.shoplogger.export": "Export shop log (CSV + Excel)",
+  "key.shoplogger.toggle_autoscan": "Toggle automatic proximity scanning",
+  "key.shoplogger.upload": "Upload now to Trading Post",
+  "key.shoplogger.toggle_markers": "Toggle recently-scanned markers",
+  "key.shoplogger.toggle_print": "Toggle printing scanned items in chat",
+  "key.shoplogger.open_library": "Open Item Library",
+  "key.category.shoplogger.main": "Shop Logger"
+}

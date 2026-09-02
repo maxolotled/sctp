@@ -27,9 +27,16 @@ public final class ShopEntryFactory {
 
 	private ShopEntryFactory() {}
 
-	// batchSize = the largest single-slot quantity seen for this item, i.e. how
-	// many the shop stocks per slot. The sign's price is per this many items,
-	// not necessarily per a full stack — see ShopSign.
+	/** A shulker box always has 27 inventory slots, regardless of what's in it. */
+	private static final int SHULKER_SLOTS = 27;
+
+	// batchSize = how many of this item the sign's price actually buys.
+	// Normal/bundled listings: the largest single-slot quantity seen (the shop
+	// stocks per slot, not necessarily a full stack — see ShopSign). Bulk
+	// (shulker) listings are priced per WHOLE shulker, not per slot inside
+	// it — see addTally's SHULKER_SLOTS use — so batchSize there is a fixed
+	// 27 * (this item's own max stack size), e.g. 1728 for a 64-stackable
+	// item, regardless of how full the shulker actually is right now.
 	private record Tally(ItemStack representative, int count, int batchSize, boolean bulk, boolean bundled) {}
 
 	public static List<ShopEntry> build(AbstractContainerMenu handler, ShopSign sign, BlockPos containerPos) {
@@ -150,18 +157,24 @@ public final class ShopEntryFactory {
 		// collapse into one tally, losing the fact both forms are sold.
 		String key = baseId + "|" + displayName + "|" + bulk + "|" + bundled;
 
+		// A bulk listing is priced per whole shulker (27 slots), not per slot
+		// inside it — using the observed per-slot amount here (as bundled/normal
+		// listings do) would understate a bulk batch by ~27x, which is exactly
+		// the "1db/64" vs the real "1db/shulk (=1db/1728)" mismatch this fixes.
+		int slotBatchSize = bulk ? SHULKER_SLOTS * stack.getMaxStackSize() : amount;
+
 		Tally existing = tallies.get(key);
 		if (existing == null) {
-			tallies.put(key, new Tally(stack, amount, amount, bulk, bundled));
+			tallies.put(key, new Tally(stack, amount, slotBatchSize, bulk, bundled));
 		} else {
 			// Once bulk/bundled, stays that way if any contributing stack came
-			// from a shulker/bundle. batchSize takes the largest single slot
-			// seen — a smaller one is more likely a partially-sold leftover
-			// than the shop's real batch size.
+			// from a shulker/bundle. batchSize takes the largest batch seen —
+			// a smaller one (a partially-sold leftover slot) shouldn't shrink an
+			// already-established real batch size.
 			tallies.put(key, new Tally(
 					existing.representative(),
 					existing.count() + amount,
-					Math.max(existing.batchSize(), amount),
+					Math.max(existing.batchSize(), slotBatchSize),
 					existing.bulk() || bulk,
 					existing.bundled() || bundled));
 		}

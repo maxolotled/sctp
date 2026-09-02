@@ -128,10 +128,17 @@ public class ShopLoggerClient implements ClientModInitializer {
 					// Manual clicking always wins over autoscan's silent background scanning.
 					ShopAutoScanner.getInstance().onManualContainerInteract();
 					manualScanner.onContainerInteract(pos.toImmutable());
+					// A genuine manual open (never the silent auto-scanner, guarded by
+					// isSelfInteracting() above) reads as "found it, done navigating" —
+					// clear any active teleport beam. The beam's own tick() already
+					// self-clears on arrival/timeout; this just covers opening a
+					// container before physically reaching the beam's exact endpoint.
+					TeleportHighlight.getInstance().clear();
 				} else if (be instanceof EnderChestBlockEntity) {
 					// No legitimate ShopLog scan of an ender chest exists to
 					// exempt — anything logged nearby in time is suspect.
 					ScanQuarantine.markManualOpen(null);
+					TeleportHighlight.getInstance().clear();
 				}
 			}
 			return ActionResult.PASS; // never cancel/alter normal interaction

@@ -74,7 +74,9 @@ public class ShopScanner {
 			if (world != null) {
 				ShopLog.replaceForPosition(world.label(), containerPos, entries);
 			}
-			ShopAutoScanner.getInstance().markScanned(containerPos);
+			// Deliberately NOT markScanned() here — manual opens don't participate
+			// in the "recently scanned" particle marker (or the auto-scanner's own
+			// rescan cooldown); that tracking is for the silent auto-scan path only.
 			ScanChatLogger.maybePrint(client, entries);
 			OwnShopSaleTracker.check(client, sign, containerPos, entries);
 			if (world != null) ShopVisitAlert.maybeAlert(client, world.label(), sign.seller());

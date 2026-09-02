@@ -67,27 +67,32 @@ public final class ScanChatLogger {
 		}
 	}
 
+	/** "shulk" for a bulk (shulker) listing — its batchSize is a fixed 27-slots'-worth, not a plain stack count — the raw number otherwise. */
+	private static String batchLabel(ShopEntry e) {
+		return e.bulk() ? "shulk" : String.valueOf(e.stackSize());
+	}
+
 	private static void printSingleLine(Minecraft client, List<ShopEntry> entries) {
 		List<String> parts = new ArrayList<>();
 		for (ShopEntry e : entries) {
-			parts.add(e.itemName() + " (" + e.priceLabel() + "/" + e.stackSize() + ")");
+			parts.add(e.itemName() + " (" + e.priceLabel() + "/" + batchLabel(e) + ")");
 		}
 		ChatFormat.sendPlain(client, ChatFormat.ITEMS,
 				"Scanned " + entries.size() + " item" + (entries.size() == 1 ? "" : "s") + ": " + String.join(", ", parts));
 	}
 
 	private static void printMultiLine(Minecraft client, List<ShopEntry> entries) {
-		// priceLabel -> stackSize -> item names, in first-seen order.
-		Map<String, Map<Integer, List<String>>> byPrice = new LinkedHashMap<>();
+		// priceLabel -> batch label ("shulk" or a raw stack size) -> item names, in first-seen order.
+		Map<String, Map<String, List<String>>> byPrice = new LinkedHashMap<>();
 		for (ShopEntry e : entries) {
 			byPrice.computeIfAbsent(e.priceLabel(), k -> new LinkedHashMap<>())
-					.computeIfAbsent(e.stackSize(), k -> new ArrayList<>())
+					.computeIfAbsent(batchLabel(e), k -> new ArrayList<>())
 					.add(e.itemName());
 		}
 
-		for (Map.Entry<String, Map<Integer, List<String>>> priceGroup : byPrice.entrySet()) {
+		for (Map.Entry<String, Map<String, List<String>>> priceGroup : byPrice.entrySet()) {
 			ChatFormat.sendPlain(client, ChatFormat.PRICE, "PRICE: " + priceGroup.getKey());
-			for (Map.Entry<Integer, List<String>> stackGroup : priceGroup.getValue().entrySet()) {
+			for (Map.Entry<String, List<String>> stackGroup : priceGroup.getValue().entrySet()) {
 				ChatFormat.sendPlain(client, ChatFormat.STACK, "STACKED: " + stackGroup.getKey());
 				ChatFormat.sendPlain(client, ChatFormat.ITEMS, String.join(", ", stackGroup.getValue()));
 			}

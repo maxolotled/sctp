@@ -7,6 +7,13 @@ binding = "DB"
 database_name = "snailcraft-trading-post-db"
 database_id = "267af9da-50c8-4ad4-bd1e-b72a654e7b73"
 
+# Full daily listings.json dumps, one object per date — see the scheduled
+# handler's snapshotListingsToR2() call. Admin-only reads (not public); no
+# retention/expiry policy set yet.
+[[r2_buckets]]
+binding = "SNAPSHOTS"
+bucket_name = "sctp-listings-snapshots"
+
 # Once daily at midnight UTC — takes a snapshot of every item's price/stock/
 # seller stats into itemDailyStats for the item-library price history graphs.
 [triggers]

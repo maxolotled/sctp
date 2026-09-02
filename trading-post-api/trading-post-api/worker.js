@@ -31,7 +31,9 @@
 //   GET  /admin/admins
 //   POST /admin/admins/update-permissions    body: {id, permissions: [...]}
 //   POST /admin/admins/delete                body: {id}
-//   POST /admin/run-snapshot                 -> forces an item-history snapshot now (see the daily cron below)
+//   POST /admin/run-snapshot                 -> forces an item-history snapshot + full listings.json dump to R2 now (see the daily cron below)
+//   GET  /admin/snapshots                    -> {dates: [...]}, every date with a stored R2 dump
+//   GET  /admin/snapshots?date=YYYY-MM-DD    -> that day's full listings.json (see snapshotListingsToR2)
 //
 // Any logged-in admin (own account only, unless caller is head admin):
 //   POST /admin/admins/change-password       body: {id?, oldPassword?, newPassword} -- id omitted = self; oldPassword required unless a head admin is resetting someone else's
@@ -265,14 +267,14 @@ function buildListingUpsertStmt(env, key, r) {
 	// more accurate than "now" (the approval moment) for a held rare item.
 	const availableSince = r.submittedAt || new Date().toISOString();
 	return env.DB.prepare(
-		`INSERT INTO listings (rowKey, itemName, baseItem, bulk, bundled, mixedContents, price, priceLabel, stackSize, amount, stacksInStock, currency, seller, world, position, lastSeen, availableSince)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO listings (rowKey, itemName, baseItem, bulk, bundled, mixedContents, price, priceLabel, stackSize, amount, stacksInStock, currency, seller, world, position, lastSeen, availableSince, missingStreak)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
 		 ON CONFLICT(rowKey) DO UPDATE SET
 		   itemName=excluded.itemName, baseItem=excluded.baseItem, bulk=excluded.bulk, bundled=excluded.bundled,
 		   mixedContents=excluded.mixedContents, price=excluded.price, priceLabel=excluded.priceLabel,
 		   stackSize=excluded.stackSize, amount=excluded.amount, stacksInStock=excluded.stacksInStock,
 		   currency=excluded.currency, seller=excluded.seller, world=excluded.world,
-		   position=excluded.position, lastSeen=excluded.lastSeen`
+		   position=excluded.position, lastSeen=excluded.lastSeen, missingStreak=0`
 	).bind(
 		key, r.itemName, r.baseItem, r.bulk ? 1 : 0, r.bundled ? 1 : 0, r.mixedContents ? 1 : 0,
 		r.price, r.priceLabel, r.stackSize, r.amount, r.stacksInStock,
@@ -770,10 +772,20 @@ async function handleUploadListings(request, env) {
 
 		// scannedPositions pruning: any listing already stored at a position
 		// that was just actively re-scanned, but NOT re-reported in this exact
-		// upload, is confirmed gone (sold out / chest emptied / shop removed)
-		// and gets deleted. Deliberately NOT nested inside the validRows check
-		// above — a chest scanned down to fully empty sends scannedPositions
-		// with an empty `rows`, and that's exactly the case pruning exists for.
+		// upload, is *probably* gone (sold out / chest emptied / shop removed)
+		// — but a single scan occasionally missing one item out of a large
+		// container (for whatever reason — timing, lag, an edge case we haven't
+		// tracked down) shouldn't be enough on its own to delete a listing
+		// that's still actually there. Same principle ShopAutoScanner's
+		// whole-shop removal already uses client-side (see
+		// MIN_TRUSTED_PRUNE_VERSION's comment): require it missing across 2
+		// separate scans of that position before actually deleting; a single
+		// miss just increments missingStreak, reset back to 0 the moment the
+		// item is seen again (see buildListingUpsertStmt).
+		// Deliberately NOT nested inside the validRows check above — a chest
+		// scanned down to fully empty sends scannedPositions with an empty
+		// `rows`, and that's exactly the case pruning exists for.
+		const MISSING_STREAK_THRESHOLD = 2;
 		if (validScannedPositions.length > 0) {
 			const freshKeysAtScannedPos = new Set(
 				validRows.filter((r) => scannedSet.has(positionKey(r.world, r.position))).map((r) => r._key)
@@ -784,11 +796,16 @@ async function handleUploadListings(request, env) {
 				const orClauses = chunk.map(() => "(world = ? AND position = ?)").join(" OR ");
 				const bindArgs = [];
 				for (const sp of chunk) bindArgs.push(sp.world, sp.position);
-				const atScanned = await env.DB.prepare(`SELECT rowKey FROM listings WHERE ${orClauses}`).bind(...bindArgs).all();
+				const atScanned = await env.DB.prepare(`SELECT rowKey, missingStreak FROM listings WHERE ${orClauses}`).bind(...bindArgs).all();
 				for (const row of atScanned.results) {
 					if (freshKeysAtScannedPos.has(row.rowKey)) continue;
-					stmts.push(env.DB.prepare("DELETE FROM listings WHERE rowKey = ?").bind(row.rowKey));
-					removed++;
+					const streak = (row.missingStreak || 0) + 1;
+					if (streak >= MISSING_STREAK_THRESHOLD) {
+						stmts.push(env.DB.prepare("DELETE FROM listings WHERE rowKey = ?").bind(row.rowKey));
+						removed++;
+					} else {
+						stmts.push(env.DB.prepare("UPDATE listings SET missingStreak = ? WHERE rowKey = ?").bind(streak, row.rowKey));
+					}
 				}
 			}
 		}
@@ -1478,6 +1495,27 @@ async function computeDailySnapshots(env) {
 	return { date: today, itemsSnapshotted: groups.size, listingsScanned: rows.length };
 }
 
+// Full daily dump of the live listings table — same query/shape as GET
+// /listings itself, just archived to R2 instead of served live. Unlike
+// itemDailyStats (aggregated across all sellers of an item), this preserves
+// every individual row, so per-seller/per-item history can be reconstructed
+// later by diffing consecutive days. Admin-only to read (see
+// handleAdminSnapshots) — this is a much more detailed, permanently-retained
+// record than the live public endpoint, so it isn't exposed publicly.
+async function snapshotListingsToR2(env) {
+	const { results } = await env.DB.prepare(
+		"SELECT * FROM listings WHERE lower(seller) NOT IN (SELECT usernameKey FROM blockedSellers)"
+	).all();
+	const rows = results.map((r) => ({ ...r, bulk: !!r.bulk, bundled: !!r.bundled, mixedContents: !!r.mixedContents }));
+
+	const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+	await env.SNAPSHOTS.put(`${today}.json`, JSON.stringify(rows), {
+		httpMetadata: { contentType: "application/json" },
+	});
+
+	return { date: today, rows: rows.length };
+}
+
 async function handleGetItemHistory(request, env, ctx) {
 	const url = new URL(request.url);
 	const itemKey = url.searchParams.get("itemKey");
@@ -1497,11 +1535,33 @@ async function handleAdminRunSnapshot(request, env) {
 	const auth = await requireAdminAuth(request, env, null); // ops trigger, not a delegable content-moderation bucket
 	if (!auth.ok) return auth.response;
 	try {
-		const result = await computeDailySnapshots(env);
-		return json({ ok: true, ...result });
+		const statsResult = await computeDailySnapshots(env);
+		const r2Result = await snapshotListingsToR2(env);
+		return json({ ok: true, ...statsResult, r2Snapshot: r2Result });
 	} catch (e) {
 		return json({ error: String(e) }, 502);
 	}
+}
+
+// GET /admin/snapshots            -> { dates: [...] }, every date with a stored dump
+// GET /admin/snapshots?date=YYYY-MM-DD -> that day's full listings.json, streamed straight
+// from R2 (not re-parsed) since a single day can be several MB.
+async function handleAdminSnapshots(request, env) {
+	const auth = await requireAdminAuth(request, env, null); // ops/internal tooling, not a delegable content-moderation bucket
+	if (!auth.ok) return auth.response;
+
+	const url = new URL(request.url);
+	const date = url.searchParams.get("date");
+
+	if (date) {
+		const obj = await env.SNAPSHOTS.get(`${date}.json`);
+		if (!obj) return json({ error: "No snapshot for that date" }, 404);
+		return new Response(obj.body, { headers: { "Content-Type": "application/json", ...corsHeaders() } });
+	}
+
+	const listed = await env.SNAPSHOTS.list();
+	const dates = listed.objects.map((o) => o.key.replace(/\.json$/, "")).sort();
+	return json({ dates });
 }
 
 const ROUTES = [
@@ -1523,6 +1583,7 @@ const ROUTES = [
 	["POST", "/admin/listings/delete-shop", handleAdminDeleteShopListings],
 	["GET", "/items/history", handleGetItemHistory],
 	["POST", "/admin/run-snapshot", handleAdminRunSnapshot],
+	["GET", "/admin/snapshots", handleAdminSnapshots],
 	["GET", "/admin/reports", handleListReports],
 	["GET", "/admin/shared-shop-requests", handleListSharedShopRequests],
 	["POST", "/admin/reports/resolve", handleResolveReport],
@@ -1562,8 +1623,12 @@ export default {
 	},
 
 	// Daily cron trigger (see wrangler.toml) — takes today's snapshot of every
-	// item's price/stock/seller stats. See computeDailySnapshots() for why.
+	// item's price/stock/seller stats (computeDailySnapshots), plus a full
+	// listings.json dump to R2 (snapshotListingsToR2) for later per-seller
+	// history/diffing. Two independent waitUntil calls so one failing doesn't
+	// stop the other.
 	async scheduled(event, env, ctx) {
 		ctx.waitUntil(computeDailySnapshots(env));
+		ctx.waitUntil(snapshotListingsToR2(env));
 	},
 };
