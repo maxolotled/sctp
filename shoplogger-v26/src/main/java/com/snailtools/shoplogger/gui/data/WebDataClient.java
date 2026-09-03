@@ -56,6 +56,16 @@ public final class WebDataClient {
 		return getJson(API_BASE + "/rare-items", RareRentals.class);
 	}
 
+	public static CompletableFuture<List<MarketplaceListing>> fetchMarketplaceListings() {
+		return getJson(API_BASE + "/marketplace/listings", new TypeToken<List<MarketplaceListing>>() {}.getType());
+	}
+
+	/** Also marks the returned notifications as delivered server-side — call at most once per join. */
+	public static CompletableFuture<List<MarketplaceNotification>> fetchMarketplaceNotifications(String mcUsername) {
+		String url = API_BASE + "/marketplace/notifications/for-mc?mcUsername=" + URLEncoder.encode(mcUsername, StandardCharsets.UTF_8);
+		return getJson(url, new TypeToken<List<MarketplaceNotification>>() {}.getType());
+	}
+
 	/** Downloads raw bytes — used for item/avatar textures (not JSON). */
 	public static CompletableFuture<byte[]> fetchBytes(String url) {
 		HttpRequest request = HttpRequest.newBuilder()

@@ -47,10 +47,16 @@
 	function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
 	function render() {
+		var session = getSession();
+		// Any element marked data-require-auth (e.g. the Marketplace nav link)
+		// stays hidden until a session exists — toggled here since render() runs
+		// on mount, login, and logout alike.
+		var authOnly = document.querySelectorAll("[data-require-auth]");
+		for (var i = 0; i < authOnly.length; i++) authOnly[i].hidden = !session;
+
 		var btn = document.getElementById("acctBtn");
 		var menu = document.getElementById("acctMenu");
 		if (!btn || !menu) return;
-		var session = getSession();
 		if (!session) {
 			btn.textContent = "Log in";
 			btn.onclick = openLogin;
