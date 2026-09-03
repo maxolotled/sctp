@@ -197,7 +197,9 @@
 		</div>
 		<div class="header-links">
 			<a href="/index.html">Home</a>
+			<a href="/marketplace/">Marketplace</a>
 			<a href="/docs.html">Docs</a>
+			<div id="accountWidgetMount"></div>
 		</div>
 	</div>
 </header>
@@ -208,6 +210,7 @@
 	Community-maintained · data comes from players' own Shop Logger exports · nothing here is verified by server staff
 </footer>
 
+<script src="/account-widget.js" defer></script>
 <script>
 (function(){
 	"use strict";
@@ -223,6 +226,30 @@
 		});
 	}
 	function fmtNum(n){ return Number(n).toLocaleString(); }
+
+	// Shared by both the seller and item pages — a compact "Marketplace
+	// listings" section for whichever marketplace-tagged rows (r.marketplace
+	// === true, already merged into the same GET /listings both pages already
+	// fetch) apply to this seller/item. Distinct from the main filterable
+	// listings table on purpose, even though the same rows also appear mixed
+	// into it — this is the dedicated place to look.
+	function renderMarketplaceSection(rows){
+		if(!rows.length) return "";
+		var rowsHtml = rows.map(function(r){
+			var typeLabel = r.marketplaceType === "lookingFor" ? "Looking for" : "Selling";
+			var sellerLink = r.seller ? '<a href="/s/'+(r.world === "Honeybee" ? "hb" : "ff")+'/'+encodeURIComponent(r.seller)+'">'+esc(r.seller)+'</a>' : "";
+			return '<tr><td><span class="badge '+(r.marketplaceType === "lookingFor" ? "mixed" : "bulk")+'">'+esc(typeLabel)+'</span></td>'+
+				'<td>'+esc(r.itemNameDisplay || r.itemName)+'</td>'+
+				'<td>'+fmtNum(r.amount)+'</td>'+
+				'<td>'+esc(r.priceLabel)+'</td>'+
+				'<td>'+esc(r.world)+'</td>'+
+				'<td>'+sellerLink+'</td></tr>';
+		}).join("");
+		return '<section class="table-card" style="margin-bottom:20px;">'+
+			'<div class="table-toolbar"><span class="count">Marketplace listings ('+fmtNum(rows.length)+')</span></div>'+
+			'<div class="table-scroll"><table><thead><tr><th>Type</th><th>Item</th><th>Qty</th><th>Price</th><th>World</th><th>Poster</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
+		'</section>';
+	}
 	// Graphs store price in diamonds/item (same basis as priceInDiamonds
 	// below); above 9 that reads more naturally as diamond blocks (9 dia = 1
 	// DB) than as a big raw diamond count.
@@ -384,7 +411,14 @@
 			world: String(raw.world||""),
 			position: String(raw.position||""),
 			lastSeen: String(raw.lastSeen||""),
-			availableSince: String(raw.availableSince||"")
+			availableSince: String(raw.availableSince||""),
+			// Marketplace posts (selling/lookingFor) are merged into GET
+			// /listings tagged this way — see worker.js's handleGetListings.
+			// Not stripping these is why renderMarketplaceSection can tell
+			// them apart from real shop listings sharing the same array.
+			marketplace: raw.marketplace === true,
+			marketplaceType: raw.marketplaceType || null,
+			marketplaceListingId: raw.marketplaceListingId || null
 		};
 	}
 
@@ -543,6 +577,7 @@
 		var profile = approved.filter(function(e){ return String(e.username||"").toLowerCase() === usernameKey; })[0] || null;
 
 		renderProfile(profile);
+		document.getElementById("app").insertAdjacentHTML("beforeend", renderMarketplaceSection(allListings.filter(function(r){ return r.marketplace; })));
 		populateCurrencyOptions();
 		renderApp();
 		applyFilters();
@@ -1099,6 +1134,9 @@
 				}).map(normalizeRow);
 				history = await fetch(API_BASE + "/items/history?itemKey=" + encodeURIComponent(itemKey)).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; });
 			}
+
+			var marketplaceHtml = renderMarketplaceSection(currentListings.filter(function(r){ return r.marketplace; }));
+			if(marketplaceHtml) document.getElementById("app").insertAdjacentHTML("beforeend", marketplaceHtml);
 
 			renderGraphs(history);
 			renderItemTable();

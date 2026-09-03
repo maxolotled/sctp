@@ -76,6 +76,30 @@
 // public until an admin approves it. A rowKey that's already been approved
 // once is exempt from future holds (see handleUploadListings) so re-scanning
 // an unchanged, already-vetted listing doesn't need re-approval every time.
+//
+// Marketplace — every site account (admin or plain marketplace user) is a
+// row in `admins`; "admin" just means isHeadAdmin or a non-empty permissions
+// array. POST /admin/login is the one shared login for everyone.
+//   POST /admin/admins/set-mc (head-admin only)   body: {id, mcUsername, mcVerified} -> manually link + verify an account's MC username
+//   GET  /marketplace/listings (public, cached)   -> active selling/lookingFor posts with bid summaries
+//   POST /marketplace/listings/create             body: {type: "selling"|"lookingFor", itemName, baseItem?, world, quantity, notes?, askingPrice?, askingCurrency?, startingBid?, startingBidCurrency?, budget?, budgetCurrency?}
+//   POST /marketplace/listings/cancel             body: {id} -> owner only
+//   POST /marketplace/bids/place                  body: {listingId, amount, currency, message?}
+//   POST /marketplace/bids/withdraw                body: {bidId} -> bidder only
+//   POST /marketplace/bids/accept                 body: {bidId} -> listing owner only, rejects every other pending bid
+//   POST /marketplace/bids/reject                 body: {bidId} -> listing owner only
+//   GET  /marketplace/mine                        -> caller's own listings + bids placed + bids received
+//   GET  /marketplace/notifications                -> caller's own notifications
+//   POST /marketplace/notifications/mark-read      body: {ids: [...]} or {} for "mark all"
+//   GET  /marketplace/notifications/for-mc?mcUsername=<name> (public, no session — the MOD calls this on join)
+//     -> undelivered notifications for a VERIFIED account only, marks them delivered
+//   GET  /admin/marketplace/listings, POST /admin/marketplace/listings/remove (permission "marketplaceListings")
+// Active selling/lookingFor listings are also merged straight into GET
+// /listings (see handleGetListings) — tagged marketplace/marketplaceType/
+// marketplaceListingId — so they show up in the site's normal listings
+// table/search/item pages and the mod's /search + watchlist check for free.
+// Listings auto-expire 14 days after creation (expireOldMarketplaceListings,
+// piggybacking the daily cron) if never fulfilled/cancelled.
 
 const BANNED_ITEMS = ["minecraft:diamond", "minecraft:diamond_block", "diamond", "diamondblock"];
 
@@ -92,11 +116,17 @@ const CACHE_TTL_SECONDS = 30;
 // bottom of this file), so there's no point re-querying D1 every 30s for it.
 const HISTORY_CACHE_TTL_SECONDS = 3600;
 
-// Same convention as index.html/404.html's price sort/filter logic —
-// normalizes any currency to a "worth in diamonds" basis. Currencies outside
-// this map (ironblock, goldingot, etc, all real ones seen in the wild) default
-// to a 1:1 multiplier, same as the client-side version.
-const CURRENCY_VALUE = { diamond: 1, diamondblock: 9 };
+// Same convention as index.html/404.html/list/index.html's price sort/filter
+// logic and the mod's Listing.java — real player-market rates: 64 iron = 1
+// diamond, 18 gold = 1 diamond, 1 netherite ingot = 18 diamonds. Block
+// variants use the standard 9-per-block crafting ratio. Currencies outside
+// this map (emerald, coal, ...) default to 1:1, same as everywhere else.
+const CURRENCY_VALUE = {
+	diamond: 1, diamondblock: 9,
+	iron: 1 / 64, ironingot: 1 / 64, ironblock: 9 / 64,
+	gold: 1 / 18, goldingot: 1 / 18, goldblock: 9 / 18,
+	netherite: 18, netheriteingot: 18, netheriteblock: 162,
+};
 function priceInDiamonds(r) {
 	const mult = CURRENCY_VALUE[String(r.currency || "").toLowerCase()];
 	return r.price * (mult || 1);
@@ -335,8 +365,16 @@ async function getRareNameSet() {
 // granted. The old shared ADMIN_KEY master-key bypass was removed once real
 // accounts existed — see requireAnyAdmin.
 const ADMIN_PERMISSION_BUCKETS = new Set([
-	"reports", "sharedShopRequests", "faq", "worldMap", "manualListings", "blockedSellers", "rareApprovals",
+	"reports", "sharedShopRequests", "faq", "worldMap", "manualListings", "blockedSellers", "rareApprovals", "marketplaceListings",
 ]);
+
+// Ranks bids for a seller's convenience using the shared CURRENCY_VALUE
+// table above (see priceInDiamonds) — amounts/currencies are always shown
+// and stored as-is, never silently combined into one converted number.
+function marketplaceValueInDiamonds(amount, currency) {
+	const mult = CURRENCY_VALUE[String(currency || "").toLowerCase()];
+	return (amount || 0) * (mult === undefined ? 1 : mult);
+}
 const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000; // fixed 24h, not sliding — re-login after
 const PBKDF2_ITERATIONS = 100000;
 
@@ -428,7 +466,15 @@ async function handleAdminLogin(request, env) {
 
 	let permissions = [];
 	try { permissions = JSON.parse(admin.permissions || "[]"); } catch (e) { /* ignore */ }
-	return json({ token, isHeadAdmin: !!admin.isHeadAdmin, permissions, expiresAt });
+	// Every account logs in through here now, admin or not — permissions
+	// being empty and isHeadAdmin false just means "a plain marketplace
+	// account", not an error. mcUsername/mcVerified let the frontend show a
+	// verified checkmark and decide whether in-game notification delivery
+	// applies to this account.
+	return json({
+		token, username: admin.username, isHeadAdmin: !!admin.isHeadAdmin, permissions, expiresAt,
+		mcUsername: admin.mcUsername || null, mcVerified: !!admin.mcVerified,
+	});
 }
 
 async function handleAdminCreateAdmin(request, env) {
@@ -450,6 +496,11 @@ async function handleAdminCreateAdmin(request, env) {
 	// first named head admin gets created (via the master key, since no
 	// admins row exists yet to be a head admin the normal way).
 	const isHeadAdmin = body.isHeadAdmin === true;
+	// Plain marketplace accounts go through this exact same endpoint now —
+	// just with isHeadAdmin/permissions left at their defaults (false/[]).
+	// mcUsername can be set here, but mcVerified always starts false — see
+	// handleAdminSetMc, a deliberate separate action, never implied by creation.
+	const mcUsername = body.mcUsername ? String(body.mcUsername).trim() : null;
 	if (!username) return json({ error: "username is required" }, 400);
 	if (password.length < 8) return json({ error: "password must be at least 8 characters" }, 400);
 
@@ -463,19 +514,43 @@ async function handleAdminCreateAdmin(request, env) {
 
 	try {
 		await env.DB.prepare(
-			"INSERT INTO admins (id, username, passwordHash, passwordSalt, isHeadAdmin, permissions, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-		).bind(id, username, hash, salt, isHeadAdmin ? 1 : 0, JSON.stringify(permissions), createdAt, auth.admin.username).run();
+			"INSERT INTO admins (id, username, passwordHash, passwordSalt, isHeadAdmin, permissions, createdAt, createdBy, mcUsername, mcVerified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)"
+		).bind(id, username, hash, salt, isHeadAdmin ? 1 : 0, JSON.stringify(permissions), createdAt, auth.admin.username, mcUsername).run();
 		return json({ ok: true, id, isHeadAdmin });
 	} catch (e) {
 		return json({ error: String(e) }, 502);
 	}
 }
 
+// Head-admin-only: link/relink an account's Minecraft username and set
+// whether it's actually been verified (manual process for now — see the
+// project notes; there's no automated proof-of-ownership flow yet).
+async function handleAdminSetMc(request, env) {
+	const auth = await requireAdminAuth(request, env, null);
+	if (!auth.ok) return auth.response;
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const id = String(body.id || "");
+	if (!id) return json({ error: "id is required" }, 400);
+	const mcUsername = body.mcUsername ? String(body.mcUsername).trim() : null;
+	const mcVerified = body.mcVerified === true;
+
+	const res = await env.DB.prepare("UPDATE admins SET mcUsername = ?, mcVerified = ? WHERE id = ?")
+		.bind(mcUsername, mcVerified ? 1 : 0, id).run();
+	if (res.meta.changes === 0) return json({ error: "Account not found" }, 404);
+	return json({ ok: true });
+}
+
 async function handleAdminListAdmins(request, env) {
 	const auth = await requireAdminAuth(request, env, null);
 	if (!auth.ok) return auth.response;
-	const { results } = await env.DB.prepare("SELECT id, username, isHeadAdmin, permissions, createdAt, createdBy FROM admins ORDER BY createdAt").all();
-	return json(results.map((r) => ({ ...r, isHeadAdmin: !!r.isHeadAdmin, permissions: JSON.parse(r.permissions || "[]") })));
+	const { results } = await env.DB.prepare("SELECT id, username, isHeadAdmin, permissions, createdAt, createdBy, mcUsername, mcVerified FROM admins ORDER BY createdAt").all();
+	return json(results.map((r) => ({ ...r, isHeadAdmin: !!r.isHeadAdmin, mcVerified: !!r.mcVerified, permissions: JSON.parse(r.permissions || "[]") })));
 }
 
 async function handleAdminUpdatePermissions(request, env) {
@@ -830,8 +905,387 @@ async function handleGetListings(request, env, ctx) {
 		const { results } = await env.DB.prepare(
 			"SELECT * FROM listings WHERE lower(seller) NOT IN (SELECT usernameKey FROM blockedSellers)"
 		).all();
-		return results.map((r) => ({ ...r, bulk: !!r.bulk, bundled: !!r.bundled, mixedContents: !!r.mixedContents }));
+		const shopRows = results.map((r) => ({ ...r, bulk: !!r.bulk, bundled: !!r.bundled, mixedContents: !!r.mixedContents }));
+		// Active marketplace posts (selling AND lookingFor) are merged straight
+		// into the same array everything already reads — the site's listings
+		// table/search, item pages, and the mod's /search + watchlist check all
+		// just consume GET /listings already, so this is the only change needed
+		// for marketplace posts to show up everywhere shop listings do. Each row
+		// is tagged marketplace/marketplaceType/marketplaceListingId so a
+		// consumer that specifically shouldn't treat these as real purchasable
+		// shop stock (e.g. the /list build-planner) can filter them back out.
+		const marketplaceRows = await getActiveMarketplaceRows(env);
+		return shopRows.concat(marketplaceRows);
 	});
+}
+
+// ---------------- marketplace ----------------
+
+const MARKETPLACE_LISTING_LIFETIME_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+function newId() {
+	return crypto.randomUUID();
+}
+
+async function notifyAccount(env, accountId, type, message, listingId) {
+	await env.DB.prepare(
+		"INSERT INTO marketplaceNotifications (id, accountId, type, message, listingId, createdAt) VALUES (?, ?, ?, ?, ?, ?)"
+	).bind(newId(), accountId, type, message, listingId || null, new Date().toISOString()).run();
+}
+
+function marketplacePriceLabel(amount, currency, suffix) {
+	if (amount == null) return null;
+	return `${amount} ${currency || "?"} (${suffix})`;
+}
+
+// Maps one marketplaceListings row into the same shape GET /listings
+// returns — see handleGetListings for why.
+function marketplaceRowAsListing(m, posterName) {
+	const base = {
+		itemName: m.itemName, baseItem: m.baseItem || "", bulk: false, bundled: false, mixedContents: false,
+		stackSize: m.quantity, amount: m.quantity, stacksInStock: 1,
+		seller: posterName, world: m.world, position: "Marketplace listing",
+		lastSeen: m.createdAt, availableSince: m.createdAt,
+		marketplace: true, marketplaceType: m.type, marketplaceListingId: m.id,
+	};
+	if (m.type === "selling") {
+		const price = m.askingPrice != null ? m.askingPrice : m.startingBid;
+		const currency = m.askingPrice != null ? m.askingCurrency : m.startingBidCurrency;
+		return { ...base, price, currency, priceLabel: marketplacePriceLabel(price, currency, m.askingPrice != null ? "asking" : "starting bid") };
+	}
+	return { ...base, price: m.budget, currency: m.budgetCurrency, priceLabel: marketplacePriceLabel(m.budget, m.budgetCurrency, "budget") };
+}
+
+async function getActiveMarketplaceRows(env) {
+	const { results } = await env.DB.prepare(
+		`SELECT ml.*, a.username AS accountUsername, a.mcUsername AS accountMcUsername
+		 FROM marketplaceListings ml JOIN admins a ON a.id = ml.accountId
+		 WHERE ml.status = 'active' AND ml.expiresAt > ?`
+	).bind(new Date().toISOString()).all();
+	return results.map((m) => marketplaceRowAsListing(m, m.accountMcUsername || m.accountUsername));
+}
+
+// GET /marketplace/listings — public. Same active-listing set as the rows
+// merged into GET /listings, but in the marketplace's own richer shape
+// (bid count/highest bid) — used by the /marketplace page and by the mod's
+// local watchlist check (see WatchlistJoinCheck), which needs nothing more
+// than this to work — no server-side "what is this player watching" ever exists.
+async function handleGetMarketplaceListings(request, env, ctx) {
+	return cachedGet(request, ctx, CACHE_TTL_SECONDS, async () => {
+		const { results } = await env.DB.prepare(
+			`SELECT ml.*, a.username AS accountUsername, a.mcUsername AS accountMcUsername, a.mcVerified AS accountMcVerified
+			 FROM marketplaceListings ml JOIN admins a ON a.id = ml.accountId
+			 WHERE ml.status = 'active' AND ml.expiresAt > ?`
+		).bind(new Date().toISOString()).all();
+
+		const listingIds = results.map((r) => r.id);
+		const bidsByListing = new Map();
+		if (listingIds.length > 0) {
+			for (const chunk of chunkArray(listingIds, MAX_QUERY_PARAMS_PER_CHUNK)) {
+				const placeholders = chunk.map(() => "?").join(",");
+				const { results: bids } = await env.DB.prepare(
+					`SELECT * FROM marketplaceBids WHERE listingId IN (${placeholders}) AND status = 'pending'`
+				).bind(...chunk).all();
+				for (const b of bids) {
+					if (!bidsByListing.has(b.listingId)) bidsByListing.set(b.listingId, []);
+					bidsByListing.get(b.listingId).push(b);
+				}
+			}
+		}
+
+		return results.map((m) => {
+			const bids = bidsByListing.get(m.id) || [];
+			let highestBid = null;
+			for (const b of bids) {
+				if (!highestBid || marketplaceValueInDiamonds(b.amount, b.currency) > marketplaceValueInDiamonds(highestBid.amount, highestBid.currency)) highestBid = b;
+			}
+			return {
+				id: m.id, type: m.type, itemName: m.itemName, baseItem: m.baseItem, world: m.world,
+				quantity: m.quantity, notes: m.notes,
+				askingPrice: m.askingPrice, askingCurrency: m.askingCurrency,
+				startingBid: m.startingBid, startingBidCurrency: m.startingBidCurrency,
+				budget: m.budget, budgetCurrency: m.budgetCurrency,
+				createdAt: m.createdAt, expiresAt: m.expiresAt,
+				seller: m.accountMcUsername || m.accountUsername, sellerVerified: !!m.accountMcVerified,
+				bidCount: bids.length,
+				highestBid: highestBid ? { amount: highestBid.amount, currency: highestBid.currency } : null,
+			};
+		});
+	});
+}
+
+async function handleCreateMarketplaceListing(request, env) {
+	const auth = await requireAnyAdmin(request, env); // any logged-in account, admin or not
+	if (!auth.ok) return auth.response;
+
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+
+	const type = body.type === "lookingFor" ? "lookingFor" : body.type === "selling" ? "selling" : null;
+	if (!type) return json({ error: "type must be 'selling' or 'lookingFor'" }, 400);
+	const itemName = String(body.itemName || "").trim();
+	if (!itemName) return json({ error: "itemName is required" }, 400);
+	const world = body.world === "Honeybee" ? "Honeybee" : body.world === "Firefly" ? "Firefly" : null;
+	if (!world) return json({ error: "world must be 'Firefly' or 'Honeybee'" }, 400);
+	const quantity = Math.max(1, parseInt(body.quantity, 10) || 1);
+	const baseItem = body.baseItem ? String(body.baseItem).trim() : null;
+	const notes = body.notes ? String(body.notes).trim().slice(0, 500) : null;
+
+	const id = newId();
+	const now = new Date();
+	const createdAt = now.toISOString();
+	const expiresAt = new Date(now.getTime() + MARKETPLACE_LISTING_LIFETIME_MS).toISOString();
+
+	if (type === "selling") {
+		const askingPrice = body.askingPrice != null && body.askingPrice !== "" ? Number(body.askingPrice) : null;
+		const askingCurrency = askingPrice != null ? String(body.askingCurrency || "").trim() : null;
+		const startingBid = body.startingBid != null && body.startingBid !== "" ? Number(body.startingBid) : null;
+		const startingBidCurrency = startingBid != null ? String(body.startingBidCurrency || "").trim() : null;
+		if (askingPrice == null && startingBid == null) return json({ error: "Provide an asking price, a starting bid, or both" }, 400);
+		await env.DB.prepare(
+			`INSERT INTO marketplaceListings (id, accountId, type, itemName, baseItem, world, quantity, notes, askingPrice, askingCurrency, startingBid, startingBidCurrency, status, createdAt, expiresAt)
+			 VALUES (?, ?, 'selling', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+		).bind(id, auth.admin.id, itemName, baseItem, world, quantity, notes, askingPrice, askingCurrency, startingBid, startingBidCurrency, createdAt, expiresAt).run();
+	} else {
+		const budget = body.budget != null && body.budget !== "" ? Number(body.budget) : null;
+		const budgetCurrency = budget != null ? String(body.budgetCurrency || "").trim() : null;
+		await env.DB.prepare(
+			`INSERT INTO marketplaceListings (id, accountId, type, itemName, baseItem, world, quantity, notes, budget, budgetCurrency, status, createdAt, expiresAt)
+			 VALUES (?, ?, 'lookingFor', ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+		).bind(id, auth.admin.id, itemName, baseItem, world, quantity, notes, budget, budgetCurrency, createdAt, expiresAt).run();
+	}
+
+	return json({ ok: true, id });
+}
+
+async function handleCancelMarketplaceListing(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const id = String(body.id || "");
+	if (!id) return json({ error: "id is required" }, 400);
+
+	const listing = await env.DB.prepare("SELECT * FROM marketplaceListings WHERE id = ?").bind(id).first();
+	if (!listing) return json({ error: "Listing not found" }, 404);
+	if (listing.accountId !== auth.admin.id) return json({ error: "Not your listing" }, 403);
+	if (listing.status !== "active") return json({ error: "Listing isn't active" }, 400);
+
+	await env.DB.prepare("UPDATE marketplaceListings SET status = 'cancelled', closedAt = ?, closedReason = 'cancelled by owner' WHERE id = ?")
+		.bind(new Date().toISOString(), id).run();
+	return json({ ok: true });
+}
+
+async function handlePlaceBid(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const listingId = String(body.listingId || "");
+	const amount = Number(body.amount);
+	const currency = String(body.currency || "").trim();
+	const message = body.message ? String(body.message).trim().slice(0, 300) : null;
+	if (!listingId || !amount || amount <= 0 || !currency) return json({ error: "listingId, a positive amount, and currency are required" }, 400);
+
+	const listing = await env.DB.prepare("SELECT * FROM marketplaceListings WHERE id = ?").bind(listingId).first();
+	if (!listing || listing.status !== "active" || listing.type !== "selling") return json({ error: "That listing isn't open for bids" }, 400);
+	if (listing.accountId === auth.admin.id) return json({ error: "You can't bid on your own listing" }, 400);
+
+	const id = newId();
+	const createdAt = new Date().toISOString();
+	await env.DB.prepare(
+		"INSERT INTO marketplaceBids (id, listingId, bidderAccountId, amount, currency, message, createdAt, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')"
+	).bind(id, listingId, auth.admin.id, amount, currency, message, createdAt).run();
+
+	await notifyAccount(env, listing.accountId, "newBid", `${auth.admin.username} bid ${amount} ${currency} on your ${listing.itemName} listing.`, listingId);
+	return json({ ok: true, id });
+}
+
+async function handleWithdrawBid(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const bidId = String(body.bidId || "");
+	if (!bidId) return json({ error: "bidId is required" }, 400);
+
+	const bid = await env.DB.prepare("SELECT * FROM marketplaceBids WHERE id = ?").bind(bidId).first();
+	if (!bid) return json({ error: "Bid not found" }, 404);
+	if (bid.bidderAccountId !== auth.admin.id) return json({ error: "Not your bid" }, 403);
+	if (bid.status !== "pending") return json({ error: "Bid isn't pending" }, 400);
+
+	await env.DB.prepare("UPDATE marketplaceBids SET status = 'withdrawn' WHERE id = ?").bind(bidId).run();
+	return json({ ok: true });
+}
+
+async function handleAcceptBid(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const bidId = String(body.bidId || "");
+	if (!bidId) return json({ error: "bidId is required" }, 400);
+
+	const bid = await env.DB.prepare("SELECT * FROM marketplaceBids WHERE id = ?").bind(bidId).first();
+	if (!bid || bid.status !== "pending") return json({ error: "Bid not found or no longer pending" }, 404);
+	const listing = await env.DB.prepare("SELECT * FROM marketplaceListings WHERE id = ?").bind(bid.listingId).first();
+	if (!listing || listing.accountId !== auth.admin.id) return json({ error: "Not your listing" }, 403);
+	if (listing.status !== "active") return json({ error: "Listing isn't active" }, 400);
+
+	const now = new Date().toISOString();
+	const stmts = [
+		env.DB.prepare("UPDATE marketplaceBids SET status = 'accepted' WHERE id = ?").bind(bidId),
+		env.DB.prepare("UPDATE marketplaceListings SET status = 'fulfilled', closedAt = ?, closedReason = 'bid accepted' WHERE id = ?").bind(now, listing.id),
+	];
+	// Every other still-pending bid on this listing loses automatically — the item's spoken for now.
+	const { results: otherBids } = await env.DB.prepare(
+		"SELECT * FROM marketplaceBids WHERE listingId = ? AND id != ? AND status = 'pending'"
+	).bind(listing.id, bidId).all();
+	for (const ob of otherBids) stmts.push(env.DB.prepare("UPDATE marketplaceBids SET status = 'rejected' WHERE id = ?").bind(ob.id));
+	await env.DB.batch(stmts);
+
+	await notifyAccount(env, bid.bidderAccountId, "bidAccepted",
+		`Your bid of ${bid.amount} ${bid.currency} on ${listing.itemName} was accepted! Arrange the trade with ${auth.admin.username} in-game.`, listing.id);
+	for (const ob of otherBids) {
+		await notifyAccount(env, ob.bidderAccountId, "bidRejected", `Your bid on ${listing.itemName} wasn't selected — the seller accepted another offer.`, listing.id);
+	}
+	return json({ ok: true });
+}
+
+async function handleRejectBid(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const bidId = String(body.bidId || "");
+	if (!bidId) return json({ error: "bidId is required" }, 400);
+
+	const bid = await env.DB.prepare("SELECT * FROM marketplaceBids WHERE id = ?").bind(bidId).first();
+	if (!bid || bid.status !== "pending") return json({ error: "Bid not found or no longer pending" }, 404);
+	const listing = await env.DB.prepare("SELECT * FROM marketplaceListings WHERE id = ?").bind(bid.listingId).first();
+	if (!listing || listing.accountId !== auth.admin.id) return json({ error: "Not your listing" }, 403);
+
+	await env.DB.prepare("UPDATE marketplaceBids SET status = 'rejected' WHERE id = ?").bind(bidId).run();
+	await notifyAccount(env, bid.bidderAccountId, "bidRejected", `Your bid of ${bid.amount} ${bid.currency} on ${listing.itemName} was declined.`, listing.id);
+	return json({ ok: true });
+}
+
+async function handleGetMyMarketplace(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+
+	const { results: listings } = await env.DB.prepare("SELECT * FROM marketplaceListings WHERE accountId = ? ORDER BY createdAt DESC").bind(auth.admin.id).all();
+	const { results: myBids } = await env.DB.prepare(
+		`SELECT b.*, l.itemName, l.world FROM marketplaceBids b JOIN marketplaceListings l ON l.id = b.listingId WHERE b.bidderAccountId = ? ORDER BY b.createdAt DESC`
+	).bind(auth.admin.id).all();
+
+	// Bids received on the caller's own listings, so the UI can show "3 offers" per listing without a separate round trip per listing.
+	const listingIds = listings.map((l) => l.id);
+	const bidsReceived = [];
+	if (listingIds.length > 0) {
+		for (const chunk of chunkArray(listingIds, MAX_QUERY_PARAMS_PER_CHUNK)) {
+			const placeholders = chunk.map(() => "?").join(",");
+			const { results } = await env.DB.prepare(`SELECT * FROM marketplaceBids WHERE listingId IN (${placeholders})`).bind(...chunk).all();
+			bidsReceived.push(...results);
+		}
+	}
+
+	return json({ listings, myBids, bidsReceived });
+}
+
+async function handleGetMarketplaceNotifications(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare("SELECT * FROM marketplaceNotifications WHERE accountId = ? ORDER BY createdAt DESC LIMIT 100").bind(auth.admin.id).all();
+	return json(results);
+}
+
+async function handleMarkNotificationsRead(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const now = new Date().toISOString();
+	if (Array.isArray(body.ids) && body.ids.length > 0) {
+		for (const chunk of chunkArray(body.ids.map(String), MAX_QUERY_PARAMS_PER_CHUNK)) {
+			const placeholders = chunk.map(() => "?").join(",");
+			await env.DB.prepare(`UPDATE marketplaceNotifications SET readAt = ? WHERE accountId = ? AND id IN (${placeholders})`).bind(now, auth.admin.id, ...chunk).run();
+		}
+	} else {
+		await env.DB.prepare("UPDATE marketplaceNotifications SET readAt = ? WHERE accountId = ? AND readAt IS NULL").bind(now, auth.admin.id).run();
+	}
+	return json({ ok: true });
+}
+
+// Used by the MOD on join — no session token (the mod isn't a logged-in
+// website session), just the player's own MC username, same trust model the
+// rest of the mod's uploads already use. Only ever returns anything for an
+// account a head admin has actually marked mcVerified — an unverified or
+// unclaimed username gets nothing, on purpose. Marks whatever it returns as
+// delivered so it isn't repeated on the next join.
+async function handleGetNotificationsForMc(request, env) {
+	const url = new URL(request.url);
+	const mcUsername = (url.searchParams.get("mcUsername") || "").trim();
+	if (!mcUsername) return json({ error: "mcUsername is required" }, 400);
+
+	const account = await env.DB.prepare("SELECT id FROM admins WHERE lower(mcUsername) = ? AND mcVerified = 1").bind(mcUsername.toLowerCase()).first();
+	if (!account) return json([]);
+
+	const { results } = await env.DB.prepare(
+		"SELECT * FROM marketplaceNotifications WHERE accountId = ? AND deliveredInGameAt IS NULL ORDER BY createdAt"
+	).bind(account.id).all();
+	if (results.length > 0) {
+		const now = new Date().toISOString();
+		for (const chunk of chunkArray(results.map((r) => r.id), MAX_QUERY_PARAMS_PER_CHUNK)) {
+			const placeholders = chunk.map(() => "?").join(",");
+			await env.DB.prepare(`UPDATE marketplaceNotifications SET deliveredInGameAt = ? WHERE id IN (${placeholders})`).bind(now, ...chunk).run();
+		}
+	}
+	return json(results.map((r) => ({ type: r.type, message: r.message })));
+}
+
+// Permission bucket "marketplaceListings" — moderation.
+async function handleAdminListMarketplaceListings(request, env) {
+	const auth = await requireAdminAuth(request, env, "marketplaceListings");
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare(
+		"SELECT ml.*, a.username AS accountUsername FROM marketplaceListings ml JOIN admins a ON a.id = ml.accountId ORDER BY ml.createdAt DESC"
+	).all();
+	return json(results);
+}
+
+async function handleAdminRemoveMarketplaceListing(request, env) {
+	const auth = await requireAdminAuth(request, env, "marketplaceListings");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const id = String(body.id || "");
+	if (!id) return json({ error: "id is required" }, 400);
+	const reason = body.reason ? String(body.reason).trim().slice(0, 300) : "no reason given";
+
+	const listing = await env.DB.prepare("SELECT * FROM marketplaceListings WHERE id = ?").bind(id).first();
+	if (!listing) return json({ error: "Listing not found" }, 404);
+	if (listing.status !== "active") return json({ error: "Listing isn't active" }, 400);
+
+	await env.DB.prepare("UPDATE marketplaceListings SET status = 'cancelled', closedAt = ?, closedReason = ? WHERE id = ?")
+		.bind(new Date().toISOString(), `removed by admin: ${reason}`, id).run();
+	await notifyAccount(env, listing.accountId, "listingRemovedByAdmin", `Your ${listing.itemName} listing was removed by an admin: ${reason}`, id);
+	return json({ ok: true });
+}
+
+// Daily sweep (piggybacks the existing cron — see scheduled()): flips any
+// listing past its expiresAt to status='expired' and notifies the owner.
+// The active-listing queries above already filter on expiresAt too, so this
+// is about correctness of the STATUS field and the notification, not about
+// hiding expired listings sooner — those are already excluded immediately.
+async function expireOldMarketplaceListings(env) {
+	const now = new Date().toISOString();
+	const { results } = await env.DB.prepare("SELECT id, accountId, itemName FROM marketplaceListings WHERE status = 'active' AND expiresAt <= ?").bind(now).all();
+	if (results.length === 0) return { expired: 0 };
+	const stmts = results.map((r) => env.DB.prepare("UPDATE marketplaceListings SET status = 'expired', closedAt = ? WHERE id = ?").bind(now, r.id));
+	await env.DB.batch(stmts);
+	for (const r of results) await notifyAccount(env, r.accountId, "listingExpired", `Your ${r.itemName} listing expired after 14 days with no accepted offer.`, r.id);
+	return { expired: results.length };
 }
 
 async function handleSubmitReport(request, env) {
@@ -1603,6 +2057,20 @@ const ROUTES = [
 	["POST", "/admin/blocked-sellers/remove", handleAdminUnblockSeller],
 	["GET", "/admin/rare-approvals", handleAdminListRareApprovals],
 	["POST", "/admin/rare-approvals/resolve", handleAdminResolveRareApproval],
+	["POST", "/admin/admins/set-mc", handleAdminSetMc],
+	["GET", "/marketplace/listings", handleGetMarketplaceListings],
+	["POST", "/marketplace/listings/create", handleCreateMarketplaceListing],
+	["POST", "/marketplace/listings/cancel", handleCancelMarketplaceListing],
+	["POST", "/marketplace/bids/place", handlePlaceBid],
+	["POST", "/marketplace/bids/withdraw", handleWithdrawBid],
+	["POST", "/marketplace/bids/accept", handleAcceptBid],
+	["POST", "/marketplace/bids/reject", handleRejectBid],
+	["GET", "/marketplace/mine", handleGetMyMarketplace],
+	["GET", "/marketplace/notifications", handleGetMarketplaceNotifications],
+	["POST", "/marketplace/notifications/mark-read", handleMarkNotificationsRead],
+	["GET", "/marketplace/notifications/for-mc", handleGetNotificationsForMc],
+	["GET", "/admin/marketplace/listings", handleAdminListMarketplaceListings],
+	["POST", "/admin/marketplace/listings/remove", handleAdminRemoveMarketplaceListing],
 ];
 
 export default {
@@ -1623,12 +2091,14 @@ export default {
 	},
 
 	// Daily cron trigger (see wrangler.toml) — takes today's snapshot of every
-	// item's price/stock/seller stats (computeDailySnapshots), plus a full
+	// item's price/stock/seller stats (computeDailySnapshots), a full
 	// listings.json dump to R2 (snapshotListingsToR2) for later per-seller
-	// history/diffing. Two independent waitUntil calls so one failing doesn't
-	// stop the other.
+	// history/diffing, and expires any marketplace listing past its 14-day
+	// lifetime (expireOldMarketplaceListings). Independent waitUntil calls so
+	// one failing doesn't stop the others.
 	async scheduled(event, env, ctx) {
 		ctx.waitUntil(computeDailySnapshots(env));
 		ctx.waitUntil(snapshotListingsToR2(env));
+		ctx.waitUntil(expireOldMarketplaceListings(env));
 	},
 };

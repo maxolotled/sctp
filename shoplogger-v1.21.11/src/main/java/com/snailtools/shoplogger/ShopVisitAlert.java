@@ -23,6 +23,18 @@ import java.util.Locale;
 public final class ShopVisitAlert {
 
 	private static final long COOLDOWN_MS = 60 * 60 * 1000L; // 1 hour
+	// A scan doesn't upload synchronously — items it just read aren't actually
+	// stamped with a real availableSince server-side until the next periodic
+	// upload (ShopLoggerClient's 15-minute timer, or a manual upload). Without
+	// this, items first discovered THIS visit would get an availableSince
+	// landing after the timestamp just recorded for this same visit, making
+	// them look "new since you were last here" on the very next check — even
+	// though nothing has actually changed since you saw them yourself. Padding
+	// the recorded timestamp forward absorbs that lag; safe to be smaller than
+	// COOLDOWN_MS (it only ever needs to cover the WORST-case upload delay,
+	// not the gap between two real checks, which COOLDOWN_MS already
+	// guarantees is at least an hour).
+	private static final long UPLOAD_LAG_GRACE_MS = 20 * 60 * 1000L; // 20 minutes
 	private static final String CONFIG_ENABLED = "visitAlerts/enabled";
 	private static final String CONFIG_RARES_ONLY = "visitAlerts/raresOnly";
 
@@ -60,8 +72,9 @@ public final class ShopVisitAlert {
 
 		// Consumed immediately, win or lose — a failed fetch below just means
 		// this particular visit doesn't get a message; it doesn't retry until
-		// the next hour, same as if the check had never happened.
-		Config.update(key, now);
+		// the next hour, same as if the check had never happened. Padded by
+		// UPLOAD_LAG_GRACE_MS — see its comment for why.
+		Config.update(key, now + UPLOAD_LAG_GRACE_MS);
 		if (firstVisit) return; // nothing to compare against yet — just start tracking
 
 		long previousVisit = stored;

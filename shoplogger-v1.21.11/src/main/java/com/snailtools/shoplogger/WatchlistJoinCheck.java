@@ -1,6 +1,8 @@
 package com.snailtools.shoplogger;
 
 import com.snailtools.shoplogger.gui.data.Listing;
+import com.snailtools.shoplogger.gui.data.MarketplaceListing;
+import com.snailtools.shoplogger.gui.data.MarketplaceNotification;
 import com.snailtools.shoplogger.gui.data.MatchUtil;
 import com.snailtools.shoplogger.gui.data.WebDataClient;
 import net.minecraft.client.MinecraftClient;
@@ -18,6 +20,13 @@ import java.util.regex.Pattern;
  * website data — regardless of whether this player has ever scanned that
  * shop themselves? Complements WatchlistAlert, which only reacts to fresh
  * local scans; this instead reacts to whatever's already on the server.
+ *
+ * Also doubles as the join-time delivery point for two marketplace checks:
+ * matching active marketplace posts against the local watchlist (entirely
+ * client-side, same as the shop-listings check — no server-side "what is
+ * this player watching" ever exists), and delivering any pending marketplace
+ * notifications (bids, accepts, etc.) for this player's own MC-verified
+ * account, if any.
  */
 public final class WatchlistJoinCheck {
 
@@ -40,11 +49,55 @@ public final class WatchlistJoinCheck {
 		pending = false;
 
 		List<String> watched = WatchlistStore.getAll();
-		if (watched.isEmpty()) return;
+		if (!watched.isEmpty()) {
+			WebDataClient.fetchListings()
+					.thenAccept(listings -> client.execute(() -> report(client, world.label(), watched, listings)))
+					.exceptionally(ex -> null);
+			WebDataClient.fetchMarketplaceListings()
+					.thenAccept(listings -> client.execute(() -> reportMarketplace(client, world.label(), watched, listings)))
+					.exceptionally(ex -> null);
+		}
 
-		WebDataClient.fetchListings()
-				.thenAccept(listings -> client.execute(() -> report(client, world.label(), watched, listings)))
-				.exceptionally(ex -> null);
+		String self = client.getSession().getUsername();
+		if (self != null && !self.isEmpty()) {
+			WebDataClient.fetchMarketplaceNotifications(self)
+					.thenAccept(notifications -> client.execute(() -> deliverNotifications(client, notifications)))
+					.exceptionally(ex -> null);
+		}
+	}
+
+	private static void reportMarketplace(MinecraftClient client, String world, List<String> watched, List<MarketplaceListing> listings) {
+		for (MarketplaceListing m : listings) {
+			if (!world.equalsIgnoreCase(m.world)) continue;
+			boolean matches = false;
+			for (String watchedName : watched) {
+				if (MatchUtil.alphaOnly(m.itemName).equals(MatchUtil.alphaOnly(watchedName))) { matches = true; break; }
+			}
+			if (matches) reportMarketplaceMatch(client, m);
+		}
+	}
+
+	private static void reportMarketplaceMatch(MinecraftClient client, MarketplaceListing m) {
+		boolean selling = "selling".equals(m.type);
+		MarketplaceListing.PriceInfo price = m.priceInfo();
+		String priceText = price != null ? (price.amount + " " + (price.currency == null ? "?" : price.currency) + " (" + price.label + ")") : "no price set";
+		String bidText = selling && m.bidCount > 0 ? ", " + m.bidCount + " bid" + (m.bidCount > 1 ? "s" : "") : "";
+
+		MutableText msg = Text.literal("[ShopLogger] ").formatted(ChatFormat.PREFIX)
+				.append(Text.literal("Marketplace: ").formatted(ChatFormat.SUCCESS))
+				.append(Text.literal((selling ? "Selling " : "Looking for ") + m.quantity + "x " + m.itemName
+						+ " by " + m.seller + (m.sellerVerified ? " ✓" : "") + " — " + priceText + bidText).formatted(ChatFormat.RESULT));
+
+		client.player.sendMessage(msg, false);
+	}
+
+	private static void deliverNotifications(MinecraftClient client, List<MarketplaceNotification> notifications) {
+		for (MarketplaceNotification n : notifications) {
+			MutableText msg = Text.literal("[ShopLogger] ").formatted(ChatFormat.PREFIX)
+					.append(Text.literal("Marketplace: ").formatted(ChatFormat.SUCCESS))
+					.append(Text.literal(n.message == null ? "" : n.message).formatted(ChatFormat.RESULT));
+			client.player.sendMessage(msg, false);
+		}
 	}
 
 	private static void report(MinecraftClient client, String world, List<String> watched, List<Listing> listings) {

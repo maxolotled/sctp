@@ -197,9 +197,12 @@
 <body>
 
 <header class="site">
-	<div class="wrap">
-		<h1>Firefly World Map Project</h1>
-		<p class="tag">Mapping the whole 50k&times;50k world :D!</p>
+	<div class="wrap" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+		<div>
+			<h1>Firefly World Map Project</h1>
+			<p class="tag">Mapping the whole 50k&times;50k world :D!</p>
+		</div>
+		<div id="accountWidgetMount"></div>
 	</div>
 </header>
 
@@ -256,6 +259,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="/account-widget.js" defer></script>
 <script>
 (function(){
 	"use strict";

@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Marketplace - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(183,226,61,0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:1180px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	.nav-links{display:flex;gap:16px;align-items:center;}
+	.nav-links a{color:var(--shell);text-decoration:none;font-size:14px;font-weight:600;}
+	.nav-links a:hover{color:var(--accent);}
+
+	main{padding:24px 0 70px;}
+	.toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:18px;}
+	.segmented{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+	.segmented button{background:var(--panel-alt);border:none;color:var(--muted);padding:9px 16px;font-weight:600;font-size:13.5px;cursor:pointer;border-right:1px solid var(--line);font-family:inherit;}
+	.segmented button:last-child{border-right:none;}
+	.segmented button.active{background:var(--accent);color:var(--accent-ink);}
+	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
+	.btn:hover{background:var(--accent-dim);}
+	.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:9px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
+	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.btn-danger{background:transparent;border:1px solid var(--bad);color:var(--bad);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;}
+
+	.tabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--line);}
+	.tab-btn{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-weight:600;font-size:14px;padding:10px 4px;margin-right:20px;margin-bottom:-1px;cursor:pointer;font-family:inherit;}
+	.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+	.tab-pane{display:none;}
+	.tab-pane.active{display:block;}
+
+	.card-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:14px;}
+	.listing-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;}
+	.listing-card .lc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;}
+	.listing-card h3{font-family:var(--font-display);font-size:16px;margin:0;}
+	.badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:0.03em;}
+	.badge.selling{background:rgba(183,226,61,0.15);color:var(--accent);}
+	.badge.lookingfor{background:rgba(140,147,232,0.18);color:#8C93E8;}
+	.lc-meta{color:var(--muted);font-size:12.5px;margin:0 0 10px;}
+	.lc-price{font-family:var(--font-mono);font-size:15px;color:var(--accent);font-weight:700;margin-bottom:6px;}
+	.lc-notes{color:var(--text);font-size:13px;margin:0 0 10px;opacity:0.85;}
+	.lc-foot{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--muted);}
+	.verified{color:var(--accent);}
+	.empty-state{color:var(--muted);font-size:13.5px;padding:30px 0;text-align:center;}
+
+	.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
+	.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;}
+	.modal h2{font-family:var(--font-display);font-size:19px;margin:0 0 16px;}
+	.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+	.field label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.03em;}
+	.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+	select,input[type=text],input[type=number],textarea{
+		width:100%;box-sizing:border-box;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
+		border-radius:8px;padding:9px 12px;font-family:inherit;font-size:14px;
+	}
+	textarea{resize:vertical;min-height:60px;}
+	select:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent-dim);}
+	.err{color:var(--bad);font-size:12.5px;margin:0 0 10px;}
+	.modal .actions{display:flex;gap:10px;margin-top:16px;}
+	.modal .actions .btn,.modal .actions .btn-ghost{flex:1;}
+	.type-toggle{display:flex;gap:8px;margin-bottom:14px;}
+	.type-toggle button{flex:1;background:var(--panel-alt);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit;}
+	.type-toggle button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
+
+	.bid-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+	.bid-row:last-child{border-bottom:none;}
+	.notif-row{padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+	.notif-row:last-child{border-bottom:none;}
+	.notif-row.unread{border-left:3px solid var(--accent);padding-left:10px;}
+	.notif-time{color:var(--muted);font-size:11.5px;}
+
+	footer.site{padding:20px 0 40px;color:var(--muted);font-size:12.5px;text-align:center;}
+	datalist{display:none;}
+</style>
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">🛒</div>
+			<h1>Marketplace</h1>
+		</div>
+		<div class="nav-links">
+			<a href="../">Home</a>
+			<a href="../items/">Items</a>
+			<a href="../list/">Build List</a>
+			<a href="../docs.html">Info</a>
+			<div id="accountWidgetMount"></div>
+		</div>
+	</div>
+</header>
+
+<main class="wrap">
+	<p style="color:var(--muted);font-size:13.5px;margin-top:0;">Buy/sell/trade board — bidding is open-ended (no auction timer); sellers accept whichever offer they want, whenever. Listings auto-expire after 14 days.</p>
+
+	<div class="tabs">
+		<button type="button" class="tab-btn active" data-tab="browse">Browse</button>
+		<button type="button" class="tab-btn" data-tab="mine" id="mineTab">My Marketplace</button>
+		<button type="button" class="tab-btn" data-tab="notifications" id="notifTab">Notifications</button>
+	</div>
+
+	<div class="tab-pane active" id="paneBrowse">
+		<div class="toolbar">
+			<div class="segmented" id="worldSeg">
+				<button type="button" data-v="">Both</button>
+				<button type="button" data-v="Firefly" class="active">Firefly</button>
+				<button type="button" data-v="Honeybee">Honeybee</button>
+			</div>
+			<div style="display:flex;gap:10px;align-items:center;">
+				<div class="segmented" id="typeSeg">
+					<button type="button" data-v="" class="active">All</button>
+					<button type="button" data-v="selling">Selling</button>
+					<button type="button" data-v="lookingFor">Looking for</button>
+				</div>
+				<button type="button" class="btn" id="newListingBtn">+ New Listing</button>
+			</div>
+		</div>
+		<div id="listingsGrid" class="card-grid"></div>
+		<p class="empty-state" id="listingsEmpty" hidden>No active listings match these filters.</p>
+	</div>
+
+	<div class="tab-pane" id="paneMine">
+		<div id="mineContent"></div>
+	</div>
+
+	<div class="tab-pane" id="paneNotifications">
+		<div id="notifContent"></div>
+	</div>
+</main>
+
+<datalist id="marketItemsList"></datalist>
+
+<footer class="site">
+	<div class="wrap">Community-maintained · arrange trades in-game yourselves · nothing here is verified by server staff</div>
+</footer>
+
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var listings = [];
+	var worldFilter = "Firefly";
+	var typeFilter = "";
+	var vanillaByNormName = {};
+	var itemCatalog = []; // {name, baseItem} for both vanilla + rare
+
+	function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+	function fmtNum(n){ return Number(n).toLocaleString(); }
+	function alphaOnly(s){ return String(s||"").toLowerCase().replace(/[^a-z]/g, ""); }
+	function session(){ return window.sctpAccount ? window.sctpAccount.getSession() : null; }
+
+	function authFetch(path, opts){
+		opts = opts || {};
+		var s = session();
+		var headers = opts.headers || {};
+		if(s) headers["Authorization"] = "Bearer " + s.token;
+		if(opts.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+		return fetch(API_BASE + path, { method: opts.method || "GET", headers: headers, body: opts.body }).then(function(r){
+			return r.json().then(function(d){ return { ok: r.ok, status: r.status, data: d }; });
+		});
+	}
+
+	// ---------------- catalog (for the "select an item" autocomplete) ----------------
+	function loadCatalog(){
+		return Promise.all([
+			fetch("../data/vanilla-items.json").then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
+			fetch("../data/rare-items.json").then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; })
+		]).then(function(results){
+			var datalist = document.getElementById("marketItemsList");
+			results[0].concat(results[1]).forEach(function(it){
+				if(!it.name) return;
+				itemCatalog.push({ name: it.name, baseItem: it.baseItem || null });
+				var key = alphaOnly(it.name);
+				if(key && !vanillaByNormName[key]) vanillaByNormName[key] = it;
+				var opt = document.createElement("option");
+				opt.value = it.name;
+				datalist.appendChild(opt);
+			});
+		});
+	}
+
+	// ---------------- browse ----------------
+	function loadListings(){
+		return fetch(API_BASE + "/marketplace/listings").then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }).then(function(rows){
+			listings = rows;
+			renderListings();
+		});
+	}
+
+	function currencyText(amount, currency){ return amount == null ? null : fmtNum(amount) + " " + esc(currency || "?"); }
+
+	function renderListings(){
+		var grid = document.getElementById("listingsGrid");
+		var rows = listings.filter(function(l){
+			if(worldFilter && l.world !== worldFilter) return false;
+			if(typeFilter && l.type !== typeFilter) return false;
+			return true;
+		});
+		document.getElementById("listingsEmpty").hidden = rows.length > 0;
+		grid.innerHTML = rows.map(function(l){
+			var priceLine = l.type === "selling"
+				? [l.askingPrice != null ? currencyText(l.askingPrice, l.askingCurrency) + " (asking)" : null,
+				   l.startingBid != null ? currencyText(l.startingBid, l.startingBidCurrency) + " (starting bid)" : null]
+					.filter(Boolean).join(" · ")
+				: currencyText(l.budget, l.budgetCurrency) + " (budget)";
+			var bidText = l.type === "selling"
+				? (l.bidCount ? l.bidCount + " bid" + (l.bidCount===1?"":"s") + (l.highestBid ? " · highest " + currencyText(l.highestBid.amount, l.highestBid.currency) : "") : "No bids yet")
+				: "";
+			return '<div class="listing-card">' +
+				'<div class="lc-top"><h3>' + esc(l.itemName) + '</h3><span class="badge ' + (l.type === "selling" ? "selling" : "lookingfor") + '">' + (l.type === "selling" ? "Selling" : "Looking for") + '</span></div>' +
+				'<p class="lc-meta">' + esc(l.world) + ' · qty ' + fmtNum(l.quantity) + '</p>' +
+				'<div class="lc-price">' + esc(priceLine || "—") + '</div>' +
+				(l.notes ? '<p class="lc-notes">' + esc(l.notes) + '</p>' : '') +
+				'<div class="lc-foot">' +
+					'<span>' + esc(l.seller) + (l.sellerVerified ? ' <span class="verified">&#10003;</span>' : '') + '</span>' +
+					(l.type === "selling" ? '<span>' + esc(bidText) + '</span>' : '') +
+				'</div>' +
+				'<button type="button" class="btn-ghost" style="width:100%;margin-top:10px;" data-open-listing="' + esc(l.id) + '">' + (l.type === "selling" ? "View / Bid" : "View") + '</button>' +
+			'</div>';
+		}).join("");
+		grid.querySelectorAll("[data-open-listing]").forEach(function(btn){
+			btn.addEventListener("click", function(){ openListingDetail(btn.getAttribute("data-open-listing")); });
+		});
+	}
+
+	document.querySelectorAll("#worldSeg button").forEach(function(btn){
+		btn.addEventListener("click", function(){
+			document.querySelectorAll("#worldSeg button").forEach(function(b){ b.classList.remove("active"); });
+			btn.classList.add("active");
+			worldFilter = btn.dataset.v;
+			renderListings();
+		});
+	});
+	document.querySelectorAll("#typeSeg button").forEach(function(btn){
+		btn.addEventListener("click", function(){
+			document.querySelectorAll("#typeSeg button").forEach(function(b){ b.classList.remove("active"); });
+			btn.classList.add("active");
+			typeFilter = btn.dataset.v;
+			renderListings();
+		});
+	});
+
+	// ---------------- listing detail / bidding modal ----------------
+	function openListingDetail(id){
+		var l = listings.filter(function(x){ return x.id === id; })[0];
+		if(!l) return;
+		var s = session();
+		var wrap = document.createElement("div");
+		wrap.className = "modal-bg";
+		var priceLine = l.type === "selling"
+			? [l.askingPrice != null ? currencyText(l.askingPrice, l.askingCurrency) + " (asking)" : null,
+			   l.startingBid != null ? currencyText(l.startingBid, l.startingBidCurrency) + " (starting bid)" : null].filter(Boolean).join(" · ")
+			: currencyText(l.budget, l.budgetCurrency) + " (budget)";
+		var html = '<div class="modal">' +
+			'<h2>' + esc(l.itemName) + '</h2>' +
+			'<p class="lc-meta">' + esc(l.world) + ' · qty ' + fmtNum(l.quantity) + ' · posted by ' + esc(l.seller) + (l.sellerVerified ? ' <span class="verified">&#10003;</span>' : '') + '</p>' +
+			'<div class="lc-price">' + esc(priceLine || "—") + '</div>' +
+			(l.notes ? '<p class="lc-notes">' + esc(l.notes) + '</p>' : '');
+		if(l.type === "selling"){
+			html += '<div id="bidPlaceArea"></div>';
+			html += '<h3 style="font-size:14px;margin:16px 0 8px;">Bids</h3><div id="bidListArea"></div>';
+		}
+		html += '<div class="actions"><button type="button" class="btn-ghost" id="detailClose" style="width:100%;">Close</button></div></div>';
+		wrap.innerHTML = html;
+		document.body.appendChild(wrap);
+		document.getElementById("detailClose").onclick = function(){ wrap.remove(); };
+		wrap.addEventListener("click", function(e){ if(e.target === wrap) wrap.remove(); });
+
+		if(l.type === "selling"){
+			var placeArea = document.getElementById("bidPlaceArea");
+			if(!s){
+				placeArea.innerHTML = '<p class="lc-meta">Log in to place a bid.</p>';
+			} else {
+				placeArea.innerHTML =
+					'<div class="row2"><div class="field"><label>Your bid</label><input type="number" id="bidAmount" min="0" step="any"></div>' +
+					'<div class="field"><label>Currency</label><input type="text" id="bidCurrency" placeholder="diamond"></div></div>' +
+					'<div class="field"><label>Message (optional)</label><input type="text" id="bidMessage" maxlength="300"></div>' +
+					'<p class="err" id="bidErr" hidden></p>' +
+					'<button type="button" class="btn" style="width:100%;" id="bidSubmit">Place bid</button>';
+				document.getElementById("bidSubmit").onclick = function(){
+					var amount = Number(document.getElementById("bidAmount").value);
+					var currency = document.getElementById("bidCurrency").value.trim();
+					var message = document.getElementById("bidMessage").value.trim();
+					var errEl = document.getElementById("bidErr");
+					errEl.hidden = true;
+					if(!amount || amount <= 0 || !currency){ errEl.textContent = "Enter a positive amount and a currency."; errEl.hidden = false; return; }
+					authFetch("/marketplace/bids/place", { method: "POST", body: JSON.stringify({ listingId: l.id, amount: amount, currency: currency, message: message || undefined }) })
+						.then(function(res){
+							if(!res.ok){ errEl.textContent = res.data.error || "Couldn't place bid."; errEl.hidden = false; return; }
+							wrap.remove();
+							loadListings();
+						});
+				};
+			}
+			// Bidder-side view only shows a count/summary (see the card) — full
+			// per-bid accept/reject is only meaningful to the seller, shown
+			// under "My Marketplace" instead of here, since a bidder identity
+			// list on a public page would leak who's bidding on what.
+			document.getElementById("bidListArea").innerHTML =
+				'<p class="lc-meta">' + (l.bidCount ? l.bidCount + " bid" + (l.bidCount===1?"":"s") + " so far" + (l.highestBid ? ", highest " + currencyText(l.highestBid.amount, l.highestBid.currency) : "") : "No bids yet") + '. Manage your own listing\'s bids under My Marketplace.</p>';
+		}
+	}
+
+	// ---------------- new listing modal ----------------
+	function openNewListingModal(){
+		var s = session();
+		if(!s){ alert("Log in first to post a listing."); return; }
+		var type = "selling";
+		var wrap = document.createElement("div");
+		wrap.className = "modal-bg";
+		wrap.innerHTML =
+			'<div class="modal">' +
+				'<h2>New listing</h2>' +
+				'<div class="type-toggle"><button type="button" class="active" data-type="selling">Selling</button><button type="button" data-type="lookingFor">Looking for</button></div>' +
+				'<div class="field"><label>Item</label><input type="text" id="nlItem" list="marketItemsList" placeholder="Start typing an item name…"></div>' +
+				'<div class="row2"><div class="field"><label>World</label><select id="nlWorld"><option value="Firefly">Firefly</option><option value="Honeybee">Honeybee</option></select></div>' +
+				'<div class="field"><label>Quantity</label><input type="number" id="nlQty" min="1" value="1"></div></div>' +
+				'<div id="nlPriceFields"></div>' +
+				'<div class="field"><label>Notes (optional)</label><textarea id="nlNotes" maxlength="500"></textarea></div>' +
+				'<p class="err" id="nlErr" hidden></p>' +
+				'<div class="actions"><button type="button" class="btn-ghost" id="nlCancel">Cancel</button><button type="button" class="btn" id="nlSubmit">Post listing</button></div>' +
+			'</div>';
+		document.body.appendChild(wrap);
+		document.getElementById("nlCancel").onclick = function(){ wrap.remove(); };
+		wrap.addEventListener("click", function(e){ if(e.target === wrap) wrap.remove(); });
+
+		function renderPriceFields(){
+			var area = document.getElementById("nlPriceFields");
+			if(type === "selling"){
+				area.innerHTML =
+					'<div class="row2"><div class="field"><label>Asking price (optional)</label><input type="number" id="nlAsking" min="0" step="any"></div>' +
+					'<div class="field"><label>Currency</label><input type="text" id="nlAskingCur" placeholder="diamond"></div></div>' +
+					'<div class="row2"><div class="field"><label>Starting bid (optional)</label><input type="number" id="nlStarting" min="0" step="any"></div>' +
+					'<div class="field"><label>Currency</label><input type="text" id="nlStartingCur" placeholder="diamond"></div></div>';
+			} else {
+				area.innerHTML =
+					'<div class="row2"><div class="field"><label>Budget (optional)</label><input type="number" id="nlBudget" min="0" step="any"></div>' +
+					'<div class="field"><label>Currency</label><input type="text" id="nlBudgetCur" placeholder="diamond"></div></div>';
+			}
+		}
+		renderPriceFields();
+		wrap.querySelectorAll(".type-toggle button").forEach(function(btn){
+			btn.addEventListener("click", function(){
+				wrap.querySelectorAll(".type-toggle button").forEach(function(b){ b.classList.remove("active"); });
+				btn.classList.add("active");
+				type = btn.dataset.type;
+				renderPriceFields();
+			});
+		});
+
+		document.getElementById("nlSubmit").onclick = function(){
+			var errEl = document.getElementById("nlErr");
+			errEl.hidden = true;
+			var itemName = document.getElementById("nlItem").value.trim();
+			var match = vanillaByNormName[alphaOnly(itemName)];
+			if(!itemName || !match){ errEl.textContent = "Pick a valid item from the list."; errEl.hidden = false; return; }
+			var body = {
+				type: type, itemName: match.name, baseItem: match.baseItem || undefined,
+				world: document.getElementById("nlWorld").value,
+				quantity: parseInt(document.getElementById("nlQty").value, 10) || 1,
+				notes: document.getElementById("nlNotes").value.trim() || undefined
+			};
+			if(type === "selling"){
+				var asking = document.getElementById("nlAsking").value;
+				var starting = document.getElementById("nlStarting").value;
+				if(!asking && !starting){ errEl.textContent = "Provide an asking price, a starting bid, or both."; errEl.hidden = false; return; }
+				if(asking){ body.askingPrice = Number(asking); body.askingCurrency = document.getElementById("nlAskingCur").value.trim(); }
+				if(starting){ body.startingBid = Number(starting); body.startingBidCurrency = document.getElementById("nlStartingCur").value.trim(); }
+			} else {
+				var budget = document.getElementById("nlBudget").value;
+				if(budget){ body.budget = Number(budget); body.budgetCurrency = document.getElementById("nlBudgetCur").value.trim(); }
+			}
+			authFetch("/marketplace/listings/create", { method: "POST", body: JSON.stringify(body) }).then(function(res){
+				if(!res.ok){ errEl.textContent = res.data.error || "Couldn't post listing."; errEl.hidden = false; return; }
+				wrap.remove();
+				loadListings();
+			});
+		};
+	}
+	document.getElementById("newListingBtn").addEventListener("click", openNewListingModal);
+
+	// ---------------- tabs ----------------
+	document.querySelectorAll(".tab-btn").forEach(function(btn){
+		btn.addEventListener("click", function(){ activateTab(btn.dataset.tab); });
+	});
+	function activateTab(tab){
+		document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.toggle("active", b.dataset.tab === tab); });
+		document.querySelectorAll(".tab-pane").forEach(function(p){ p.classList.remove("active"); });
+		document.getElementById("pane" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
+		if(tab === "mine") loadMine();
+		if(tab === "notifications") loadNotifications();
+	}
+	if(location.hash === "#mine") activateTab("mine");
+
+	// ---------------- my marketplace ----------------
+	function loadMine(){
+		var host = document.getElementById("mineContent");
+		var s = session();
+		if(!s){ host.innerHTML = '<p class="empty-state">Log in to see your listings and bids.</p>'; return; }
+		host.innerHTML = '<p class="empty-state">Loading…</p>';
+		authFetch("/marketplace/mine").then(function(res){
+			if(!res.ok){ host.innerHTML = '<p class="empty-state">Couldn\'t load your marketplace data.</p>'; return; }
+			renderMine(res.data);
+		});
+	}
+
+	function renderMine(data){
+		var host = document.getElementById("mineContent");
+		var bidsByListing = {};
+		data.bidsReceived.forEach(function(b){ (bidsByListing[b.listingId] = bidsByListing[b.listingId] || []).push(b); });
+
+		var listingsHtml = data.listings.length ? data.listings.map(function(l){
+			var received = (bidsByListing[l.id] || []);
+			var pending = received.filter(function(b){ return b.status === "pending"; });
+			var bidsHtml = pending.length ? pending.map(function(b){
+				return '<div class="bid-row"><span>' + fmtNum(b.amount) + ' ' + esc(b.currency) + (b.message ? ' — "' + esc(b.message) + '"' : '') + '</span>' +
+					(l.status === "active" ? '<span><button type="button" class="btn-ghost" data-accept-bid="' + esc(b.id) + '" style="margin-right:6px;">Accept</button><button type="button" class="btn-danger" data-reject-bid="' + esc(b.id) + '">Decline</button></span>' : '') +
+				'</div>';
+			}).join("") : '<p class="lc-meta">No pending bids.</p>';
+			return '<div class="listing-card" style="margin-bottom:12px;">' +
+				'<div class="lc-top"><h3>' + esc(l.itemName) + '</h3><span class="badge ' + (l.type === "selling" ? "selling" : "lookingfor") + '">' + esc(l.status) + '</span></div>' +
+				'<p class="lc-meta">' + esc(l.world) + ' · qty ' + fmtNum(l.quantity) + '</p>' +
+				(l.type === "selling" ? bidsHtml : '') +
+				(l.status === "active" ? '<button type="button" class="btn-danger" data-cancel-listing="' + esc(l.id) + '" style="margin-top:8px;">Cancel listing</button>' : '') +
+			'</div>';
+		}).join("") : '<p class="empty-state">You haven\'t posted anything yet.</p>';
+
+		var myBidsHtml = data.myBids.length ? data.myBids.map(function(b){
+			return '<div class="bid-row"><span>' + esc(b.itemName) + ' (' + esc(b.world) + ') — ' + fmtNum(b.amount) + ' ' + esc(b.currency) + '</span>' +
+				'<span><span class="badge ' + (b.status === "pending" ? "lookingfor" : "selling") + '">' + esc(b.status) + '</span>' +
+				(b.status === "pending" ? ' <button type="button" class="btn-danger" data-withdraw-bid="' + esc(b.id) + '" style="margin-left:8px;">Withdraw</button>' : '') + '</span></div>';
+		}).join("") : '<p class="empty-state">You haven\'t bid on anything yet.</p>';
+
+		host.innerHTML =
+			'<h2 style="font-family:var(--font-display);font-size:17px;">Your listings</h2>' + listingsHtml +
+			'<h2 style="font-family:var(--font-display);font-size:17px;margin-top:24px;">Your bids</h2>' +
+			'<div class="listing-card">' + myBidsHtml + '</div>';
+
+		host.querySelectorAll("[data-accept-bid]").forEach(function(btn){
+			btn.addEventListener("click", function(){ authFetch("/marketplace/bids/accept", { method: "POST", body: JSON.stringify({ bidId: btn.getAttribute("data-accept-bid") }) }).then(function(){ loadMine(); loadListings(); }); });
+		});
+		host.querySelectorAll("[data-reject-bid]").forEach(function(btn){
+			btn.addEventListener("click", function(){ authFetch("/marketplace/bids/reject", { method: "POST", body: JSON.stringify({ bidId: btn.getAttribute("data-reject-bid") }) }).then(function(){ loadMine(); }); });
+		});
+		host.querySelectorAll("[data-withdraw-bid]").forEach(function(btn){
+			btn.addEventListener("click", function(){ authFetch("/marketplace/bids/withdraw", { method: "POST", body: JSON.stringify({ bidId: btn.getAttribute("data-withdraw-bid") }) }).then(function(){ loadMine(); }); });
+		});
+		host.querySelectorAll("[data-cancel-listing]").forEach(function(btn){
+			btn.addEventListener("click", function(){ authFetch("/marketplace/listings/cancel", { method: "POST", body: JSON.stringify({ id: btn.getAttribute("data-cancel-listing") }) }).then(function(){ loadMine(); loadListings(); }); });
+		});
+	}
+
+	// ---------------- notifications ----------------
+	function loadNotifications(){
+		var host = document.getElementById("notifContent");
+		var s = session();
+		if(!s){ host.innerHTML = '<p class="empty-state">Log in to see your notifications.</p>'; return; }
+		host.innerHTML = '<p class="empty-state">Loading…</p>';
+		authFetch("/marketplace/notifications").then(function(res){
+			if(!res.ok){ host.innerHTML = '<p class="empty-state">Couldn\'t load notifications.</p>'; return; }
+			var rows = res.data;
+			if(!rows.length){ host.innerHTML = '<p class="empty-state">Nothing yet.</p>'; return; }
+			host.innerHTML = '<button type="button" class="btn-ghost" id="markAllRead" style="margin-bottom:12px;">Mark all read</button>' +
+				'<div class="listing-card">' + rows.map(function(n){
+					return '<div class="notif-row' + (n.readAt ? '' : ' unread') + '"><div>' + esc(n.message) + '</div><div class="notif-time">' + esc(new Date(n.createdAt).toLocaleString()) + '</div></div>';
+				}).join("") + '</div>';
+			document.getElementById("markAllRead").addEventListener("click", function(){
+				authFetch("/marketplace/notifications/mark-read", { method: "POST", body: JSON.stringify({}) }).then(function(){ loadNotifications(); });
+			});
+		});
+	}
+
+	Promise.all([loadCatalog(), loadListings()]);
+})();
+</script>
+</body>
+</html>

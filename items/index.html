@@ -110,7 +110,10 @@
 				<p class="tag">Browse every item, click one to see its price history and more info! Updated July 2026.</a></p>
 			</div>
 		</div>
-		<a href="/" style="color:var(--muted);font-size:14px;font-weight:600;text-decoration:none;">&larr; Home</a>
+		<div style="display:flex;align-items:center;gap:16px;">
+			<a href="/" style="color:var(--muted);font-size:14px;font-weight:600;text-decoration:none;">&larr; Home</a>
+			<div id="accountWidgetMount"></div>
+		</div>
 	</div>
 </header>
 
@@ -145,6 +148,7 @@
 	<div class="wrap">Thanks to LadyMaledicte & Hornzilla for their amazing work on the rare library!</div>
 </footer>
 
+<script src="/account-widget.js" defer></script>
 <script>
 (function(){
 	"use strict";

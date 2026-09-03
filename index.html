@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="/account-widget.js" defer></script>
 <style>
 	:root{
 		--bg:#101B14;
@@ -438,8 +439,10 @@
 			<div style="display:flex;align-items:center;gap:16px;">
 				<a href="items/" class="docs-cta">Items</a>
 				<a href="list/" class="docs-cta">Build List</a>
+				<a href="marketplace/" class="docs-cta">Marketplace</a>
 				<a href="docs.html" class="docs-cta">Info</a>
 				<button class="upload-cta" id="downloadMod" type="button">Download mod</button>
+				<div id="accountWidgetMount"></div>
 			</div>
 		</div>
 		<div class="trail-wrap" aria-hidden="true">
@@ -1493,9 +1496,11 @@
 				? '<span class="info-icon" tabindex="0">i<span class="tooltip">'+esc(rareMatches.join(" "))+'</span></span>'
 				: '';
 			var manual = isManualListing(r);
-			var stockCell = manual
-				? '&infin;'+manualIcon("Added manually by an admin — stock isn't tracked for this listing.")
-				: fmtNum(r.amount)+'<br><span class="price-sub">'+r.stacksInStock+' '+(r.bulk ? 'shulks' : r.stackSize === 64 ? 'stacks' : 'groups')+'</span>';
+			var stockCell = r.marketplace
+				? (r.marketplaceType === "lookingFor" ? "wants " : "has ")+fmtNum(r.amount)
+				: manual
+					? '&infin;'+manualIcon("Added manually by an admin — stock isn't tracked for this listing.")
+					: fmtNum(r.amount)+'<br><span class="price-sub">'+r.stacksInStock+' '+(r.bulk ? 'shulks' : r.stackSize === 64 ? 'stacks' : 'groups')+'</span>';
 			var lastSeenCell = manual
 				? 'None ('+esc(r.lastSeen)+')'+manualIcon("Added manually by an admin — there's no real scan time for this listing.")
 				: relTime(r.lastSeen);
@@ -1503,15 +1508,16 @@
 			var itemNameHtml = itemUrl
 				? '<a href="'+esc(itemUrl)+'">'+esc(r.itemNameDisplay)+'</a>'
 				: esc(r.itemNameDisplay);
+			var typeCell = r.marketplace
+				? '<span class="badge '+(r.marketplaceType === "lookingFor" ? "mixed" : "bulk")+'">'+(r.marketplaceType === "lookingFor" ? "Wanted" : "Marketplace")+'</span>'
+				: (r.bulk ? '<span class="badge bulk">Bulk</span>' : r.bundled ? '<span class="badge bundled">Bundled</span>' : '<span class="badge single">Single</span>')+
+					(r.mixedContents ? ' <span class="badge mixed">Mixed chest</span>' : '');
 			html += '<tr>'+
 				'<td class="item-icon"><img src="'+esc(iconFor(r))+'" alt="" loading="lazy" onerror="this.onerror=null;this.src=\''+PLACEHOLDER_ICON_JS+'\';"></td>'+
 				'<td class="item-name">'+itemNameHtml+rareIcon+'</td>'+
 				'<td class="base-item">'+esc(r.baseItem)+'</td>'+
-				'<td>'+
-					(r.bulk ? '<span class="badge bulk">Bulk</span>' : r.bundled ? '<span class="badge bundled">Bundled</span>' : '<span class="badge single">Single</span>')+
-					(r.mixedContents ? ' <span class="badge mixed">Mixed chest</span>' : '')+
-				'</td>'+
-				'<td><span class="price-main">'+esc(r.priceLabel)+'</span><br><span class="price-sub">per '+(r.bulk ? 'shulk' : r.stackSize)+'</span></td>'+
+				'<td>'+typeCell+'</td>'+
+				'<td><span class="price-main">'+esc(r.priceLabel)+'</span>'+(r.marketplace ? '' : '<br><span class="price-sub">per '+(r.bulk ? 'shulk' : r.stackSize)+'</span>')+'</td>'+
 				'<td style="text-align:center;"><input type="checkbox" class="avg-toggle" data-key="'+esc(rowKey(r))+'" title="Include this listing in the average price above"'+(avgExcluded[rowKey(r)] ? '' : ' checked')+'></td>'+
 				'<td>'+stockCell+'</td>'+
 				'<td class="seller">'+(sellerUrl(r.seller, r.world) ? '<a href="'+sellerUrl(r.seller, r.world)+'">'+esc(r.seller)+'</a>' : esc(r.seller))+infoIcon+'</td>'+
