@@ -184,10 +184,12 @@ public class ShopLoggerClient implements ClientModInitializer {
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
 			WorldDetector.getInstance().requestRedetect();
 			WatchlistJoinCheck.requestCheck();
+			UpdateNoticeCheck.requestCheck();
 		});
 		ClientConfigurationConnectionEvents.COMPLETE.register((handler, client) -> {
 			WorldDetector.getInstance().requestRedetect();
 			WatchlistJoinCheck.requestCheck();
+			UpdateNoticeCheck.requestCheck();
 		});
 
 		// Automatic path: silent proximity scanning (requires the mixin).
@@ -198,6 +200,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 			TeleportHighlight.getInstance().tick(client);
 			WorldDetector.getInstance().tick(client);
 			WatchlistJoinCheck.tick(client);
+			UpdateNoticeCheck.tick(client);
 			QolHookManager.onTick();
 
 

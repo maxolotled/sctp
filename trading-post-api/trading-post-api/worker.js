@@ -16,6 +16,9 @@
 //   GET /rare-items        -> {firefly: [...], honeybee: [...]}
 //   GET /faq               -> faq entries
 //   GET /world-map         -> {squareId: {status, username, claimedAt, completedAt}}
+//   GET /update-notice     -> {enabled, minVersion, message} — the mod checks this on
+//     join and prints `message` to chat if its own version is below minVersion (see
+//     UpdateNoticeCheck in the mod and the "updateNotice" permission bucket below).
 //
 // Admin auth (see requireAdminAuth): Authorization: Bearer <session token
 // from POST /admin/login>, limited to whichever permission bucket each route
@@ -63,6 +66,9 @@
 // Permission bucket "rareApprovals":
 //   GET  /admin/rare-approvals               -> rare items priced 1-2 diamond, held pending approval (see pendingRareApprovals below)
 //   POST /admin/rare-approvals/resolve       body: {id, action: "approve"|"deny"}
+// Permission bucket "updateNotice":
+//   GET  /admin/update-notice                -> current config {enabled, minVersion, message, updatedAt, updatedBy}
+//   POST /admin/update-notice/set            body: {enabled, minVersion, message}
 //
 // GET /items/history?itemKey=<key> (public, cached 1hr) -> daily price/stock/seller
 //   history for one item. itemKey is "v:<baseItem>|<exact display name>" (lowercased)
@@ -365,7 +371,7 @@ async function getRareNameSet() {
 // granted. The old shared ADMIN_KEY master-key bypass was removed once real
 // accounts existed — see requireAnyAdmin.
 const ADMIN_PERMISSION_BUCKETS = new Set([
-	"reports", "sharedShopRequests", "faq", "worldMap", "manualListings", "blockedSellers", "rareApprovals", "marketplaceListings",
+	"reports", "sharedShopRequests", "faq", "worldMap", "manualListings", "blockedSellers", "rareApprovals", "marketplaceListings", "updateNotice",
 ]);
 
 // Ranks bids for a seller's convenience using the shared CURRENCY_VALUE
@@ -1728,6 +1734,46 @@ async function handleAdminSetSquare(request, env) {
 	return json({ ok: true });
 }
 
+// GET /update-notice — public, cached. The mod fetches this once per join
+// (see UpdateNoticeCheck) and compares its own version against minVersion
+// using the same isVersionAtLeast logic as MIN_TRUSTED_PRUNE_VERSION above;
+// below it, `message` gets printed to chat. Nothing else on the site reads this.
+async function handleGetUpdateNotice(request, env, ctx) {
+	return cachedGet(request, ctx, CACHE_TTL_SECONDS, async () => {
+		const row = await env.DB.prepare("SELECT enabled, minVersion, message FROM updateNotice WHERE id = 1").first();
+		return row ? { enabled: !!row.enabled, minVersion: row.minVersion, message: row.message } : { enabled: false, minVersion: "", message: "" };
+	});
+}
+
+// Permission bucket "updateNotice" — admin-panel-only read, bypasses the
+// public endpoint's edge cache so a save is reflected immediately.
+async function handleAdminGetUpdateNotice(request, env) {
+	const auth = await requireAdminAuth(request, env, "updateNotice");
+	if (!auth.ok) return auth.response;
+	const row = await env.DB.prepare("SELECT * FROM updateNotice WHERE id = 1").first();
+	return json(row ? { ...row, enabled: !!row.enabled } : { enabled: false, minVersion: "", message: "", updatedAt: null, updatedBy: "" });
+}
+
+async function handleAdminSetUpdateNotice(request, env) {
+	const auth = await requireAdminAuth(request, env, "updateNotice");
+	if (!auth.ok) return auth.response;
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const enabled = !!body.enabled;
+	const minVersion = String(body.minVersion || "").trim().slice(0, 20);
+	const message = String(body.message || "").trim().slice(0, 500);
+
+	await env.DB.prepare(
+		"UPDATE updateNotice SET enabled = ?, minVersion = ?, message = ?, updatedAt = ?, updatedBy = ? WHERE id = 1"
+	).bind(enabled ? 1 : 0, minVersion, message, new Date().toISOString(), auth.admin.username).run();
+
+	return json({ ok: true });
+}
+
 const MANUAL_ID_PATTERN = /^M(\d+)$/;
 const MAX_MANUAL_ENTRIES_PER_BATCH = 100;
 
@@ -2027,6 +2073,9 @@ const ROUTES = [
 	["GET", "/rare-items", handleGetRareItems],
 	["GET", "/faq", handleGetFaqPublic],
 	["GET", "/world-map", handleGetWorldMap],
+	["GET", "/update-notice", handleGetUpdateNotice],
+	["GET", "/admin/update-notice", handleAdminGetUpdateNotice],
+	["POST", "/admin/update-notice/set", handleAdminSetUpdateNotice],
 	["POST", "/world-map/claim", handleClaimSquare],
 	["POST", "/world-map/unclaim", handleUnclaimSquare],
 	["POST", "/world-map/complete", handleCompleteSquare],

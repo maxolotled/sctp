@@ -234,6 +234,23 @@
 		<div class="meta" style="margin-bottom:8px;">Every listing, any status — remove one that breaks the rules; the poster gets notified why.</div>
 		<div id="marketplaceModList"></div>
 		</section>
+
+		<section data-perm="updateNotice">
+		<h2>Update notice</h2>
+		<div class="card">
+			<div class="meta" style="margin-bottom:10px;">Shown in chat, once per join, to any mod client below the version set here. Leave disabled to turn it off without losing the saved message.</div>
+			<label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+				<input type="checkbox" id="updateNoticeEnabled"> Enabled
+			</label>
+			<label for="updateNoticeMinVersion" style="margin-top:10px;display:block;">Minimum version (e.g. 1.5.1) — anyone below this sees the message</label>
+			<input type="text" id="updateNoticeMinVersion" placeholder="1.5.1" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
+			<label for="updateNoticeMessage">Chat message</label>
+			<textarea id="updateNoticeMessage" rows="2" placeholder="A new version is available — download it from sctp.nl!" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px;"></textarea>
+			<div class="meta" id="updateNoticeMeta"></div>
+			<button id="updateNoticeSaveBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;margin-top:8px;">Save</button>
+			<div class="err" id="updateNoticeErr"></div>
+		</div>
+		</section>
 	</div>
 </div>
 
@@ -244,12 +261,12 @@
 
 	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
 	var EDITABLE_FIELDS = ["itemName","baseItem","price","priceLabel","stackSize","amount","stacksInStock","currency","seller","world","position"];
-	var ALL_PERMS = ["reports","sharedShopRequests","faq","worldMap","manualListings","blockedSellers","rareApprovals","marketplaceListings"];
+	var ALL_PERMS = ["reports","sharedShopRequests","faq","worldMap","manualListings","blockedSellers","rareApprovals","marketplaceListings","updateNotice"];
 	var PERM_LABELS = {
 		reports: "Reports", sharedShopRequests: "Shared-shop requests", faq: "FAQ",
 		worldMap: "World map", manualListings: "Manual listings",
 		blockedSellers: "Blocked sellers", rareApprovals: "Rare approvals",
-		marketplaceListings: "Marketplace listings",
+		marketplaceListings: "Marketplace listings", updateNotice: "Update notice",
 	};
 
 	// Session lives in account-widget.js's shared localStorage now — this
@@ -264,6 +281,7 @@
 	var rareApprovals = [];
 	var admins = [];
 	var marketplaceListings = [];
+	var updateNotice = null;
 
 	function esc(s){
 		return String(s).replace(/[&<>"']/g, function(c){
@@ -328,6 +346,7 @@
 		if(hasPerm("blockedSellers")) blockedSellers = await api("/admin/blocked-sellers");
 		if(hasPerm("rareApprovals")) rareApprovals = await api("/admin/rare-approvals");
 		if(hasPerm("marketplaceListings")) marketplaceListings = await api("/admin/marketplace/listings");
+		if(hasPerm("updateNotice")) updateNotice = await api("/admin/update-notice");
 		if(session && session.isHeadAdmin) admins = await api("/admin/admins");
 		render();
 	}
@@ -340,6 +359,44 @@
 		renderRareApprovals();
 		renderAdmins();
 		renderMarketplaceMod();
+		renderUpdateNotice();
+	}
+
+	// ---------------- update notice ----------------
+
+	function renderUpdateNotice(){
+		if(!updateNotice) return;
+		document.getElementById("updateNoticeEnabled").checked = !!updateNotice.enabled;
+		document.getElementById("updateNoticeMinVersion").value = updateNotice.minVersion || "";
+		document.getElementById("updateNoticeMessage").value = updateNotice.message || "";
+		var metaEl = document.getElementById("updateNoticeMeta");
+		metaEl.textContent = updateNotice.updatedAt
+			? "Last saved " + new Date(updateNotice.updatedAt).toLocaleString() + (updateNotice.updatedBy ? " by " + updateNotice.updatedBy : "")
+			: "";
+	}
+
+	async function saveUpdateNotice(){
+		var errEl = document.getElementById("updateNoticeErr");
+		errEl.style.color = "var(--danger)";
+		errEl.textContent = "";
+		try {
+			await api("/admin/update-notice/set", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					enabled: document.getElementById("updateNoticeEnabled").checked,
+					minVersion: document.getElementById("updateNoticeMinVersion").value.trim(),
+					message: document.getElementById("updateNoticeMessage").value.trim(),
+				}),
+			});
+			updateNotice = await api("/admin/update-notice");
+			renderUpdateNotice();
+			errEl.style.color = "var(--accent)";
+			errEl.textContent = "Saved.";
+		} catch(err){
+			errEl.style.color = "var(--danger)";
+			errEl.textContent = "Failed: " + err.message;
+		}
 	}
 
 	function renderMarketplaceMod(){
@@ -866,6 +923,7 @@
 
 	document.getElementById("worldMapLookupBtn").addEventListener("click", lookupWorldMapSquare);
 	document.getElementById("worldMapSaveBtn").addEventListener("click", saveWorldMapSquare);
+	document.getElementById("updateNoticeSaveBtn").addEventListener("click", saveUpdateNotice);
 
 	// ---------------- manually-added listings ----------------
 

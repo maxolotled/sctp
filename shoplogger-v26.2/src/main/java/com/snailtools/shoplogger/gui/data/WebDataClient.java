@@ -66,6 +66,10 @@ public final class WebDataClient {
 		return getJson(url, new TypeToken<List<MarketplaceNotification>>() {}.getType());
 	}
 
+	public static CompletableFuture<UpdateNotice> fetchUpdateNotice() {
+		return getJson(API_BASE + "/update-notice", UpdateNotice.class);
+	}
+
 	/** Downloads raw bytes — used for item/avatar textures (not JSON). */
 	public static CompletableFuture<byte[]> fetchBytes(String url) {
 		HttpRequest request = HttpRequest.newBuilder()
