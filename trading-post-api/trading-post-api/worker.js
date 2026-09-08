@@ -19,6 +19,8 @@
 //   GET /update-notice     -> {enabled, minVersion, message} — the mod checks this on
 //     join and prints `message` to chat if its own version is below minVersion (see
 //     UpdateNoticeCheck in the mod and the "updateNotice" permission bucket below).
+//   GET /roadmap           -> {fields, lists, cards} — server-side proxy of the public
+//     Trello roadmap board + its Amazing Fields Power-Up data, see roadmap/index.html.
 //
 // Admin auth (see requireAdminAuth): Authorization: Bearer <session token
 // from POST /admin/login>, limited to whichever permission bucket each route
@@ -1734,6 +1736,55 @@ async function handleAdminSetSquare(request, env) {
 	return json({ ok: true });
 }
 
+// GET /roadmap — public, cached. Proxies the project's public Trello board
+// (SCTP roadmap) enriched with its "Amazing Fields" Power-Up data (Where/
+// What/When tags, Progress, Details) — see roadmap/index.html. The Amazing
+// Fields API needs a paid-plan token (env.AMAZING_FIELDS_TOKEN, a Worker
+// secret), which must never reach the browser, so this fetches server-side
+// and returns only the public-safe shape the page actually renders.
+const ROADMAP_BOARD_ID = "6aa066d1ae691933af775a19";
+const ROADMAP_CACHE_TTL_SECONDS = 300; // 5 min — a personal roadmap board doesn't need to be live-live, and this keeps well under Amazing Fields' API quota
+
+async function handleGetRoadmap(request, env, ctx) {
+	return cachedGet(request, ctx, ROADMAP_CACHE_TTL_SECONDS, async () => {
+		const url = `https://api.amazingpowerups.com/api/data/v1/boards/${ROADMAP_BOARD_ID}/cards?token=${env.AMAZING_FIELDS_TOKEN}`;
+		const res = await fetch(url);
+		if (!res.ok) throw new Error(`Amazing Fields API ${res.status}`);
+		const data = await res.json();
+
+		const fields = ((data.amazingFieldsConfig && data.amazingFieldsConfig.fields) || []).map((f) => ({
+			id: f.id,
+			name: f.name,
+			type: f.type_str,
+			options: (f.options || []).map((o) => ({ id: o.id, text: o.text, color: o.color })),
+		}));
+
+		const lists = (data.lists || [])
+			.filter((l) => !l.closed)
+			.sort((a, b) => a.pos - b.pos)
+			.map((l) => ({ id: l.id, name: l.name }));
+
+		// isTemplate excludes the board's own "New Item" card template (used to
+		// seed new roadmap entries in Trello, not a real roadmap item itself).
+		const cards = (data.cards || [])
+			.filter((c) => !c.closed && !c.isTemplate)
+			.sort((a, b) => a.pos - b.pos)
+			.map((c) => ({
+				id: c.id,
+				name: c.name,
+				idList: c.idList,
+				shortUrl: c.shortUrl,
+				due: c.due,
+				dueComplete: c.dueComplete,
+				checkItems: (c.badges && c.badges.checkItems) || 0,
+				checkItemsChecked: (c.badges && c.badges.checkItemsChecked) || 0,
+				amazingFields: ((c.amazingFields && c.amazingFields.fields) || []).map((f) => ({ id: f.id, value: f.value })),
+			}));
+
+		return { fields, lists, cards };
+	});
+}
+
 // GET /update-notice — public, cached. The mod fetches this once per join
 // (see UpdateNoticeCheck) and compares its own version against minVersion
 // using the same isVersionAtLeast logic as MIN_TRUSTED_PRUNE_VERSION above;
@@ -2073,6 +2124,7 @@ const ROUTES = [
 	["GET", "/rare-items", handleGetRareItems],
 	["GET", "/faq", handleGetFaqPublic],
 	["GET", "/world-map", handleGetWorldMap],
+	["GET", "/roadmap", handleGetRoadmap],
 	["GET", "/update-notice", handleGetUpdateNotice],
 	["GET", "/admin/update-notice", handleAdminGetUpdateNotice],
 	["POST", "/admin/update-notice/set", handleAdminSetUpdateNotice],

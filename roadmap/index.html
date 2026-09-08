@@ -50,10 +50,13 @@
 	.card:last-child{margin-bottom:0;}
 	.card:hover{border-color:var(--accent-dim);}
 	.card .name{font-weight:600;font-size:14px;line-height:1.4;}
-	.card .labels{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;}
-	.label-chip.bar{width:26px;height:8px;border-radius:4px;display:inline-block;}
-	.label-chip.named{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;}
+	.card .tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;}
+	.tag-pill{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;}
 	.card .desc{color:var(--muted);font-size:12.5px;margin-top:6px;white-space:pre-wrap;}
+	.card .progress-wrap{margin-top:9px;}
+	.card .progress-track{background:var(--panel);border-radius:999px;height:6px;overflow:hidden;}
+	.card .progress-fill{height:100%;background:var(--accent);border-radius:999px;}
+	.card .progress-label{font-size:10.5px;color:var(--muted);margin-top:4px;}
 	.card .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
 	.card .meta span{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;background:var(--panel);color:var(--muted);}
 	.card .meta .due.overdue{color:#2a0f0a;background:var(--bad);}
@@ -91,7 +94,7 @@
 
 <main class="wrap">
 	<div class="intro">
-		<p>Pulled live from the project's public Trello board — this page is read-only, nothing here can be changed from the website.</p>
+		<p>Pulled live from the project's Trello board (including its Amazing Fields tags/progress) — this page is read-only, nothing here can be changed from the website.</p>
 		<a class="trello-link" href="https://trello.com/b/m1YT123a/sctp-roadmap" target="_blank" rel="noopener">View on Trello ↗</a>
 	</div>
 
@@ -105,15 +108,14 @@
 (function(){
 	"use strict";
 
-	var BOARD_JSON_URL = "https://trello.com/b/m1YT123a/sctp-roadmap.json";
-	var BOARD_URL = "https://trello.com/b/m1YT123a/sctp-roadmap";
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var TRELLO_BOARD_URL = "https://trello.com/b/m1YT123a/sctp-roadmap";
 
-	// Trello's standard label palette (name -> hex) — labels only ever carry a
-	// color id in the API response, never a hex value.
-	var LABEL_COLORS = {
-		green: "#4BCE97", yellow: "#E2B203", orange: "#FAA53D", red: "#F87462",
-		purple: "#9F8FEF", blue: "#579DFF", sky: "#6CC3E0", lime: "#94C748",
-		pink: "#E774BB", black: "#8590A2",
+	// Amazing Fields' own short color codes (not Trello's full-word label
+	// colors) — options only ever carry one of these, never a hex value.
+	var AF_COLORS = {
+		g: "#4BCE97", y: "#E2B203", o: "#FAA53D", r: "#F87462", p: "#9F8FEF",
+		b: "#579DFF", s: "#6CC3E0", l: "#94C748", pk: "#E774BB", k: "#8590A2",
 	};
 
 	function esc(s){
@@ -122,17 +124,19 @@
 		});
 	}
 
-	function renderLabels(labels){
-		if(!labels || !labels.length) return "";
-		var chips = labels.map(function(l){
-			var color = LABEL_COLORS[l.color] || "#8590A2";
-			if(l.name){
-				return '<span class="label-chip named" style="background:'+color+'26;color:'+color+';border:1px solid '+color+'55;">'+esc(l.name)+'</span>';
-			}
-			// Trello shows an unnamed label as a plain color bar in its own UI.
-			return '<span class="label-chip bar" style="background:'+color+';" title="'+esc(l.color)+'"></span>';
-		}).join("");
-		return '<div class="labels">'+chips+'</div>';
+	// The API hands back raw field/option ids on each card — resolving them to
+	// display text/color needs the board's field definitions, so this always
+	// takes both.
+	function fieldValue(card, fieldId){
+		var f = (card.amazingFields || []).find(function(x){ return x.id === fieldId; });
+		return f ? f.value : undefined;
+	}
+
+	function renderTag(fieldDef, optionId){
+		var opt = (fieldDef.options || []).find(function(o){ return o.id === optionId; });
+		if(!opt) return "";
+		var color = AF_COLORS[opt.color] || "#8590A2";
+		return '<span class="tag-pill" style="background:'+color+'26;color:'+color+';border:1px solid '+color+'55;">'+esc(opt.text)+'</span>';
 	}
 
 	function renderMeta(card){
@@ -144,54 +148,80 @@
 			var label = due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 			bits.push('<span class="'+cls+'">'+(card.dueComplete ? "✓ " : "")+esc(label)+'</span>');
 		}
-		if(card.badges && card.badges.checkItems > 0){
-			bits.push('<span class="checklist">'+card.badges.checkItemsChecked+'/'+card.badges.checkItems+'</span>');
+		if(card.checkItems > 0){
+			bits.push('<span class="checklist">'+card.checkItemsChecked+'/'+card.checkItems+'</span>');
 		}
 		return bits.length ? '<div class="meta">'+bits.join("")+'</div>' : "";
 	}
 
-	function renderCard(card){
-		var desc = card.desc ? '<div class="desc">'+esc(card.desc)+'</div>' : "";
+	// fieldsByName is keyed on the exact field names set up in the board's
+	// Amazing Fields config (Where/What/When/Progress/Details) — special-cased
+	// by name rather than rendered generically since this is a one-board page,
+	// not a general-purpose Trello client.
+	function renderCard(card, fieldsByName){
+		var tags = ["Where", "What", "When"].map(function(name){
+			var def = fieldsByName[name];
+			if(!def) return "";
+			var val = fieldValue(card, def.id);
+			return Array.isArray(val) ? val.map(function(id){ return renderTag(def, id); }).join("") : "";
+		}).join("");
+
+		var progress = "";
+		var progressDef = fieldsByName["Progress"];
+		if(progressDef){
+			var pct = fieldValue(card, progressDef.id);
+			if(typeof pct === "number"){
+				var clamped = Math.max(0, Math.min(100, pct));
+				progress = '<div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:'+clamped+'%;"></div></div><div class="progress-label">'+clamped+'% done</div></div>';
+			}
+		}
+
+		var details = "";
+		var detailsDef = fieldsByName["Details"];
+		if(detailsDef){
+			var text = fieldValue(card, detailsDef.id);
+			if(text) details = '<div class="desc">'+esc(text)+'</div>';
+		}
+
 		return '<a class="card" href="'+esc(card.shortUrl)+'" target="_blank" rel="noopener">'+
-			renderLabels(card.labels)+
+			(tags ? '<div class="tags">'+tags+'</div>' : "")+
 			'<div class="name">'+esc(card.name)+'</div>'+
-			desc+
+			details+
+			progress+
 			renderMeta(card)+
 		'</a>';
 	}
 
 	function renderBoard(data){
-		var lists = (data.lists || []).filter(function(l){ return !l.closed; }).sort(function(a, b){ return a.pos - b.pos; });
+		var fieldsByName = {};
+		(data.fields || []).forEach(function(f){ fieldsByName[f.name] = f; });
 
 		var cardsByList = {};
-		(data.cards || []).filter(function(c){ return !c.closed; }).forEach(function(c){
+		(data.cards || []).forEach(function(c){
 			(cardsByList[c.idList] = cardsByList[c.idList] || []).push(c);
-		});
-		Object.keys(cardsByList).forEach(function(k){
-			cardsByList[k].sort(function(a, b){ return a.pos - b.pos; });
 		});
 
 		var host = document.getElementById("board");
-		if(!lists.length){
+		if(!data.lists || !data.lists.length){
 			host.innerHTML = '<p class="empty">No lists on the board yet.</p>';
 			return;
 		}
 
-		host.innerHTML = lists.map(function(l){
+		host.innerHTML = data.lists.map(function(l){
 			var cards = cardsByList[l.id] || [];
 			return '<div class="column">'+
 				'<div class="column-header"><h2>'+esc(l.name)+'</h2><span class="count-badge">'+cards.length+'</span></div>'+
-				(cards.length ? cards.map(renderCard).join("") : '<p class="empty">Nothing here right now.</p>')+
+				(cards.length ? cards.map(function(c){ return renderCard(c, fieldsByName); }).join("") : '<p class="empty">Nothing here right now.</p>')+
 			'</div>';
 		}).join("");
 	}
 
 	function showError(){
 		document.getElementById("board").innerHTML =
-			'<div class="board-error">Couldn\'t load the board right now. <a href="'+BOARD_URL+'" target="_blank" rel="noopener">View it directly on Trello instead</a>.</div>';
+			'<div class="board-error">Couldn\'t load the board right now. <a href="'+TRELLO_BOARD_URL+'" target="_blank" rel="noopener">View it directly on Trello instead</a>.</div>';
 	}
 
-	fetch(BOARD_JSON_URL)
+	fetch(API_BASE + "/roadmap")
 		.then(function(res){
 			if(!res.ok) throw new Error("HTTP " + res.status);
 			return res.json();
