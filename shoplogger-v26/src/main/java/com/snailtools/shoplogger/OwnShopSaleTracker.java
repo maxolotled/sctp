@@ -3,9 +3,12 @@ package com.snailtools.shoplogger;
 import com.snailtools.shoplogger.config.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -15,10 +18,11 @@ import java.util.Map;
  * "has payment" (with a one-time chat heads-up), and back to normal once the
  * seller collects it.
  *
- * Reuses whatever ShopEntryFactory already tallied for this scan rather than
- * re-reading container slots itself — every item in the container gets
- * tallied into an entry, currency included, so a sitting payment is already
- * right there as its own ShopEntry.
+ * Reads the container's raw slots itself rather than reusing ShopEntryFactory's
+ * tallied entries — ShopEntryFactory deliberately drops the sign's own currency
+ * item from its output (a shop should never list the item it's paid in as
+ * something for sale), which would make a sitting payment invisible to this
+ * check entirely if it relied on that list instead.
  */
 public final class OwnShopSaleTracker {
 
@@ -48,7 +52,7 @@ public final class OwnShopSaleTracker {
 	}
 
 	/** Call after every real (sign-having) scan of a container, manual or silent. */
-	public static void check(Minecraft client, ShopSign sign, BlockPos containerPos, List<ShopEntry> entries) {
+	public static void check(Minecraft client, ShopSign sign, BlockPos containerPos, AbstractContainerMenu handler) {
 		String self = client.getUser().getName();
 		if (self == null || !self.equalsIgnoreCase(sign.seller())) {
 			HAS_PENDING_PAYMENT.remove(containerPos); // not our shop — don't track it
@@ -58,8 +62,7 @@ public final class OwnShopSaleTracker {
 		String baseItemId = CURRENCY_BASE_ITEMS.get(sign.currency());
 		if (baseItemId == null) return;
 
-		boolean nowHasPayment = entries.stream()
-				.anyMatch(e -> baseItemId.equalsIgnoreCase(e.baseItem()) && e.amountAvailable() > 0);
+		boolean nowHasPayment = containerHasItem(handler, baseItemId);
 		Boolean before = HAS_PENDING_PAYMENT.put(containerPos, nowHasPayment);
 
 		// Only notify on a genuine LIVE transition (confirmed empty -> now has
@@ -74,5 +77,17 @@ public final class OwnShopSaleTracker {
 		if (nowHasPayment && Boolean.FALSE.equals(before) && isMessagesEnabled()) {
 			ChatFormat.send(client, ChatFormat.SUCCESS, "Something sold from your shop at " + containerPos.toShortString() + "!");
 		}
+	}
+
+	/** Only the container's own slots — same bound ShopEntryFactory uses to exclude the player's own inventory slots later in the same handler. */
+	private static boolean containerHasItem(AbstractContainerMenu handler, String baseItemId) {
+		if (!(handler instanceof ChestMenu containerHandler)) return false;
+		int invSize = containerHandler.getContainer().getContainerSize();
+		for (int i = 0; i < invSize && i < handler.slots.size(); i++) {
+			ItemStack stack = handler.getSlot(i).getItem();
+			if (stack == null || stack.isEmpty()) continue;
+			if (baseItemId.equalsIgnoreCase(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) return true;
+		}
+		return false;
 	}
 }

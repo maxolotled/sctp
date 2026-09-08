@@ -78,7 +78,7 @@ public class ShopScanner {
 			// in the "recently scanned" particle marker (or the auto-scanner's own
 			// rescan cooldown); that tracking is for the silent auto-scan path only.
 			ScanChatLogger.maybePrint(client, entries);
-			OwnShopSaleTracker.check(client, sign, containerPos, entries);
+			OwnShopSaleTracker.check(client, sign, containerPos, handler);
 			if (world != null) ShopVisitAlert.maybeAlert(client, world.label(), sign.seller());
 			WatchlistAlert.maybeAlert(client, entries);
 		}
