@@ -3,8 +3,12 @@
 // CACHE_TTL_SECONDS so most requests never touch D1 at all).
 //
 // Public (Authorization: Bearer <API_KEY>):
-//   POST /listings                -> upserts into the listings table
+//   POST /listings                -> upserts into the listings table. Rejected (426) if the
+//     uploading mod's modVersion is below MIN_UPLOAD_VERSION — see handleUploadListings.
 //   POST /reports                 -> appends to reports
+//   POST /suggestions             body: {title, details, submitterName?} -> appends to suggestions
+//   POST /bug-reports             body: {title, details, area: "website"|"mod", world?, pageUrl?, submitterName?} -> appends to bugReports
+//   POST /player-reports          body: {reportedUsername, world, reason, details, reporterName?} -> appends to playerReports
 //   POST /shared-shop-requests    -> appends to sharedShopRequests
 //   POST /world-map/claim         body: {squareId, username}  -> claims a map square
 //   POST /world-map/unclaim       body: {squareId, username}  -> releases a claimed square
@@ -71,6 +75,17 @@
 // Permission bucket "updateNotice":
 //   GET  /admin/update-notice                -> current config {enabled, minVersion, message, updatedAt, updatedBy}
 //   POST /admin/update-notice/set            body: {enabled, minVersion, message}
+// Permission bucket "suggestions":
+//   GET  /admin/suggestions
+//   POST /admin/suggestions/delete           body: {id}
+// Permission bucket "bugReports":
+//   GET  /admin/bug-reports
+//   POST /admin/bug-reports/delete           body: {id}
+// Permission bucket "playerReports":
+//   GET  /admin/player-reports
+//   POST /admin/player-reports/resolve       body: {id, action: "ban"|"remove"|"none"} -> ban blocks the seller
+//     (both worlds, permanent until unblocked); remove wipes just their listings in the
+//     reported world (not banned, can sell again); none dismisses with no side effect.
 //
 // GET /items/history?itemKey=<key> (public, cached 1hr) -> daily price/stock/seller
 //   history for one item. itemKey is "v:<baseItem>|<exact display name>" (lowercased)
@@ -111,7 +126,12 @@
 
 const BANNED_ITEMS = ["minecraft:diamond", "minecraft:diamond_block", "diamond", "diamondblock"];
 
-const REPORT_REASONS = new Set(["scam", "wrong_info", "shop_gone", "inappropriate", "other"]);
+// "wrong_world" is a pre-existing site bug fix bundled in here: index.html's
+// report modal has always sent this value for its "Wrong World" radio option,
+// but it was missing from this set — that reason 400'd on submit.
+const REPORT_REASONS = new Set(["scam", "wrong_info", "wrong_world", "shop_gone", "inappropriate", "other"]);
+const BUG_REPORT_AREAS = new Set(["website", "mod"]);
+const PLAYER_REPORT_REASONS = new Set(["scamming", "inappropriate_content", "spam", "other"]);
 const EDITABLE_LISTING_FIELDS = new Set([
 	"itemName", "baseItem", "price", "priceLabel", "stackSize",
 	"amount", "stacksInStock", "currency", "seller", "world", "position", "bundled",
@@ -258,6 +278,12 @@ async function cachedGet(request, ctx, ttlSeconds, computeFn) {
 // unaffected and still processed normally either way.
 const MIN_TRUSTED_PRUNE_VERSION = "1.2.4";
 
+// Hard floor: an upload from below this version is rejected outright (see
+// handleUploadListings) rather than partially trusted. Since this is above
+// MIN_TRUSTED_PRUNE_VERSION, every upload that gets past this gate is
+// automatically also trusted for scannedPositions pruning.
+const MIN_UPLOAD_VERSION = "1.5.1";
+
 // Compares dot-separated numeric version strings, e.g. isVersionAtLeast("1.2.10", "1.2.3") -> true.
 // Missing/unparseable segments count as 0, so an unknown or malformed version is never trusted.
 function isVersionAtLeast(version, min) {
@@ -374,6 +400,7 @@ async function getRareNameSet() {
 // accounts existed — see requireAnyAdmin.
 const ADMIN_PERMISSION_BUCKETS = new Set([
 	"reports", "sharedShopRequests", "faq", "worldMap", "manualListings", "blockedSellers", "rareApprovals", "marketplaceListings", "updateNotice",
+	"suggestions", "bugReports", "playerReports",
 ]);
 
 // Ranks bids for a seller's convenience using the shared CURRENCY_VALUE
@@ -649,6 +676,20 @@ async function handleAdminListBlockedSellers(request, env) {
 	return json(results);
 }
 
+// Shared by handleAdminBlockSeller and handleAdminResolvePlayerReport's "ban"
+// action so both write through the exact same block-and-wipe logic.
+async function blockSellerAndWipe(env, username, reason, blockedBy) {
+	const usernameKey = username.toLowerCase();
+	await env.DB.prepare(
+		`INSERT INTO blockedSellers (usernameKey, username, reason, blockedAt, blockedBy) VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT(usernameKey) DO UPDATE SET username=excluded.username, reason=excluded.reason, blockedAt=excluded.blockedAt, blockedBy=excluded.blockedBy`
+	).bind(usernameKey, username, reason, new Date().toISOString(), blockedBy).run();
+
+	// A block takes effect immediately, not just for future uploads.
+	await env.DB.prepare("DELETE FROM listings WHERE lower(seller) = ?").bind(usernameKey).run();
+	await env.DB.prepare("DELETE FROM pendingRareApprovals WHERE lower(seller) = ?").bind(usernameKey).run();
+}
+
 async function handleAdminBlockSeller(request, env) {
 	const auth = await requireAdminAuth(request, env, "blockedSellers");
 	if (!auth.ok) return auth.response;
@@ -662,17 +703,9 @@ async function handleAdminBlockSeller(request, env) {
 	const username = String(body.username || "").trim();
 	if (!isValidUsername(username)) return json({ error: "Invalid username" }, 400);
 	const reason = String(body.reason || "").trim().slice(0, 300);
-	const usernameKey = username.toLowerCase();
 
 	try {
-		await env.DB.prepare(
-			`INSERT INTO blockedSellers (usernameKey, username, reason, blockedAt, blockedBy) VALUES (?, ?, ?, ?, ?)
-			 ON CONFLICT(usernameKey) DO UPDATE SET username=excluded.username, reason=excluded.reason, blockedAt=excluded.blockedAt, blockedBy=excluded.blockedBy`
-		).bind(usernameKey, username, reason, new Date().toISOString(), auth.admin.username).run();
-
-		// A block takes effect immediately, not just for future uploads.
-		await env.DB.prepare("DELETE FROM listings WHERE lower(seller) = ?").bind(usernameKey).run();
-		await env.DB.prepare("DELETE FROM pendingRareApprovals WHERE lower(seller) = ?").bind(usernameKey).run();
+		await blockSellerAndWipe(env, username, reason, auth.admin.username);
 		return json({ ok: true });
 	} catch (e) {
 		return json({ error: String(e) }, 502);
@@ -747,16 +780,16 @@ async function handleUploadListings(request, env) {
 	const incoming = Array.isArray(body.rows) ? body.rows : [];
 
 	const modVersion = typeof body.modVersion === "string" ? body.modVersion : null;
-	const trustedForPruning = modVersion !== null && isVersionAtLeast(modVersion, MIN_TRUSTED_PRUNE_VERSION);
+	if (!isVersionAtLeast(modVersion, MIN_UPLOAD_VERSION)) {
+		return json({ error: `Shop Logger ${modVersion || "(unknown version)"} is no longer supported — please update to ${MIN_UPLOAD_VERSION} or later.` }, 426);
+	}
 
+	// modVersion is now guaranteed >= MIN_UPLOAD_VERSION (1.5.1), which is
+	// itself above MIN_TRUSTED_PRUNE_VERSION (1.2.4) — so every upload that
+	// reaches this point is always trusted for scannedPositions pruning.
 	const scannedPositionsIn = Array.isArray(body.scannedPositions) ? body.scannedPositions : [];
-	const validScannedPositions = trustedForPruning
-		? scannedPositionsIn.filter((sp) => sp && sp.world && sp.position)
-		: [];
+	const validScannedPositions = scannedPositionsIn.filter((sp) => sp && sp.world && sp.position);
 	const scannedSet = new Set(validScannedPositions.map((sp) => positionKey(sp.world, sp.position)));
-	const notice = (scannedPositionsIn.length > 0 && !trustedForPruning)
-		? `Your Shop Logger version (${modVersion || "unknown"}) has a known bug that can misreport in-stock shops as removed, so listing cleanup has been disabled for this upload. Please update to the latest version to re-enable it.`
-		: undefined;
 
 	let added = 0, updated = 0, skipped = 0, removed = 0, heldForApproval = 0;
 	try {
@@ -896,10 +929,10 @@ async function handleUploadListings(request, env) {
 		if (stmts.length > 0) await env.DB.batch(stmts);
 
 		if (added === 0 && updated === 0 && removed === 0 && heldForApproval === 0) {
-			return json({ added: 0, updated: 0, skipped, removed: 0, heldForApproval: 0, committed: false, ...(notice ? { notice } : {}) });
+			return json({ added: 0, updated: 0, skipped, removed: 0, heldForApproval: 0, committed: false });
 		}
 		const totalRow = await env.DB.prepare("SELECT COUNT(*) as c FROM listings").first();
-		return json({ added, updated, skipped, removed, heldForApproval, total: totalRow.c, committed: true, ...(notice ? { notice } : {}) });
+		return json({ added, updated, skipped, removed, heldForApproval, total: totalRow.c, committed: true });
 	} catch (e) {
 		return json({ error: String(e) }, 502);
 	}
@@ -1479,6 +1512,193 @@ async function handleResolveReport(request, env) {
 	return json({ ok: true, listingChanged });
 }
 
+// ---------------- suggestions / bug reports / player reports ----------------
+//
+// Public submission (same trust model as POST /reports above — no login,
+// gated only by the shared API_KEY that already ships in the page source;
+// everything lands in a pending admin queue and nothing is auto-actioned).
+// Suggestions/bug reports are dismissed with a plain delete (see
+// handleAdminDeleteSuggestion/handleAdminDeleteBugReport) — the admin adds
+// anything worth keeping to the Trello roadmap by hand. Player reports get a
+// real resolution flow instead, since "ban"/"remove" have side effects.
+
+async function handleSubmitSuggestion(request, env) {
+	if (!isAuthorized(request, env.API_KEY)) return json({ error: "Unauthorized" }, 401);
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+
+	const title = String(body.title || "").trim().slice(0, 150);
+	const details = String(body.details || "").trim().slice(0, 1000);
+	if (!title) return json({ error: "title is required" }, 400);
+	if (!details) return json({ error: "details is required" }, 400);
+	const submitterName = String(body.submitterName || "").trim().slice(0, 50);
+
+	const id = crypto.randomUUID();
+	try {
+		await env.DB.prepare(
+			"INSERT INTO suggestions (id, title, details, submitterName, status, createdAt, resolvedAt) VALUES (?, ?, ?, ?, 'pending', ?, NULL)"
+		).bind(id, title, details, submitterName, new Date().toISOString()).run();
+		return json({ ok: true, id });
+	} catch (e) {
+		return json({ error: String(e) }, 502);
+	}
+}
+
+async function handleListSuggestions(request, env) {
+	const auth = await requireAdminAuth(request, env, "suggestions");
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare("SELECT * FROM suggestions ORDER BY createdAt DESC").all();
+	return json(results);
+}
+
+async function handleAdminDeleteSuggestion(request, env) {
+	const auth = await requireAdminAuth(request, env, "suggestions");
+	if (!auth.ok) return auth.response;
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const id = String(body.id || "");
+	if (!id) return json({ error: "id is required" }, 400);
+	await env.DB.prepare("DELETE FROM suggestions WHERE id = ?").bind(id).run();
+	return json({ ok: true });
+}
+
+async function handleSubmitBugReport(request, env) {
+	if (!isAuthorized(request, env.API_KEY)) return json({ error: "Unauthorized" }, 401);
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+
+	const title = String(body.title || "").trim().slice(0, 150);
+	const details = String(body.details || "").trim().slice(0, 1000);
+	if (!title) return json({ error: "title is required" }, 400);
+	if (!details) return json({ error: "details is required" }, 400);
+	const area = BUG_REPORT_AREAS.has(body.area) ? body.area : "website";
+	const world = (area === "mod" && (body.world === "Firefly" || body.world === "Honeybee")) ? body.world : null;
+	const pageUrl = String(body.pageUrl || "").trim().slice(0, 300) || null;
+	const submitterName = String(body.submitterName || "").trim().slice(0, 50);
+
+	const id = crypto.randomUUID();
+	try {
+		await env.DB.prepare(
+			"INSERT INTO bugReports (id, title, details, area, world, pageUrl, submitterName, status, createdAt, resolvedAt) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL)"
+		).bind(id, title, details, area, world, pageUrl, submitterName, new Date().toISOString()).run();
+		return json({ ok: true, id });
+	} catch (e) {
+		return json({ error: String(e) }, 502);
+	}
+}
+
+async function handleListBugReports(request, env) {
+	const auth = await requireAdminAuth(request, env, "bugReports");
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare("SELECT * FROM bugReports ORDER BY createdAt DESC").all();
+	return json(results);
+}
+
+async function handleAdminDeleteBugReport(request, env) {
+	const auth = await requireAdminAuth(request, env, "bugReports");
+	if (!auth.ok) return auth.response;
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const id = String(body.id || "");
+	if (!id) return json({ error: "id is required" }, 400);
+	await env.DB.prepare("DELETE FROM bugReports WHERE id = ?").bind(id).run();
+	return json({ ok: true });
+}
+
+async function handleSubmitPlayerReport(request, env) {
+	if (!isAuthorized(request, env.API_KEY)) return json({ error: "Unauthorized" }, 401);
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+
+	const reportedUsername = String(body.reportedUsername || "").trim();
+	if (!isValidUsername(reportedUsername)) return json({ error: "Invalid reportedUsername" }, 400);
+	const world = body.world === "Firefly" || body.world === "Honeybee" ? body.world : null;
+	if (!world) return json({ error: "world must be 'Firefly' or 'Honeybee'" }, 400);
+	const reason = String(body.reason || "").trim();
+	if (!PLAYER_REPORT_REASONS.has(reason)) return json({ error: "Invalid reason" }, 400);
+	const details = String(body.details || "").trim().slice(0, 500);
+	if (!details) return json({ error: "details is required" }, 400);
+	const reporterName = String(body.reporterName || "").trim().slice(0, 50);
+
+	const id = crypto.randomUUID();
+	try {
+		await env.DB.prepare(
+			"INSERT INTO playerReports (id, reportedUsername, world, reason, details, reporterName, status, actionTaken, createdAt, resolvedAt) VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL, ?, NULL)"
+		).bind(id, reportedUsername, world, reason, details, reporterName, new Date().toISOString()).run();
+		return json({ ok: true, id });
+	} catch (e) {
+		return json({ error: String(e) }, 502);
+	}
+}
+
+async function handleListPlayerReports(request, env) {
+	const auth = await requireAdminAuth(request, env, "playerReports");
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare("SELECT * FROM playerReports ORDER BY createdAt DESC").all();
+	return json(results);
+}
+
+// action "ban": blocks the seller (see blockSellerAndWipe) — permanent until
+// manually unblocked in the Blocked Sellers section, both worlds at once,
+// same as a normal block. action "remove": clears just this report's world
+// (the shop they were actually reported for) without blocking — they can
+// still sell again. action "none": dismiss with no side effect.
+async function handleAdminResolvePlayerReport(request, env) {
+	const auth = await requireAdminAuth(request, env, "playerReports");
+	if (!auth.ok) return auth.response;
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const id = String(body.id || "");
+	const action = String(body.action || "");
+	if (!id) return json({ error: "id is required" }, 400);
+	if (!["ban", "remove", "none"].includes(action)) return json({ error: "Invalid action" }, 400);
+
+	const reportRow = await env.DB.prepare("SELECT * FROM playerReports WHERE id = ?").bind(id).first();
+	if (!reportRow) return json({ error: "Report not found" }, 404);
+
+	try {
+		if (action === "ban") {
+			await blockSellerAndWipe(env, reportRow.reportedUsername, `Player report: ${reportRow.reason}`, auth.admin.username);
+		} else if (action === "remove") {
+			await deleteShopListingsBySeller(env, reportRow.reportedUsername, reportRow.world);
+		}
+		await env.DB.prepare(
+			"UPDATE playerReports SET status = 'resolved', actionTaken = ?, resolvedAt = ? WHERE id = ?"
+		).bind(action, new Date().toISOString(), id).run();
+		return json({ ok: true });
+	} catch (e) {
+		return json({ error: String(e) }, 502);
+	}
+}
+
 async function handleResolveSharedShopRequest(request, env) {
 	const auth = await requireAdminAuth(request, env, "sharedShopRequests");
 	if (!auth.ok) return auth.response;
@@ -1937,11 +2157,20 @@ async function handleAdminDeleteManualListing(request, env) {
 	}
 }
 
+// Shared by handleAdminDeleteShopListings and handleAdminResolvePlayerReport's
+// "remove" action. world is optional — omitted, this clears the seller on
+// both worlds at once (the same seller can run independent shops on each).
+async function deleteShopListingsBySeller(env, seller, world) {
+	const res = world
+		? await env.DB.prepare("DELETE FROM listings WHERE lower(seller) = lower(?) AND world = ?").bind(seller, world).run()
+		: await env.DB.prepare("DELETE FROM listings WHERE lower(seller) = lower(?)").bind(seller).run();
+	return res.meta.changes;
+}
+
 // Deletes every listing for a seller in one shot — for a shop that's gone
 // entirely (player quit, moved, shop torn down) rather than one stale item,
 // which is what /admin/reports/resolve and /admin/listings/manual-delete are
-// each scoped to. world is optional — omitted, this clears the seller on
-// both worlds at once (the same seller can run independent shops on each).
+// each scoped to.
 async function handleAdminDeleteShopListings(request, env) {
 	const auth = await requireAdminAuth(request, env, "manualListings");
 	if (!auth.ok) return auth.response;
@@ -1959,10 +2188,8 @@ async function handleAdminDeleteShopListings(request, env) {
 	if (world && world !== "Firefly" && world !== "Honeybee") return json({ error: "Invalid world" }, 400);
 
 	try {
-		const res = world
-			? await env.DB.prepare("DELETE FROM listings WHERE lower(seller) = lower(?) AND world = ?").bind(seller, world).run()
-			: await env.DB.prepare("DELETE FROM listings WHERE lower(seller) = lower(?)").bind(seller).run();
-		return json({ ok: true, deleted: res.meta.changes });
+		const deleted = await deleteShopListingsBySeller(env, seller, world || null);
+		return json({ ok: true, deleted });
 	} catch (e) {
 		return json({ error: String(e) }, 502);
 	}
@@ -2119,6 +2346,15 @@ const ROUTES = [
 	["POST", "/listings", handleUploadListings],
 	["GET", "/listings", handleGetListings],
 	["POST", "/reports", handleSubmitReport],
+	["POST", "/suggestions", handleSubmitSuggestion],
+	["GET", "/admin/suggestions", handleListSuggestions],
+	["POST", "/admin/suggestions/delete", handleAdminDeleteSuggestion],
+	["POST", "/bug-reports", handleSubmitBugReport],
+	["GET", "/admin/bug-reports", handleListBugReports],
+	["POST", "/admin/bug-reports/delete", handleAdminDeleteBugReport],
+	["POST", "/player-reports", handleSubmitPlayerReport],
+	["GET", "/admin/player-reports", handleListPlayerReports],
+	["POST", "/admin/player-reports/resolve", handleAdminResolvePlayerReport],
 	["POST", "/shared-shop-requests", handleSubmitSharedShopRequest],
 	["GET", "/shared-shops", handleGetSharedShops],
 	["GET", "/rare-items", handleGetRareItems],

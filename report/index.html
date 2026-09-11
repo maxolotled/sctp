@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Report a Player - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(226,100,61,0.06), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:640px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;max-width:1180px;margin:0 auto;padding:0 24px;}
+	.brand-row{display:flex;align-items:center;gap:12px;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--bad);color:#2a0f0a;display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	.nav-links{display:flex;gap:16px;align-items:center;}
+	.nav-links a{color:var(--shell);text-decoration:none;font-size:14px;font-weight:600;}
+	.nav-links a:hover{color:var(--accent);}
+
+	main{padding:40px 0 60px;}
+	h2{font-family:var(--font-display);font-weight:600;font-size:26px;margin:0 0 6px;}
+	.lede{color:var(--muted);font-size:14px;margin:0 0 24px;max-width:480px;}
+
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;}
+	label{display:block;font-size:13px;font-weight:600;color:var(--shell);margin:14px 0 6px;}
+	label:first-child{margin-top:0;}
+	input[type=text], textarea, select{
+		width:100%;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
+		border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit;
+	}
+	textarea{resize:vertical;min-height:110px;}
+	.hint{color:var(--muted);font-size:12px;margin-top:4px;}
+	.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:12px;}
+	button.primary{
+		margin-top:16px;background:var(--bad);color:#2a0f0a;border:none;font-weight:700;
+		border-radius:9px;padding:11px 18px;font-size:14px;cursor:pointer;font-family:inherit;
+	}
+	button.primary:disabled{opacity:.6;cursor:default;}
+	.success p{margin:0 0 14px;font-size:15px;}
+	.success a{font-weight:600;}
+</style>
+</head>
+<body>
+
+<header class="site">
+	<div class="header-row">
+		<div class="brand-row">
+			<div class="brand-mark">🚩</div>
+			<h1>Report a player</h1>
+		</div>
+		<div class="nav-links">
+			<a href="../">Home</a>
+			<a href="../roadmap/">Roadmap</a>
+			<div id="accountWidgetMount"></div>
+		</div>
+	</div>
+</header>
+
+<main class="wrap">
+	<h2>Report a shop or seller</h2>
+	<p class="lede">For scamming, inappropriate content, or spam — not for a single wrong price or a shop that's just gone, use the report button on the listing itself for that. No login needed. A head admin reviews every report before anything happens to the shop.</p>
+
+	<div class="card" id="formCard">
+		<label for="playerInput">Minecraft username</label>
+		<input type="text" id="playerInput" maxlength="16" placeholder="e.g. Steve">
+
+		<label for="worldSelect">World</label>
+		<select id="worldSelect">
+			<option value="">Select a world</option>
+			<option value="Firefly">Firefly</option>
+			<option value="Honeybee">Honeybee</option>
+		</select>
+
+		<label for="reasonSelect">Reason</label>
+		<select id="reasonSelect">
+			<option value="scamming">Scamming</option>
+			<option value="inappropriate_content">Inappropriate shop content</option>
+			<option value="spam">Spam / excessive listings</option>
+			<option value="other">Other</option>
+		</select>
+
+		<label for="detailsInput">Details</label>
+		<textarea id="detailsInput" maxlength="500" placeholder="What happened?"></textarea>
+
+		<label for="nameInput">Your Minecraft username <span class="hint">(optional)</span></label>
+		<input type="text" id="nameInput" maxlength="50" placeholder="So we can follow up if needed">
+
+		<button type="button" class="primary" id="submitBtn">Send report</button>
+		<div class="err" id="errMsg"></div>
+	</div>
+
+	<div class="card success" id="successCard" hidden>
+		<p>Thanks — your report has been sent.</p>
+		<a href="../">← Back to the trading post</a>
+	</div>
+</main>
+
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var API_KEY = "JjabYIfRtghvBJNoy6857TFVHbjknlMOi6754E5dcfvhgBHNI6b564";
+
+	var params = new URLSearchParams(location.search);
+	var prefillPlayer = params.get("player");
+	var prefillWorld = params.get("world");
+	if(prefillPlayer) document.getElementById("playerInput").value = prefillPlayer;
+	if(prefillWorld === "Firefly" || prefillWorld === "Honeybee") document.getElementById("worldSelect").value = prefillWorld;
+
+	function submit(){
+		var reportedUsername = document.getElementById("playerInput").value.trim();
+		var world = document.getElementById("worldSelect").value;
+		var reason = document.getElementById("reasonSelect").value;
+		var details = document.getElementById("detailsInput").value.trim();
+		var name = document.getElementById("nameInput").value.trim();
+		var errEl = document.getElementById("errMsg");
+		errEl.textContent = "";
+
+		if(!reportedUsername){ errEl.textContent = "Enter the player's Minecraft username."; return; }
+		if(!world){ errEl.textContent = "Select a world."; return; }
+		if(!details){ errEl.textContent = "Add some details."; return; }
+
+		var btn = document.getElementById("submitBtn");
+		btn.disabled = true;
+		fetch(API_BASE + "/player-reports", {
+			method: "POST",
+			headers: { "Authorization": "Bearer " + API_KEY, "Content-Type": "application/json" },
+			body: JSON.stringify({ reportedUsername: reportedUsername, world: world, reason: reason, details: details, reporterName: name }),
+		})
+			.then(function(res){ return res.json().then(function(d){ return { ok: res.ok, data: d }; }); })
+			.then(function(res){
+				if(!res.ok){ errEl.textContent = res.data.error || "Something went wrong."; btn.disabled = false; return; }
+				document.getElementById("formCard").hidden = true;
+				document.getElementById("successCard").hidden = false;
+			})
+			.catch(function(){ errEl.textContent = "Network error — try again."; btn.disabled = false; });
+	}
+
+	document.getElementById("submitBtn").addEventListener("click", submit);
+})();
+</script>
+</body>
+</html>

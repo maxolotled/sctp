@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Report a Bug - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(183,226,61,0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:640px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;max-width:1180px;margin:0 auto;padding:0 24px;}
+	.brand-row{display:flex;align-items:center;gap:12px;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--warn);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	.nav-links{display:flex;gap:16px;align-items:center;}
+	.nav-links a{color:var(--shell);text-decoration:none;font-size:14px;font-weight:600;}
+	.nav-links a:hover{color:var(--accent);}
+
+	main{padding:40px 0 60px;}
+	h2{font-family:var(--font-display);font-weight:600;font-size:26px;margin:0 0 6px;}
+	.lede{color:var(--muted);font-size:14px;margin:0 0 24px;max-width:480px;}
+
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;}
+	label{display:block;font-size:13px;font-weight:600;color:var(--shell);margin:14px 0 6px;}
+	label:first-child{margin-top:0;}
+	input[type=text], textarea, select{
+		width:100%;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
+		border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit;
+	}
+	textarea{resize:vertical;min-height:110px;}
+	.area-toggle{display:flex;gap:8px;margin-top:2px;}
+	.area-toggle button{
+		flex:1;background:var(--panel-alt);border:1px solid var(--line);color:var(--muted);
+		border-radius:8px;padding:9px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;
+	}
+	.area-toggle button.active{border-color:var(--accent-dim);color:var(--accent);background:rgba(183,226,61,0.08);}
+	[hidden]{display:none!important;}
+	.hint{color:var(--muted);font-size:12px;margin-top:4px;}
+	.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:12px;}
+	button.primary{
+		margin-top:16px;background:var(--accent);color:var(--accent-ink);border:none;font-weight:700;
+		border-radius:9px;padding:11px 18px;font-size:14px;cursor:pointer;font-family:inherit;
+	}
+	button.primary:disabled{opacity:.6;cursor:default;}
+	.success p{margin:0 0 14px;font-size:15px;}
+	.success a{font-weight:600;}
+</style>
+</head>
+<body>
+
+<header class="site">
+	<div class="header-row">
+		<div class="brand-row">
+			<div class="brand-mark">🐛</div>
+			<h1>Report a bug</h1>
+		</div>
+		<div class="nav-links">
+			<a href="../">Home</a>
+			<a href="../roadmap/">Roadmap</a>
+			<a href="../suggest/">Suggest something</a>
+			<div id="accountWidgetMount"></div>
+		</div>
+	</div>
+</header>
+
+<main class="wrap">
+	<h2>Something broken?</h2>
+	<p class="lede">Website or mod bugs both go here. No login needed — a head admin reviews every report and adds anything worth tracking to the <a href="../roadmap/">roadmap</a> by hand.</p>
+
+	<div class="card" id="formCard">
+		<label>Where's the bug?</label>
+		<div class="area-toggle">
+			<button type="button" id="areaWebsiteBtn" class="active">Website</button>
+			<button type="button" id="areaModBtn">Mod</button>
+		</div>
+
+		<label for="titleInput">Short summary</label>
+		<input type="text" id="titleInput" maxlength="150" placeholder="e.g. Price history chart doesn't load on Firefox">
+
+		<label for="detailsInput">What happened? Steps to reproduce if you have them</label>
+		<textarea id="detailsInput" maxlength="1000" placeholder="What did you expect, and what actually happened?"></textarea>
+
+		<div id="worldField" hidden>
+			<label for="worldSelect">World</label>
+			<select id="worldSelect">
+				<option value="">Not sure / not relevant</option>
+				<option value="Firefly">Firefly</option>
+				<option value="Honeybee">Honeybee</option>
+			</select>
+		</div>
+
+		<label for="urlInput">Page / URL where this happened <span class="hint">(optional)</span></label>
+		<input type="text" id="urlInput" maxlength="300" placeholder="e.g. sctp.nl/items/">
+
+		<label for="nameInput">Your Minecraft username <span class="hint">(optional)</span></label>
+		<input type="text" id="nameInput" maxlength="50" placeholder="So we can follow up if needed">
+
+		<button type="button" class="primary" id="submitBtn">Send bug report</button>
+		<div class="err" id="errMsg"></div>
+	</div>
+
+	<div class="card success" id="successCard" hidden>
+		<p>Thanks — your bug report has been sent.</p>
+		<a href="../roadmap/">← Back to the roadmap</a>
+	</div>
+</main>
+
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var API_KEY = "JjabYIfRtghvBJNoy6857TFVHbjknlMOi6754E5dcfvhgBHNI6b564";
+	var area = "website";
+
+	function setArea(next){
+		area = next;
+		document.getElementById("areaWebsiteBtn").classList.toggle("active", area === "website");
+		document.getElementById("areaModBtn").classList.toggle("active", area === "mod");
+		document.getElementById("worldField").hidden = area !== "mod";
+	}
+	document.getElementById("areaWebsiteBtn").addEventListener("click", function(){ setArea("website"); });
+	document.getElementById("areaModBtn").addEventListener("click", function(){ setArea("mod"); });
+
+	// Buttons linking here (roadmap, homepage) can pass ?from=<path> so the
+	// page/URL field is pre-filled instead of left for the reporter to type —
+	// still editable, just a convenience.
+	var params = new URLSearchParams(location.search);
+	var from = params.get("from");
+	if(from){
+		document.getElementById("urlInput").value = "sctp.nl" + from;
+	}
+
+	function submit(){
+		var title = document.getElementById("titleInput").value.trim();
+		var details = document.getElementById("detailsInput").value.trim();
+		var world = document.getElementById("worldSelect").value;
+		var pageUrl = document.getElementById("urlInput").value.trim();
+		var name = document.getElementById("nameInput").value.trim();
+		var errEl = document.getElementById("errMsg");
+		errEl.textContent = "";
+
+		if(!title){ errEl.textContent = "Add a short summary."; return; }
+		if(!details){ errEl.textContent = "Describe what happened."; return; }
+
+		var btn = document.getElementById("submitBtn");
+		btn.disabled = true;
+		fetch(API_BASE + "/bug-reports", {
+			method: "POST",
+			headers: { "Authorization": "Bearer " + API_KEY, "Content-Type": "application/json" },
+			body: JSON.stringify({ title: title, details: details, area: area, world: world || undefined, pageUrl: pageUrl, submitterName: name }),
+		})
+			.then(function(res){ return res.json().then(function(d){ return { ok: res.ok, data: d }; }); })
+			.then(function(res){
+				if(!res.ok){ errEl.textContent = res.data.error || "Something went wrong."; btn.disabled = false; return; }
+				document.getElementById("formCard").hidden = true;
+				document.getElementById("successCard").hidden = false;
+			})
+			.catch(function(){ errEl.textContent = "Network error — try again."; btn.disabled = false; });
+	}
+
+	document.getElementById("submitBtn").addEventListener("click", submit);
+})();
+</script>
+</body>
+</html>

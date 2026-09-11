@@ -64,6 +64,33 @@
 	.empty{color:var(--muted);font-size:13.5px;padding:12px 0;}
 	details{margin-top:20px;}
 	summary{cursor:pointer;color:var(--muted);font-size:13px;}
+
+	/* ---------- collapsible categories + sections ---------- */
+	.category{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden;}
+	.category > summary{
+		cursor:pointer;list-style:none;padding:13px 18px;font-size:14px;font-weight:700;color:var(--text);
+		display:flex;align-items:center;gap:8px;background:var(--panel-alt);user-select:none;
+	}
+	.category > summary::-webkit-details-marker{display:none;}
+	.category > summary::before{content:"▸";display:inline-block;color:var(--muted);font-size:12px;transition:transform .15s;}
+	.category[open] > summary::before{transform:rotate(90deg);}
+	.category.hidden{display:none;}
+	.category-body{padding:4px 18px 16px;}
+	.category-body section{margin-top:20px;}
+	.category-body section:first-child{margin-top:6px;}
+
+	.section-toggle{margin-top:0;}
+	.section-toggle > summary{
+		cursor:pointer;list-style:none;font-size:15px;color:var(--shell);text-transform:uppercase;
+		letter-spacing:.05em;font-weight:600;margin:0 0 12px;display:flex;align-items:center;gap:7px;user-select:none;
+	}
+	.section-toggle > summary::-webkit-details-marker{display:none;}
+	.section-toggle > summary::before{content:"▸";display:inline-block;color:var(--muted);font-size:11px;transition:transform .15s;}
+	.section-toggle[open] > summary::before{transform:rotate(90deg);}
+	.count-badge{background:var(--panel-alt);color:var(--muted);font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;}
+	.count-badge:empty{display:none;}
+	.count-badge.attn{background:rgba(226,163,61,.18);color:var(--warn);}
+	.area-badge{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;}
 </style>
 </head>
 <body>
@@ -95,41 +122,44 @@
 			<div class="err" id="changePasswordErr"></div>
 		</div>
 
-		<section data-perm="reports">
-		<h2>Pending reports</h2>
-		<div id="reportsPending"></div>
+		<details class="category" open>
+		<summary>Moderation</summary>
+		<div class="category-body">
 
+		<section data-perm="reports">
+		<details class="section-toggle" open>
+		<summary>Reports <span class="count-badge" id="reportsCountBadge"></span></summary>
+		<div id="reportsPending"></div>
 		<details>
 			<summary>Resolved reports</summary>
 			<div id="reportsResolved" style="margin-top:12px;"></div>
 		</details>
-		</section>
-
-		<section data-perm="sharedShopRequests">
-		<h2>Pending shared-shop requests</h2>
-		<div id="requestsPending"></div>
-
-		<details>
-			<summary>Resolved shared-shop requests</summary>
-			<div id="requestsResolved" style="margin-top:12px;"></div>
 		</details>
 		</section>
 
-		<section data-perm="faq">
-		<h2>FAQ (shown on docs.html)</h2>
-		<div class="card">
-			<label for="faqQuestionInput">Question</label>
-			<input type="text" id="faqQuestionInput" placeholder="e.g. Does the mod work on servers other than Snailcraft?" style="width:100%;margin:6px 0;">
-			<label for="faqAnswerInput">Answer</label>
-			<textarea id="faqAnswerInput" placeholder="Answer text" rows="3" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px;"></textarea>
-			<button id="faqAddBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;">Add FAQ entry</button>
-			<div class="err" id="faqAddErr"></div>
-		</div>
-		<div id="faqList"></div>
+		<section data-perm="playerReports">
+		<details class="section-toggle" open>
+		<summary>Player reports <span class="count-badge" id="playerReportsCountBadge"></span></summary>
+		<div class="meta" style="margin-bottom:8px;">Reports against a player's shop specifically — resolve by banning the shop (blocks the seller, both worlds, until unblocked), removing just their listings in the reported world (not banned), or dismissing with no action.</div>
+		<div id="playerReportsPending"></div>
+		<details>
+			<summary>Resolved player reports</summary>
+			<div id="playerReportsResolved" style="margin-top:12px;"></div>
+		</details>
+		</details>
+		</section>
+
+		<section data-perm="rareApprovals">
+		<details class="section-toggle" open>
+		<summary>Rare item approvals <span class="count-badge" id="rareApprovalsCountBadge"></span></summary>
+		<div class="meta" style="margin-bottom:8px;">Rare-catalog items priced at exactly 1 or 2 diamond are held here instead of showing up publicly, since that's suspiciously cheap for a rare — approve or deny each one.</div>
+		<div id="rareApprovalsList"></div>
+		</details>
 		</section>
 
 		<section data-perm="blockedSellers">
-		<h2>Blocked sellers</h2>
+		<details class="section-toggle" open>
+		<summary>Blocked sellers</summary>
 		<div class="card">
 			<label for="blockSellerInput">Seller username</label>
 			<input type="text" id="blockSellerInput" placeholder="e.g. Steve" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
@@ -140,16 +170,68 @@
 			<div class="err" id="blockSellerErr"></div>
 		</div>
 		<div id="blockedSellersList"></div>
+		</details>
 		</section>
 
-		<section data-perm="rareApprovals">
-		<h2>Rare item approvals</h2>
-		<div class="meta" style="margin-bottom:8px;">Rare-catalog items priced at exactly 1 or 2 diamond are held here instead of showing up publicly, since that's suspiciously cheap for a rare — approve or deny each one.</div>
-		<div id="rareApprovalsList"></div>
+		</div>
+		</details>
+
+		<details class="category" open>
+		<summary>Feedback</summary>
+		<div class="category-body">
+
+		<section data-perm="suggestions">
+		<details class="section-toggle" open>
+		<summary>Suggestions <span class="count-badge" id="suggestionsCountBadge"></span></summary>
+		<div class="meta" style="margin-bottom:8px;">Submitted from /suggest — delete once handled; add anything worth doing to the <a href="../roadmap/" target="_blank" style="color:var(--accent);">roadmap</a> yourself.</div>
+		<div id="suggestionsList"></div>
+		</details>
+		</section>
+
+		<section data-perm="bugReports">
+		<details class="section-toggle" open>
+		<summary>Bug reports <span class="count-badge" id="bugReportsCountBadge"></span></summary>
+		<div class="meta" style="margin-bottom:8px;">Submitted from /bug — delete once handled; add anything worth doing to the <a href="../roadmap/" target="_blank" style="color:var(--accent);">roadmap</a> yourself.</div>
+		<div id="bugReportsList"></div>
+		</details>
+		</section>
+
+		</div>
+		</details>
+
+		<details class="category" open>
+		<summary>Community content</summary>
+		<div class="category-body">
+
+		<section data-perm="sharedShopRequests">
+		<details class="section-toggle" open>
+		<summary>Shared-shop requests <span class="count-badge" id="requestsCountBadge"></span></summary>
+		<div id="requestsPending"></div>
+		<details>
+			<summary>Resolved shared-shop requests</summary>
+			<div id="requestsResolved" style="margin-top:12px;"></div>
+		</details>
+		</details>
+		</section>
+
+		<section data-perm="faq">
+		<details class="section-toggle" open>
+		<summary>FAQ (shown on docs.html)</summary>
+		<div class="card">
+			<label for="faqQuestionInput">Question</label>
+			<input type="text" id="faqQuestionInput" placeholder="e.g. Does the mod work on servers other than Snailcraft?" style="width:100%;margin:6px 0;">
+			<label for="faqAnswerInput">Answer</label>
+			<textarea id="faqAnswerInput" placeholder="Answer text" rows="3" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px;"></textarea>
+			<button id="faqAddBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;">Add FAQ entry</button>
+			<div class="err" id="faqAddErr"></div>
+		</div>
+		<div id="faqList"></div>
+		</details>
 		</section>
 
 		<section data-perm="worldMap">
-		<h2>World map override</h2>
+		<details class="section-toggle" open>
+		<summary>World map override</summary>
 		<div class="card">
 			<label for="worldMapCoordInput">Grid coordinate (e.g. 12x7)</label>
 			<div style="display:flex;gap:8px;margin:6px 0;flex-wrap:wrap;">
@@ -168,10 +250,19 @@
 			<button id="worldMapSaveBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;">Save</button>
 			<div class="err" id="worldMapErr"></div>
 		</div>
+		</details>
 		</section>
 
+		</div>
+		</details>
+
+		<details class="category" open>
+		<summary>Listings tools</summary>
+		<div class="category-body">
+
 		<section data-perm="manualListings">
-		<h2>Manually add listings</h2>
+		<details class="section-toggle" open>
+		<summary>Manually add listings</summary>
 		<div class="card">
 			<label for="manualSeller">Seller username</label>
 			<input type="text" id="manualSeller" placeholder="e.g. Steve" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
@@ -206,10 +297,53 @@
 			<button id="shopDeleteBtn" type="button" class="deny" style="margin-top:8px;">Delete shop</button>
 			<div class="err" id="shopDeleteErr"></div>
 		</div>
+		</details>
+		</section>
+
+		</div>
+		</details>
+
+		<details class="category" open>
+		<summary>Marketplace</summary>
+		<div class="category-body">
+
+		<section data-perm="marketplaceListings">
+		<details class="section-toggle" open>
+		<summary>Marketplace moderation</summary>
+		<div class="meta" style="margin-bottom:8px;">Every listing, any status — remove one that breaks the rules; the poster gets notified why.</div>
+		<div id="marketplaceModList"></div>
+		</details>
+		</section>
+
+		</div>
+		</details>
+
+		<details class="category" open>
+		<summary>Settings &amp; accounts</summary>
+		<div class="category-body">
+
+		<section data-perm="updateNotice">
+		<details class="section-toggle" open>
+		<summary>Update notice</summary>
+		<div class="card">
+			<div class="meta" style="margin-bottom:10px;">Shown in chat, once per join, to any mod client below the version set here. Leave disabled to turn it off without losing the saved message.</div>
+			<label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+				<input type="checkbox" id="updateNoticeEnabled"> Enabled
+			</label>
+			<label for="updateNoticeMinVersion" style="margin-top:10px;display:block;">Minimum version (e.g. 1.5.1) — anyone below this sees the message</label>
+			<input type="text" id="updateNoticeMinVersion" placeholder="1.5.1" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
+			<label for="updateNoticeMessage">Chat message</label>
+			<textarea id="updateNoticeMessage" rows="2" placeholder="A new version is available — download it from sctp.nl!" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px;"></textarea>
+			<div class="meta" id="updateNoticeMeta"></div>
+			<button id="updateNoticeSaveBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;margin-top:8px;">Save</button>
+			<div class="err" id="updateNoticeErr"></div>
+		</div>
+		</details>
 		</section>
 
 		<section data-perm="__headAdminOnly__">
-		<h2>Accounts</h2>
+		<details class="section-toggle" open>
+		<summary>Accounts</summary>
 		<div class="meta" style="margin-bottom:10px;">Every account on the site — plain marketplace accounts and admins alike — is created here. There's still no self-service signup; you make every account by hand and link/verify their Minecraft username yourself.</div>
 		<div class="card">
 			<label for="newAdminUsername">Username</label>
@@ -227,30 +361,11 @@
 			<div class="err" id="createAdminErr"></div>
 		</div>
 		<div id="adminsList"></div>
+		</details>
 		</section>
 
-		<section data-perm="marketplaceListings">
-		<h2>Marketplace moderation</h2>
-		<div class="meta" style="margin-bottom:8px;">Every listing, any status — remove one that breaks the rules; the poster gets notified why.</div>
-		<div id="marketplaceModList"></div>
-		</section>
-
-		<section data-perm="updateNotice">
-		<h2>Update notice</h2>
-		<div class="card">
-			<div class="meta" style="margin-bottom:10px;">Shown in chat, once per join, to any mod client below the version set here. Leave disabled to turn it off without losing the saved message.</div>
-			<label style="display:flex;align-items:center;gap:6px;font-size:13px;">
-				<input type="checkbox" id="updateNoticeEnabled"> Enabled
-			</label>
-			<label for="updateNoticeMinVersion" style="margin-top:10px;display:block;">Minimum version (e.g. 1.5.1) — anyone below this sees the message</label>
-			<input type="text" id="updateNoticeMinVersion" placeholder="1.5.1" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
-			<label for="updateNoticeMessage">Chat message</label>
-			<textarea id="updateNoticeMessage" rows="2" placeholder="A new version is available — download it from sctp.nl!" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px;"></textarea>
-			<div class="meta" id="updateNoticeMeta"></div>
-			<button id="updateNoticeSaveBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;margin-top:8px;">Save</button>
-			<div class="err" id="updateNoticeErr"></div>
 		</div>
-		</section>
+		</details>
 	</div>
 </div>
 
@@ -261,12 +376,17 @@
 
 	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
 	var EDITABLE_FIELDS = ["itemName","baseItem","price","priceLabel","stackSize","amount","stacksInStock","currency","seller","world","position"];
-	var ALL_PERMS = ["reports","sharedShopRequests","faq","worldMap","manualListings","blockedSellers","rareApprovals","marketplaceListings","updateNotice"];
+	var ALL_PERMS = ["reports","sharedShopRequests","faq","worldMap","manualListings","blockedSellers","rareApprovals","marketplaceListings","updateNotice","suggestions","bugReports","playerReports"];
 	var PERM_LABELS = {
 		reports: "Reports", sharedShopRequests: "Shared-shop requests", faq: "FAQ",
 		worldMap: "World map", manualListings: "Manual listings",
 		blockedSellers: "Blocked sellers", rareApprovals: "Rare approvals",
 		marketplaceListings: "Marketplace listings", updateNotice: "Update notice",
+		suggestions: "Suggestions", bugReports: "Bug reports", playerReports: "Player reports",
+	};
+	var PLAYER_REPORT_REASON_LABELS = {
+		scamming: "Scamming", inappropriate_content: "Inappropriate shop content",
+		spam: "Spam / excessive listings", other: "Other",
 	};
 
 	// Session lives in account-widget.js's shared localStorage now — this
@@ -282,6 +402,9 @@
 	var admins = [];
 	var marketplaceListings = [];
 	var updateNotice = null;
+	var suggestions = [];
+	var bugReports = [];
+	var playerReports = [];
 
 	function esc(s){
 		return String(s).replace(/[&<>"']/g, function(c){
@@ -308,6 +431,14 @@
 	function applyPermissionVisibility(){
 		document.querySelectorAll("section[data-perm]").forEach(function(sec){
 			sec.classList.toggle("hidden", !hasPerm(sec.getAttribute("data-perm")));
+		});
+		// A category with every one of its sections hidden (no permission for
+		// anything inside it) shouldn't show as an empty collapsible header.
+		document.querySelectorAll(".category").forEach(function(cat){
+			var anyVisible = Array.prototype.some.call(cat.querySelectorAll("section[data-perm]"), function(sec){
+				return !sec.classList.contains("hidden");
+			});
+			cat.classList.toggle("hidden", !anyVisible);
 		});
 		var who = document.getElementById("whoAmI");
 		if(session) who.textContent = (session.username || "master key") + (session.isHeadAdmin ? " (head admin)" : "");
@@ -347,6 +478,9 @@
 		if(hasPerm("rareApprovals")) rareApprovals = await api("/admin/rare-approvals");
 		if(hasPerm("marketplaceListings")) marketplaceListings = await api("/admin/marketplace/listings");
 		if(hasPerm("updateNotice")) updateNotice = await api("/admin/update-notice");
+		if(hasPerm("suggestions")) suggestions = await api("/admin/suggestions");
+		if(hasPerm("bugReports")) bugReports = await api("/admin/bug-reports");
+		if(hasPerm("playerReports")) playerReports = await api("/admin/player-reports");
 		if(session && session.isHeadAdmin) admins = await api("/admin/admins");
 		render();
 	}
@@ -360,6 +494,9 @@
 		renderAdmins();
 		renderMarketplaceMod();
 		renderUpdateNotice();
+		renderSuggestions();
+		renderBugReports();
+		renderPlayerReports();
 	}
 
 	// ---------------- update notice ----------------
@@ -399,6 +536,138 @@
 		}
 	}
 
+	// ---------------- suggestions ----------------
+
+	function renderSuggestions(){
+		var host = document.getElementById("suggestionsList");
+		if(!host) return;
+		var badge = document.getElementById("suggestionsCountBadge");
+		var sorted = suggestions.slice().reverse(); // newest first
+		badge.textContent = sorted.length ? sorted.length : "";
+		host.innerHTML = sorted.length ? sorted.map(suggestionCard).join("") : '<div class="empty">No suggestions yet.</div>';
+		document.querySelectorAll(".suggestion-delete").forEach(function(b){
+			b.addEventListener("click", function(){
+				if(confirm("Delete this suggestion?")) deleteSuggestion(b.getAttribute("data-id"));
+			});
+		});
+	}
+
+	function suggestionCard(s){
+		return '<div class="card">'+
+			'<div class="title">'+esc(s.title)+'</div>'+
+			'<div class="meta">'+(s.submitterName ? esc(s.submitterName)+' &middot; ' : '')+esc(s.createdAt)+'</div>'+
+			'<div class="details">'+esc(s.details)+'</div>'+
+			'<div class="actions" style="margin-top:10px;"><button class="deny suggestion-delete" data-id="'+s.id+'" type="button">Delete</button></div>'+
+		'</div>';
+	}
+
+	async function deleteSuggestion(id){
+		try {
+			await api("/admin/suggestions/delete", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id:id }) });
+			await refresh();
+		} catch(err){
+			alert("Failed: " + err.message);
+		}
+	}
+
+	// ---------------- bug reports ----------------
+
+	function renderBugReports(){
+		var host = document.getElementById("bugReportsList");
+		if(!host) return;
+		var badge = document.getElementById("bugReportsCountBadge");
+		var sorted = bugReports.slice().reverse(); // newest first
+		badge.textContent = sorted.length ? sorted.length : "";
+		host.innerHTML = sorted.length ? sorted.map(bugReportCard).join("") : '<div class="empty">No bug reports yet.</div>';
+		document.querySelectorAll(".bug-delete").forEach(function(b){
+			b.addEventListener("click", function(){
+				if(confirm("Delete this bug report?")) deleteBugReport(b.getAttribute("data-id"));
+			});
+		});
+	}
+
+	function bugReportCard(b){
+		var areaBadge = '<span class="badge area-badge '+(b.area === "mod" ? "edited" : "pending")+'">'+esc(b.area)+'</span>';
+		var worldText = b.world ? (' &middot; '+esc(b.world)) : '';
+		var urlLine = b.pageUrl ? '<div class="meta">'+esc(b.pageUrl)+'</div>' : '';
+		return '<div class="card">'+
+			'<div class="title">'+esc(b.title)+' '+areaBadge+'</div>'+
+			'<div class="meta">'+(b.submitterName ? esc(b.submitterName)+' &middot; ' : '')+esc(b.createdAt)+worldText+'</div>'+
+			urlLine+
+			'<div class="details">'+esc(b.details)+'</div>'+
+			'<div class="actions" style="margin-top:10px;"><button class="deny bug-delete" data-id="'+b.id+'" type="button">Delete</button></div>'+
+		'</div>';
+	}
+
+	async function deleteBugReport(id){
+		try {
+			await api("/admin/bug-reports/delete", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id:id }) });
+			await refresh();
+		} catch(err){
+			alert("Failed: " + err.message);
+		}
+	}
+
+	// ---------------- player reports ----------------
+
+	function renderPlayerReports(){
+		var pending = playerReports.filter(function(r){ return r.status === "pending"; }).reverse();
+		var resolved = playerReports.filter(function(r){ return r.status !== "pending"; }).reverse();
+
+		var badge = document.getElementById("playerReportsCountBadge");
+		badge.textContent = pending.length ? pending.length : "";
+		badge.classList.toggle("attn", pending.length > 0);
+
+		document.getElementById("playerReportsPending").innerHTML = pending.length
+			? pending.map(playerReportCard).join("")
+			: '<div class="empty">No pending player reports.</div>';
+		document.getElementById("playerReportsResolved").innerHTML = resolved.length
+			? resolved.map(playerReportCard).join("")
+			: '<div class="empty">Nothing resolved yet.</div>';
+
+		document.querySelectorAll(".pr-ban").forEach(function(b){
+			b.addEventListener("click", function(){
+				if(confirm("Ban " + b.getAttribute("data-username") + "'s shop? This removes their listings on both worlds and blocks them until manually unblocked."))
+					resolvePlayerReport(b.getAttribute("data-id"), "ban");
+			});
+		});
+		document.querySelectorAll(".pr-remove").forEach(function(b){
+			b.addEventListener("click", function(){
+				if(confirm("Remove " + b.getAttribute("data-username") + "'s listings on " + b.getAttribute("data-world") + "? They're not blocked — they can list again."))
+					resolvePlayerReport(b.getAttribute("data-id"), "remove");
+			});
+		});
+		document.querySelectorAll(".pr-none").forEach(function(b){
+			b.addEventListener("click", function(){ resolvePlayerReport(b.getAttribute("data-id"), "none"); });
+		});
+	}
+
+	function playerReportCard(r){
+		var body = r.status === "pending"
+			? '<div class="actions">'+
+				'<button class="deny pr-ban" data-id="'+r.id+'" data-username="'+esc(r.reportedUsername)+'" type="button">Ban shop</button>'+
+				'<button class="change pr-remove" data-id="'+r.id+'" data-username="'+esc(r.reportedUsername)+'" data-world="'+esc(r.world)+'" type="button">Remove shop items</button>'+
+				'<button class="pr-none" data-id="'+r.id+'" type="button">Do nothing</button>'+
+			  '</div>'
+			: '<span class="badge '+(r.actionTaken === "ban" ? "denied" : r.actionTaken === "remove" ? "edited" : "pending")+'">'+esc(r.actionTaken)+'</span>';
+
+		return '<div class="card">'+
+			'<div class="title">'+esc(r.reportedUsername)+' ('+esc(r.world)+')</div>'+
+			'<div class="meta">reason: '+esc(PLAYER_REPORT_REASON_LABELS[r.reason] || r.reason)+' &middot; reported '+esc(r.createdAt)+(r.reporterName ? ' by '+esc(r.reporterName) : '')+'</div>'+
+			'<div class="details">'+esc(r.details)+'</div>'+
+			'<div style="margin-top:10px;">'+body+'</div>'+
+		'</div>';
+	}
+
+	async function resolvePlayerReport(id, action){
+		try {
+			await api("/admin/player-reports/resolve", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id:id, action:action }) });
+			await refresh();
+		} catch(err){
+			alert("Failed: " + err.message);
+		}
+	}
+
 	function renderMarketplaceMod(){
 		var host = document.getElementById("marketplaceModList");
 		if(!host) return;
@@ -425,6 +694,10 @@
 	function renderReports(){
 		var pending = reports.filter(function(r){ return r.status === "pending"; }).reverse();
 		var resolved = reports.filter(function(r){ return r.status !== "pending"; }).reverse();
+
+		var badge = document.getElementById("reportsCountBadge");
+		badge.textContent = pending.length ? pending.length : "";
+		badge.classList.toggle("attn", pending.length > 0);
 
 		document.getElementById("reportsPending").innerHTML = pending.length
 			? pending.map(reportCard).join("")
@@ -496,6 +769,10 @@
 	function renderRequests(){
 		var pending = requests.filter(function(r){ return r.status === "pending"; }).reverse();
 		var resolved = requests.filter(function(r){ return r.status !== "pending"; }).reverse();
+
+		var badge = document.getElementById("requestsCountBadge");
+		badge.textContent = pending.length ? pending.length : "";
+		badge.classList.toggle("attn", pending.length > 0);
 
 		document.getElementById("requestsPending").innerHTML = pending.length
 			? pending.map(requestCard).join("")
@@ -676,6 +953,9 @@
 	function renderRareApprovals(){
 		var el = document.getElementById("rareApprovalsList");
 		if(!el) return;
+		var badge = document.getElementById("rareApprovalsCountBadge");
+		badge.textContent = rareApprovals.length ? rareApprovals.length : "";
+		badge.classList.toggle("attn", rareApprovals.length > 0);
 		el.innerHTML = rareApprovals.length
 			? rareApprovals.map(rareApprovalCard).join("")
 			: '<div class="empty">Nothing pending approval.</div>';

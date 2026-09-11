@@ -72,6 +72,13 @@
 		transition:border-color .12s ease, color .12s ease;
 	}
 	.add-info-btn:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.report-player-btn{
+		display:inline-block;background:transparent;color:var(--warn);
+		border:1px solid var(--warn);font-family:var(--font-body);font-weight:600;font-size:12px;
+		padding:5px 11px;border-radius:999px;text-decoration:none;cursor:pointer;opacity:.85;
+		transition:opacity .12s ease;
+	}
+	.report-player-btn:hover{opacity:1;}
 
 	/* ---------- layout ---------- */
 	.layout{display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;}
@@ -602,6 +609,7 @@
 					'<h1 class="profile-name">'+esc(username)+'</h1>'+
 					'<span class="world-badge">'+esc(world)+'</span>'+
 					(hasOtherWorldListings ? '<span class="other-world-link">also sells on <a href="/s/'+otherSlug+'/'+encodeURIComponent(username)+'">'+esc(otherWorld)+'</a></span>' : '')+
+					'<a class="report-player-btn" href="/report/?player='+encodeURIComponent(username)+'&world='+encodeURIComponent(world)+'">Report this player</a>'+
 				'</div>'+
 				(bio ? '<p class="profile-bio">'+esc(bio)+'</p>' : '')+
 				(shops.length ? '<div class="profile-shops"><div class="label">Also sells at</div>'+shops.map(function(s){ return '<span class="shop-pill">'+esc(s)+'</span>'; }).join("")+'</div>' : '')+
