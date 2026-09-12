@@ -4,3 +4,4 @@ shoplogger-v*/.jdk/
 shoplogger-v*/*.log
 .claude/
 trading-post-api/**/.wrangler/
+.vscode/

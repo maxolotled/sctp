@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My Shop Statistics - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<style>
+	:root{
+		--bg:#101B14; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D; --info:#8C93E8;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(183,226,61,0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:900px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	.nav-links{display:flex;gap:16px;align-items:center;}
+	.nav-links a{color:var(--shell);text-decoration:none;font-size:14px;font-weight:600;}
+	.nav-links a:hover{color:var(--accent);}
+
+	main{padding:32px 0 60px;}
+	.lede{color:var(--muted);font-size:13.5px;margin:0 0 24px;max-width:640px;}
+
+	.tile-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px;}
+	.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+	.tile .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-family:var(--font-mono);margin-bottom:6px;}
+	.tile .value{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--shell);}
+	.tile .sub{color:var(--muted);font-size:11.5px;margin-top:2px;}
+
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;}
+	.chart-wrap{position:relative;height:240px;margin-bottom:16px;}
+
+	.best-sellers{list-style:none;margin:8px 0 0;padding:0;}
+	.best-sellers li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+	.best-sellers li:last-child{border-bottom:none;}
+	.best-sellers .rank{color:var(--muted);font-family:var(--font-mono);width:20px;flex:0 0 auto;}
+	.best-sellers .name{flex:1;}
+	.best-sellers .qty{color:var(--accent);font-weight:600;white-space:nowrap;}
+
+	.estimate-note{color:var(--warn);font-size:12px;margin:10px 0 0;}
+	.empty{color:var(--muted);font-size:13.5px;padding:8px 0;}
+	.login-cta{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;text-align:center;color:var(--muted);font-size:13.5px;}
+	.login-cta a{font-weight:600;}
+	[hidden]{display:none!important;}
+</style>
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">🏪</div>
+			<h1>My Shop Statistics</h1>
+		</div>
+		<div class="nav-links">
+			<a href="../">World Stats</a>
+			<a href="../../">Trading Post</a>
+			<div id="accountWidgetMount"></div>
+		</div>
+	</div>
+</header>
+
+<main class="wrap">
+	<p class="lede">Private to you — nobody else can see this page's data. Log in with a Minecraft-verified account to see your own shop's stats.</p>
+
+	<div id="loginCta" class="login-cta" hidden>You need to be logged in with a verified Minecraft account to see this. Log in from the button up top, or ask a head admin to link/verify your account.</div>
+	<div id="mineContent"></div>
+</main>
+
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var mineChart = null;
+
+	function esc(s){
+		return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+			return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+		});
+	}
+	function fmtNum(n){ return Math.round(n).toLocaleString(); }
+	function fmtDia(n){
+		if(n >= 9) return (n/9).toFixed(1).replace(/\.0$/,"") + " db";
+		return (Math.round(n*10)/10) + " dia";
+	}
+
+	function load(){
+		var session = window.sctpAccount ? window.sctpAccount.getSession() : null;
+		if(!session){
+			document.getElementById("loginCta").hidden = false;
+			document.getElementById("mineContent").innerHTML = "";
+			return;
+		}
+		document.getElementById("loginCta").hidden = true;
+		document.getElementById("mineContent").innerHTML = '<p class="empty">Loading…</p>';
+
+		fetch(API_BASE + "/stats/mine", { headers: { "Authorization": "Bearer " + session.token } })
+			.then(function(res){ return res.json().then(function(d){ return { ok: res.ok, data: d }; }); })
+			.then(function(res){
+				if(!res.ok){
+					document.getElementById("mineContent").innerHTML = '<div class="login-cta">' + esc(res.data.error || "Couldn't load your stats.") + '</div>';
+					return;
+				}
+				if(!res.data.hasData){
+					document.getElementById("mineContent").innerHTML = '<p class="empty">No shop data tracked yet for your account — check back after your shop has been scanned and a daily snapshot has run.</p>';
+					return;
+				}
+				render(res.data);
+			})
+			.catch(function(){ document.getElementById("mineContent").innerHTML = '<p class="empty">Couldn\'t load your stats.</p>'; });
+	}
+
+	function render(d){
+		var host = document.getElementById("mineContent");
+		host.innerHTML =
+			'<div class="tile-row">' +
+				'<div class="tile"><div class="label">Active listings</div><div class="value">' + fmtNum(d.activeListings) + '</div></div>' +
+				'<div class="tile"><div class="label">Distinct items</div><div class="value">' + fmtNum(d.distinctItemsActive) + '</div></div>' +
+				'<div class="tile"><div class="label">Current stock value</div><div class="value">' + fmtDia(d.currentStockValueDiamonds) + '</div></div>' +
+				'<div class="tile"><div class="label">Sold, last 30d (est.)</div><div class="value">' + fmtNum(d.recentInferredSold) + '</div><div class="sub">' + fmtDia(d.recentInferredRevenue) + '</div></div>' +
+				'<div class="tile"><div class="label">Sold, all-time (est.)</div><div class="value">' + fmtNum(d.totalInferredSold) + '</div><div class="sub">' + fmtDia(d.totalInferredRevenue) + '</div></div>' +
+			'</div>' +
+			'<div class="card">' +
+				'<div class="chart-wrap"><canvas id="mineChartCanvas"></canvas></div>' +
+				'<b style="font-size:13px;color:var(--shell);">Your best sellers</b>' +
+				'<ol class="best-sellers" id="mineBestSellers"></ol>' +
+				(d.busiestDay ? '<p class="sub" style="color:var(--muted);font-size:12px;margin-top:10px;">Busiest day: ' + esc(d.busiestDay.date) + ' — ' + fmtNum(d.busiestDay.inferredSold) + ' sold (est.)</p>' : '') +
+				'<p class="estimate-note">Tracking since ' + esc(d.trackingStartDate) + ' (' + d.trackingDays + ' day' + (d.trackingDays===1?"":"s") + ' of data). "Sold" is estimated from your listings\' stock dropping (or disappearing) between daily snapshots — it can\'t tell a real sale apart from you pulling or changing a listing yourself, so treat it as a rough signal, not a receipt.</p>' +
+			'</div>';
+
+		var ctx = document.getElementById("mineChartCanvas").getContext("2d");
+		if(mineChart) mineChart.destroy();
+		mineChart = new Chart(ctx, {
+			type: "bar",
+			data: {
+				labels: d.trend.map(function(t){ return t.date; }),
+				datasets: [{ label: "Estimated units sold", data: d.trend.map(function(t){ return t.inferredSold; }), backgroundColor: "#B7E23D" }],
+			},
+			options: {
+				responsive: true, maintainAspectRatio: false,
+				scales: {
+					x: { ticks: { color: "#8FA593", maxTicksLimit: 10 }, grid: { color: "#22332A" } },
+					y: { ticks: { color: "#8FA593" }, grid: { color: "#22332A" } },
+				},
+				plugins: { legend: { display: false } },
+			},
+		});
+
+		var bestEl = document.getElementById("mineBestSellers");
+		bestEl.innerHTML = d.bestSellers.length
+			? d.bestSellers.map(function(it, i){
+				return '<li><span class="rank">' + (i+1) + '.</span><span class="name">' + esc(it.itemName) + ' (' + esc(it.world) + ')</span><span class="qty">' + fmtNum(it.inferredSold) + ' sold (est.)</span></li>';
+			}).join("")
+			: '<li class="empty">No sales inferred yet.</li>';
+	}
+
+	window.sctpOnAccountChange = load;
+	load();
+})();
+</script>
+</body>
+</html>

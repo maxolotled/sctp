@@ -48,7 +48,7 @@ public final class WatchlistJoinCheck {
 		if (world == null) return; // wait for WorldDetector to finish — no point nagging, see WorldSelection.ensureSet()
 		pending = false;
 
-		List<String> watched = WatchlistStore.getAll();
+		List<WatchedItem> watched = WatchlistStore.getAll();
 		if (!watched.isEmpty()) {
 			WebDataClient.fetchListings()
 					.thenAccept(listings -> client.execute(() -> report(client, world.label(), watched, listings)))
@@ -66,15 +66,24 @@ public final class WatchlistJoinCheck {
 		}
 	}
 
-	private static void reportMarketplace(Minecraft client, String world, List<String> watched, List<MarketplaceListing> listings) {
+	private static void reportMarketplace(Minecraft client, String world, List<WatchedItem> watched, List<MarketplaceListing> listings) {
 		for (MarketplaceListing m : listings) {
 			if (!world.equalsIgnoreCase(m.world)) continue;
-			boolean matches = false;
-			for (String watchedName : watched) {
-				if (MatchUtil.alphaOnly(m.itemName).equals(MatchUtil.alphaOnly(watchedName))) { matches = true; break; }
-			}
-			if (matches) reportMarketplaceMatch(client, m);
+			WatchedItem match = findWatched(m.itemName, watched);
+			if (match == null) continue;
+			boolean noPrice = m.priceInfo() == null;
+			if (match.excludeNoPriceOrDisplay && noPrice) continue;
+			if (!noPrice && match.maxPrice != null && m.diamondValue() > match.maxPrice) continue;
+			reportMarketplaceMatch(client, m);
 		}
+	}
+
+	private static WatchedItem findWatched(String itemName, List<WatchedItem> watched) {
+		String normalized = MatchUtil.alphaOnly(itemName);
+		for (WatchedItem w : watched) {
+			if (MatchUtil.alphaOnly(w.itemName).equals(normalized)) return w;
+		}
+		return null;
 	}
 
 	private static void reportMarketplaceMatch(Minecraft client, MarketplaceListing m) {
@@ -100,21 +109,23 @@ public final class WatchlistJoinCheck {
 		}
 	}
 
-	private static void report(Minecraft client, String world, List<String> watched, List<Listing> listings) {
-		for (String watchedName : watched) {
+	private static void report(Minecraft client, String world, List<WatchedItem> watched, List<Listing> listings) {
+		for (WatchedItem watchedItem : watched) {
 			Listing best = null;
 			int sellerCount = 0;
 
 			for (Listing l : listings) {
 				if (!world.equalsIgnoreCase(l.world)) continue;
-				if ("display".equalsIgnoreCase(l.currency)) continue;
-				if (!MatchUtil.alphaOnly(l.itemName).equals(MatchUtil.alphaOnly(watchedName))) continue;
+				boolean isDisplay = "display".equalsIgnoreCase(l.currency);
+				if (watchedItem.excludeNoPriceOrDisplay && isDisplay) continue;
+				if (!MatchUtil.alphaOnly(l.itemName).equals(MatchUtil.alphaOnly(watchedItem.itemName))) continue;
+				if (!isDisplay && watchedItem.maxPrice != null && l.pricePerItemInDiamonds() > watchedItem.maxPrice) continue;
 
 				sellerCount++;
 				if (best == null || l.pricePerItemInDiamonds() < best.pricePerItemInDiamonds()) best = l;
 			}
 
-			if (best != null) reportMatch(client, watchedName, best, sellerCount);
+			if (best != null) reportMatch(client, watchedItem.itemName, best, sellerCount);
 		}
 	}
 

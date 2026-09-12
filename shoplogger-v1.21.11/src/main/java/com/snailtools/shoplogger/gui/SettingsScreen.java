@@ -64,7 +64,7 @@ public class SettingsScreen extends Screen {
 		y += 16;
 
 		addDrawableChild(CyclingButtonWidget.onOffBuilder(ShopAutoScanner.getInstance().isEnabled())
-				.build(leftX, y, colW, 20, Text.literal("Auto-scan"),
+				.build(leftX, y, colW, 20, Text.literal("Chest scanning"),
 						(btn, value) -> ShopAutoScanner.getInstance().setEnabled(value)));
 		y += gap;
 

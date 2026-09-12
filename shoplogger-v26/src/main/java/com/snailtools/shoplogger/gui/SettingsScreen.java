@@ -64,7 +64,7 @@ public class SettingsScreen extends Screen {
 		y += 16;
 
 		addRenderableWidget(CycleButton.onOffBuilder(ShopAutoScanner.getInstance().isEnabled())
-				.create(leftX, y, colW, 20, Component.literal("Auto-scan"),
+				.create(leftX, y, colW, 20, Component.literal("Chest scanning"),
 						(btn, value) -> ShopAutoScanner.getInstance().setEnabled(value)));
 		y += gap;
 

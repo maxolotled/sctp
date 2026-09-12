@@ -296,7 +296,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 		ShopAutoScanner scanner = ShopAutoScanner.getInstance();
 		scanner.setEnabled(!scanner.isEnabled());
 		ChatFormat.send(client, scanner.isEnabled() ? ChatFormat.SUCCESS : ChatFormat.NEUTRAL,
-				"Auto-scan " + (scanner.isEnabled() ? "ENABLED" : "disabled") +
+				"Scanning " + (scanner.isEnabled() ? "enabled" : "disabled") +
 						" (" + scanner.knownShopCount() + " known shops)");
 	}
 

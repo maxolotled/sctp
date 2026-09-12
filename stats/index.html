@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Statistics - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<style>
+	:root{
+		--bg:#101B14; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D; --info:#8C93E8;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(183,226,61,0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:1180px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	.nav-links{display:flex;gap:16px;align-items:center;}
+	.nav-links a{color:var(--shell);text-decoration:none;font-size:14px;font-weight:600;}
+	.nav-links a:hover{color:var(--accent);}
+
+	main{padding:32px 0 60px;}
+	h2{font-family:var(--font-display);font-weight:600;font-size:22px;margin:0 0 4px;}
+	.lede{color:var(--muted);font-size:13.5px;margin:0 0 18px;max-width:640px;}
+	section{margin-bottom:40px;}
+
+	.tile-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px;}
+	.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+	.tile .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-family:var(--font-mono);margin-bottom:6px;}
+	.tile .value{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--shell);}
+	.tile .sub{color:var(--muted);font-size:11.5px;margin-top:2px;}
+
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;}
+	.chart-wrap{position:relative;height:220px;margin-bottom:16px;}
+
+	.best-sellers{list-style:none;margin:0;padding:0;}
+	.best-sellers li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+	.best-sellers li:last-child{border-bottom:none;}
+	.best-sellers .rank{color:var(--muted);font-family:var(--font-mono);width:20px;flex:0 0 auto;}
+	.best-sellers .name{flex:1;}
+	.best-sellers .qty{color:var(--accent);font-weight:600;white-space:nowrap;}
+
+	.world-tabs{display:flex;gap:8px;margin-bottom:14px;}
+	.world-tabs button{background:var(--panel-alt);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:8px 16px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;}
+	.world-tabs button.active{border-color:var(--accent-dim);color:var(--accent);background:rgba(183,226,61,0.08);}
+
+	.estimate-note{color:var(--warn);font-size:12px;margin:10px 0 0;}
+	.empty{color:var(--muted);font-size:13.5px;padding:8px 0;}
+
+	[hidden]{display:none!important;}
+	@media(max-width:640px){ .tile-row{grid-template-columns:repeat(2,1fr);} }
+</style>
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">📊</div>
+			<h1>Statistics</h1>
+		</div>
+		<div class="nav-links">
+			<a href="../">Home</a>
+			<a href="../items/">Items</a>
+			<a href="../list/">Build List</a>
+			<a href="../marketplace/" data-require-auth hidden>Marketplace</a>
+			<a href="../docs.html">Info</a>
+			<a href="../roadmap/">Roadmap</a>
+			<div id="accountWidgetMount"></div>
+		</div>
+	</div>
+</header>
+
+<main class="wrap">
+
+	<section>
+		<h2>World Economy</h2>
+		<p class="lede">Site-wide trends across every seller — nothing here identifies an individual shop. Run your own shop? Log in and click your username for <a href="mine/">your own shop's stats</a>.</p>
+		<div class="world-tabs">
+			<button type="button" class="active" id="fireflyTab">Firefly</button>
+			<button type="button" id="honeybeeTab">Honeybee</button>
+		</div>
+		<div id="worldContent"></div>
+	</section>
+
+</main>
+
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var currentWorld = "Firefly";
+	var worldChart = null;
+
+	function esc(s){
+		return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+			return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+		});
+	}
+	function fmtNum(n){ return Math.round(n).toLocaleString(); }
+
+	// ---------------- world stats (public) ----------------
+
+	function loadWorld(world){
+		currentWorld = world;
+		document.getElementById("fireflyTab").classList.toggle("active", world === "Firefly");
+		document.getElementById("honeybeeTab").classList.toggle("active", world === "Honeybee");
+		document.getElementById("worldContent").innerHTML = '<p class="empty">Loading…</p>';
+
+		fetch(API_BASE + "/stats/world?world=" + encodeURIComponent(world))
+			.then(function(res){ return res.json(); })
+			.then(renderWorld)
+			.catch(function(){ document.getElementById("worldContent").innerHTML = '<p class="empty">Couldn\'t load world stats.</p>'; });
+	}
+
+	function renderWorld(data){
+		var latest = data.latest || {};
+		var host = document.getElementById("worldContent");
+		host.innerHTML =
+			'<div class="tile-row">' +
+				'<div class="tile"><div class="label">Active listings</div><div class="value">' + fmtNum(latest.listings || 0) + '</div></div>' +
+				'<div class="tile"><div class="label">Distinct items</div><div class="value">' + fmtNum(latest.distinctItems || 0) + '</div></div>' +
+				'<div class="tile"><div class="label">Total stock</div><div class="value">' + fmtNum(latest.stock || 0) + '</div></div>' +
+				'<div class="tile"><div class="label">Active sellers</div><div class="value">' + fmtNum(latest.sellers || 0) + '</div></div>' +
+			'</div>' +
+			'<div class="card">' +
+				'<div class="chart-wrap"><canvas id="worldChartCanvas"></canvas></div>' +
+				'<div style="display:flex;gap:32px;flex-wrap:wrap;">' +
+					'<div style="flex:1;min-width:220px;"><b style="font-size:13px;color:var(--shell);">Best-selling items</b>' +
+						'<ol class="best-sellers" id="worldBestSellers" style="list-style:none;margin-top:8px;"></ol>' +
+					'</div>' +
+				'</div>' +
+				'<p class="estimate-note">"Best-selling" is estimated from day-to-day stock changes across all sellers — there\'s no real transaction log, so treat this as a rough signal, not a verified count.</p>' +
+			'</div>';
+
+		var ctx = document.getElementById("worldChartCanvas").getContext("2d");
+		if(worldChart) worldChart.destroy();
+		worldChart = new Chart(ctx, {
+			type: "line",
+			data: {
+				labels: data.trend.map(function(t){ return t.date; }),
+				datasets: [
+					{ label: "Active listings", data: data.trend.map(function(t){ return t.listings; }), borderColor: "#B7E23D", backgroundColor: "transparent", tension: 0.2, yAxisID: "y" },
+					{ label: "Active sellers", data: data.trend.map(function(t){ return t.sellers; }), borderColor: "#8C93E8", backgroundColor: "transparent", tension: 0.2, yAxisID: "y1" },
+				],
+			},
+			options: {
+				responsive: true, maintainAspectRatio: false,
+				interaction: { mode: "index", intersect: false },
+				scales: {
+					x: { ticks: { color: "#8FA593", maxTicksLimit: 8 }, grid: { color: "#22332A" } },
+					y: { type: "linear", position: "left", ticks: { color: "#8FA593" }, grid: { color: "#22332A" } },
+					y1: { type: "linear", position: "right", ticks: { color: "#8FA593" }, grid: { drawOnChartArea: false } },
+				},
+				plugins: { legend: { labels: { color: "#EAEFE7" } } },
+			},
+		});
+
+		var bestEl = document.getElementById("worldBestSellers");
+		bestEl.innerHTML = data.topSellingItems.length
+			? data.topSellingItems.map(function(it, i){
+				return '<li><span class="rank">' + (i+1) + '.</span><span class="name">' + esc(it.itemName) + '</span><span class="qty">' + fmtNum(it.totalInferredSold) + ' sold (est.)</span></li>';
+			}).join("")
+			: '<li class="empty">Not enough history yet.</li>';
+	}
+
+	document.getElementById("fireflyTab").addEventListener("click", function(){ loadWorld("Firefly"); });
+	document.getElementById("honeybeeTab").addEventListener("click", function(){ loadWorld("Honeybee"); });
+
+	loadWorld("Firefly");
+})();
+</script>
+</body>
+</html>

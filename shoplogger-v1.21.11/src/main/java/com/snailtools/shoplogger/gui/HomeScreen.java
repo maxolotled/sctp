@@ -5,6 +5,9 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+import net.minecraft.util.Util;
+
+import java.net.URI;
 
 /**
  * Landing screen for the in-game Item Library (default hotkey: X). Mirrors
@@ -48,8 +51,21 @@ public class HomeScreen extends Screen {
 				.dimensions(centerX - w / 2, y, w, 20).build());
 		y += 32;
 
+		int halfW = (w - 6) / 2;
+		addDrawableChild(ButtonWidget.builder(Text.literal("Suggest a feature"), btn ->
+				openUrl("https://sctp.nl/suggest/"))
+				.dimensions(centerX - w / 2, y, halfW, 20).build());
+		addDrawableChild(ButtonWidget.builder(Text.literal("Report a bug"), btn ->
+				openUrl("https://sctp.nl/bug/"))
+				.dimensions(centerX - w / 2 + halfW + 6, y, halfW, 20).build());
+		y += 24;
+
 		addDrawableChild(ButtonWidget.builder(Text.literal("Close"), btn -> close())
 				.dimensions(centerX - w / 2, y, w, 20).build());
+	}
+
+	private void openUrl(String url) {
+		Util.getOperatingSystem().open(URI.create(url));
 	}
 
 	@Override

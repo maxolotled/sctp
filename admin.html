@@ -330,8 +330,8 @@
 			<label style="display:flex;align-items:center;gap:6px;font-size:13px;">
 				<input type="checkbox" id="updateNoticeEnabled"> Enabled
 			</label>
-			<label for="updateNoticeMinVersion" style="margin-top:10px;display:block;">Minimum version (e.g. 1.5.1) — anyone below this sees the message</label>
-			<input type="text" id="updateNoticeMinVersion" placeholder="1.5.1" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
+			<label for="updateNoticeMinVersion" style="margin-top:10px;display:block;">Minimum version (e.g. 1.5.2) — anyone below this sees the message</label>
+			<input type="text" id="updateNoticeMinVersion" placeholder="1.5.2" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
 			<label for="updateNoticeMessage">Chat message</label>
 			<textarea id="updateNoticeMessage" rows="2" placeholder="A new version is available — download it from sctp.nl!" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px;"></textarea>
 			<div class="meta" id="updateNoticeMeta"></div>
@@ -361,6 +361,17 @@
 			<div class="err" id="createAdminErr"></div>
 		</div>
 		<div id="adminsList"></div>
+		</details>
+		</section>
+
+		<section data-perm="__headAdminOnly__">
+		<details class="section-toggle" open>
+		<summary>Maintenance</summary>
+		<div class="card">
+			<div class="meta" style="margin-bottom:8px;">Forces today's item/seller stats computation and full listings snapshot now, instead of waiting for the nightly cron. Safe to run any time.</div>
+			<button id="runSnapshotBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;">Run daily snapshot now</button>
+			<div class="err" id="runSnapshotStatus"></div>
+		</div>
 		</details>
 		</section>
 
@@ -1129,6 +1140,21 @@
 		}
 	}
 
+	// ---------------- maintenance ----------------
+
+	async function runSnapshotNow(){
+		var el = document.getElementById("runSnapshotStatus");
+		el.style.color = "var(--accent)";
+		el.textContent = "Running…";
+		try {
+			var res = await api("/admin/run-snapshot", { method: "POST" });
+			el.textContent = "Done — " + res.itemsSnapshotted + " items, " + res.sellerItemBucketsSnapshotted + " seller/item pairs, " + res.r2Snapshot.rows + " listings archived.";
+		} catch(err){
+			el.style.color = "var(--danger)";
+			el.textContent = "Failed: " + err.message;
+		}
+	}
+
 	// ---------------- own password ----------------
 
 	async function changeOwnPassword(){
@@ -1307,6 +1333,7 @@
 
 	document.getElementById("blockSellerBtn").addEventListener("click", blockSeller);
 	document.getElementById("createAdminBtn").addEventListener("click", createAdmin);
+	document.getElementById("runSnapshotBtn").addEventListener("click", runSnapshotNow);
 
 	document.getElementById("changePasswordToggle").addEventListener("click", function(){
 		document.getElementById("changePasswordCard").classList.toggle("hidden");

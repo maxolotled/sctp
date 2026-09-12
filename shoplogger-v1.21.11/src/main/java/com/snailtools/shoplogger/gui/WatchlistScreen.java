@@ -1,6 +1,7 @@
 package com.snailtools.shoplogger.gui;
 
 import com.snailtools.shoplogger.ChatFormat;
+import com.snailtools.shoplogger.WatchedItem;
 import com.snailtools.shoplogger.WatchlistStore;
 import com.snailtools.shoplogger.gui.data.RareItem;
 import com.snailtools.shoplogger.gui.data.VanillaItem;
@@ -112,18 +113,19 @@ public class WatchlistScreen extends Screen {
 		String q = searchBox.getText().trim().toLowerCase(Locale.ROOT);
 
 		if (q.isEmpty()) {
-			for (String watched : WatchlistStore.getAll()) {
-				VanillaItem vMatch = findVanillaItem(watched);
+			for (WatchedItem watched : WatchlistStore.getAll()) {
+				String name = watched.itemName;
+				VanillaItem vMatch = findVanillaItem(name);
 				if (vMatch != null) {
-					list.addItemEntry(ItemListWidget.forVanilla(watched, vMatch.baseItem, () -> removeWatched(watched)));
+					list.addItemEntry(ItemListWidget.forVanilla(name, vMatch.baseItem, () -> openOptions(watched)));
 					continue;
 				}
-				RareItem rMatch = findRareItem(watched);
+				RareItem rMatch = findRareItem(name);
 				if (rMatch != null) {
-					list.addItemEntry(ItemListWidget.forRare(watched, rMatch.category, rMatch.texture, () -> removeWatched(watched)));
+					list.addItemEntry(ItemListWidget.forRare(name, rMatch.category, rMatch.texture, () -> openOptions(watched)));
 					continue;
 				}
-				list.addItemEntry(ItemListWidget.forVanilla(watched, null, () -> removeWatched(watched)));
+				list.addItemEntry(ItemListWidget.forVanilla(name, null, () -> openOptions(watched)));
 			}
 			return;
 		}
@@ -148,10 +150,8 @@ public class WatchlistScreen extends Screen {
 		refreshList();
 	}
 
-	private void removeWatched(String name) {
-		WatchlistStore.remove(name);
-		ChatFormat.send(client, ChatFormat.NEUTRAL, "Stopped watching " + name + ".");
-		refreshList();
+	private void openOptions(WatchedItem watched) {
+		client.setScreen(new WatchedItemOptionsScreen(this, watched));
 	}
 
 	@Override

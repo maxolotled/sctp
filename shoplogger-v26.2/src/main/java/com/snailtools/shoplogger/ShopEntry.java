@@ -25,6 +25,23 @@ public record ShopEntry(
 			"diamondblock", "db"
 	);
 
+	// Same real player-market rates as Listing.java/worker.js's CURRENCY_VALUE —
+	// 64 iron = 1 diamond, 18 gold = 1 diamond, 1 netherite ingot = 18 diamonds.
+	private static final Map<String, Double> CURRENCY_VALUE = Map.ofEntries(
+			Map.entry("diamond", 1.0), Map.entry("diamondblock", 9.0),
+			Map.entry("iron", 1.0 / 64), Map.entry("ironingot", 1.0 / 64), Map.entry("ironblock", 9.0 / 64),
+			Map.entry("gold", 1.0 / 18), Map.entry("goldingot", 1.0 / 18), Map.entry("goldblock", 9.0 / 18),
+			Map.entry("netherite", 18.0), Map.entry("netheriteingot", 18.0), Map.entry("netheriteblock", 162.0)
+	);
+
+	/** Price per single item in diamonds — used to compare against a watchlist entry's max-price cap. */
+	public double pricePerItemInDiamonds() {
+		if (ShopSign.DISPLAY_CURRENCY.equalsIgnoreCase(currency)) return Double.POSITIVE_INFINITY;
+		double mult = CURRENCY_VALUE.getOrDefault(currency == null ? "" : currency.toLowerCase(), 1.0);
+		int size = stackSize <= 0 ? 1 : stackSize;
+		return (price * mult) / size;
+	}
+
 	/**
 	 * Dedup key: same seller selling the same item on the same world counts as
 	 * "the same shop listing" even if the container moves (rebuilt, or a

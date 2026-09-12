@@ -183,6 +183,11 @@
 	.rare-info .f{display:flex;flex-direction:column;gap:3px;}
 	.rare-info .f-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-family:var(--font-mono);}
 	.rare-info .f-value{font-size:14px;color:var(--text);}
+	.item-stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px;}
+	.item-stats-row .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;}
+	.item-stats-row .label{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-family:var(--font-mono);margin-bottom:5px;}
+	.item-stats-row .value{font-family:var(--font-display);font-size:19px;font-weight:600;color:var(--shell);}
+	.item-stats-row .sub{color:var(--muted);font-size:11px;margin-top:5px;}
 	.charts-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px;margin-bottom:24px;}
 	.chart-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;}
 	.chart-card h3{font-family:var(--font-display);font-weight:600;font-size:15px;margin:0 0 12px;color:var(--shell);}
@@ -206,6 +211,7 @@
 			<a href="/index.html">Home</a>
 			<a href="/marketplace/" data-require-auth hidden>Marketplace</a>
 			<a href="/docs.html">Docs</a>
+			<a href="/stats/">Stats</a>
 			<a href="/roadmap/">Roadmap</a>
 			<div id="accountWidgetMount"></div>
 		</div>
@@ -853,6 +859,7 @@
 				'</div>'+
 				(isRare ? rareInfoHtml(entry) : '')+
 				'<p class="history-note" id="historyNote"></p>'+
+				'<div id="itemStatsRow"></div>'+
 				'<div class="scale-toggle">Price charts:'+
 					'<button type="button" class="scale-btn" id="scalePer1" data-scale="1">Per item</button>'+
 					'<button type="button" class="scale-btn" id="scalePer64" data-scale="64">Per stack of 64</button>'+
@@ -887,6 +894,33 @@
 			if(priceScale === scale) return;
 			priceScale = scale;
 			renderGraphs(lastHistory);
+		}
+
+		// All-time estimated sold / distinct-sellers-ever per world — not
+		// available from /items/history (that's a daily trend of CURRENT state
+		// only). Skipped for the enchanted-book directory path, which merges
+		// several distinct itemKeys and has no single key to ask about.
+		function loadItemStats(itemKey){
+			fetch(API_BASE + "/stats/item?itemKey=" + encodeURIComponent(itemKey))
+				.then(function(r){ return r.ok ? r.json() : null; })
+				.then(function(data){ if(data) renderItemStats(data); })
+				.catch(function(){});
+		}
+
+		function renderItemStats(data){
+			var host = document.getElementById("itemStatsRow");
+			if(!host || !data.totalsByWorld || data.totalsByWorld.length === 0) return;
+			var currentByWorld = {};
+			(data.current || []).forEach(function(c){ currentByWorld[c.world] = c; });
+
+			host.innerHTML = '<div class="item-stats-row">' + data.totalsByWorld.map(function(t){
+				var cur = currentByWorld[t.world];
+				return '<div class="tile">'+
+					'<div class="label">'+esc(t.world)+'</div>'+
+					'<div class="value">'+fmtNum(t.totalInferredSold)+' sold</div>'+
+					'<div class="sub">est. &middot; '+fmtNum(t.distinctSellersEver)+' sellers ever'+(cur ? ' &middot; '+fmtNum(cur.sellerCount)+' now' : '')+'</div>'+
+				'</div>';
+			}).join("") + '</div>';
 		}
 
 		function renderGraphs(history){
@@ -1142,6 +1176,7 @@
 					return display.toLowerCase() === canonicalName;
 				}).map(normalizeRow);
 				history = await fetch(API_BASE + "/items/history?itemKey=" + encodeURIComponent(itemKey)).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; });
+				loadItemStats(itemKey);
 			}
 
 			var marketplaceHtml = renderMarketplaceSection(currentListings.filter(function(r){ return r.marketplace; }));

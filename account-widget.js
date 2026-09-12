@@ -67,6 +67,7 @@
 		btn.onclick = function () { menu.hidden = !menu.hidden; };
 		var isAdmin = session.isHeadAdmin || (session.permissions && session.permissions.length > 0);
 		var html = '<a href="/marketplace/#mine">My Marketplace</a>';
+		html += '<a href="/stats/mine/">My Shop Statistics</a>';
 		if (isAdmin) html += '<a href="/admin.html">Admin Panel</a>';
 		html += '<button type="button" id="acctLogout">Log out</button>';
 		menu.innerHTML = html;

@@ -50,6 +50,7 @@
 // Permission bucket "reports":
 //   GET  /admin/reports
 //   POST /admin/reports/resolve              body: {id, action: "approve"|"deny"|"edit", field?, value?}
+//   POST /admin/listings/remove              body: {rowKey} -> instant delete, no report record (website's Remove button)
 // Permission bucket "sharedShopRequests":
 //   GET  /admin/shared-shop-requests
 //   POST /admin/shared-shop-requests/resolve body: {id, action: "approve"|"deny"}
@@ -91,6 +92,13 @@
 //   history for one item. itemKey is "v:<baseItem>|<exact display name>" (lowercased)
 //   for vanilla items. Populated by a daily cron trigger (see wrangler.toml), not
 //   by any upload — see computeDailySnapshots() below.
+// GET /stats/item?itemKey=<key> (public, cached 1hr) -> all-time totals (estimated units
+//   sold, distinct sellers ever) per world, plus the latest day's snapshot.
+// GET /stats/world?world=Firefly|Honeybee (public, cached 1hr) -> world-wide daily trend
+//   (listings/stock/distinct items/sellers) + a top-selling-items list (estimated).
+// GET /stats/mine (any logged-in account with a verified linked MC username) -> that
+//   seller's own shop stats: active listings, best sellers, sales trend, all estimated
+//   from listing-snapshot deltas — see computeSellerItemStats' doc comment for why.
 //
 // Rare-item price-approval hold: on upload, a listing whose item name is in
 // the rare-items catalog (data/rare-items.json, fetched live — see
@@ -1512,6 +1520,28 @@ async function handleResolveReport(request, env) {
 	return json({ ok: true, listingChanged });
 }
 
+// Instant delete, no report record created — the website swaps the per-row
+// "Report" button for a "Remove" button when the logged-in account already
+// has the "reports" permission (see index.html's renderTable), skipping the
+// modal/reason/confirmation entirely for someone already trusted to resolve
+// reports the normal way.
+async function handleAdminRemoveListingDirect(request, env) {
+	const auth = await requireAdminAuth(request, env, "reports");
+	if (!auth.ok) return auth.response;
+
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		return json({ error: "Invalid JSON body" }, 400);
+	}
+	const rowKey = String(body.rowKey || "");
+	if (!rowKey) return json({ error: "rowKey is required" }, 400);
+
+	const res = await env.DB.prepare("DELETE FROM listings WHERE rowKey = ?").bind(rowKey).run();
+	return json({ ok: true, deleted: res.meta.changes > 0 });
+}
+
 // ---------------- suggestions / bug reports / player reports ----------------
 //
 // Public submission (same trust model as POST /reports above — no login,
@@ -2232,7 +2262,7 @@ async function computeDailySnapshots(env) {
 	}
 
 	const { results: rows } = await env.DB.prepare(
-		"SELECT baseItem, itemName, price, currency, stackSize, amount, seller, world FROM listings"
+		"SELECT rowKey, baseItem, itemName, price, currency, stackSize, amount, seller, world FROM listings"
 	).all();
 
 	// groupKey -> { itemKey, world, prices: number[], sellers: Set, totalStock, listingCount }
@@ -2241,7 +2271,7 @@ async function computeDailySnapshots(env) {
 		if (String(r.currency || "").toLowerCase() === "display") continue; // no real price/stock — same exclusion as the site's own price summary
 		const name = displayName(r.baseItem, r.itemName);
 		const itemKey = "v:" + String(r.baseItem).toLowerCase() + "|" + name.toLowerCase();
-		const groupKey = itemKey + " " + r.world;
+		const groupKey = itemKey + " " + r.world;
 		let g = groups.get(groupKey);
 		if (!g) {
 			g = { itemKey, world: r.world, prices: [], sellers: new Set(), totalStock: 0, listingCount: 0 };
@@ -2270,7 +2300,108 @@ async function computeDailySnapshots(env) {
 		if (chunk.length > 0) await env.DB.batch(chunk);
 	}
 
-	return { date: today, itemsSnapshotted: groups.size, listingsScanned: rows.length };
+	const sellerStatsResult = await computeSellerItemStats(env, rows, today);
+
+	return { date: today, itemsSnapshotted: groups.size, listingsScanned: rows.length, ...sellerStatsResult };
+}
+
+// Per-seller-per-item daily stats, INCLUDING an estimated sales figure — the
+// only sales signal anywhere in this project, since no real transaction log
+// exists. Diffs today's live D1 state (rows, already fetched by the caller)
+// against YESTERDAY's full per-listing snapshot in R2 (see snapshotListingsToR2)
+// at the exact rowKey level — this is real per-listing precision (bulk vs
+// normal stacks of the same item from the same seller are distinct rowKeys),
+// not just a same-day aggregate. A rowKey whose amount dropped, or that's
+// gone entirely today, reads as an inferred sale of the difference (or the
+// full remaining amount) — this can't distinguish an actual sale from the
+// seller just pulling/changing the listing, so every consumer of this data
+// must present it as an estimate, never a verified count.
+async function computeSellerItemStats(env, todayRows, today) {
+	let langTable = {};
+	try {
+		const res = await fetch(ITEM_LANG_TABLE_URL);
+		if (res.ok) langTable = await res.json();
+	} catch (e) {
+		// same fallback as computeDailySnapshots — every name treated as English
+	}
+	const langSets = new Map();
+	for (const baseItem in langTable) langSets.set(baseItem, new Set(langTable[baseItem].alt));
+	function displayName(baseItem, itemName) {
+		const set = langSets.get(baseItem);
+		if (!set || !set.has(alphaOnly(itemName))) return itemName;
+		return langTable[baseItem].en;
+	}
+
+	const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+	let yesterdayRows = [];
+	try {
+		const obj = await env.SNAPSHOTS.get(`${yesterday}.json`);
+		if (obj) yesterdayRows = JSON.parse(await obj.text());
+	} catch (e) {
+		// no snapshot yet for yesterday (e.g. the very first day this ran) — an
+		// empty baseline just means nothing reads as sold today, which is correct.
+	}
+	const yesterdayByRowKey = new Map();
+	for (const r of yesterdayRows) yesterdayByRowKey.set(r.rowKey, r);
+
+	// sellerKey|itemKey|world -> aggregate across every rowKey (bulk/bundled/etc) for that item
+	const buckets = new Map();
+	function bucketFor(seller, baseItem, itemName, world) {
+		const sellerKey = String(seller).toLowerCase();
+		const name = displayName(baseItem, itemName);
+		const itemKey = "v:" + String(baseItem).toLowerCase() + "|" + name.toLowerCase();
+		const key = sellerKey + "|" + itemKey + "|" + world;
+		let b = buckets.get(key);
+		if (!b) {
+			b = { seller, sellerKey, itemKey, itemName: name, world, totalStock: 0, listingCount: 0, prices: [], inferredSold: 0, inferredRevenue: 0 };
+			buckets.set(key, b);
+		}
+		return b;
+	}
+
+	const todayByRowKey = new Map();
+	for (const r of todayRows) {
+		if (String(r.currency || "").toLowerCase() === "display") continue;
+		todayByRowKey.set(r.rowKey, r);
+		const b = bucketFor(r.seller, r.baseItem, r.itemName, r.world);
+		b.totalStock += Number(r.amount) || 0;
+		b.listingCount++;
+		b.prices.push(priceInDiamonds(r) / (r.stackSize || 1));
+	}
+
+	for (const [rowKey, prior] of yesterdayByRowKey) {
+		if (String(prior.currency || "").toLowerCase() === "display") continue;
+		const now = todayByRowKey.get(rowKey);
+		const priorAmount = Number(prior.amount) || 0;
+		const priceDia = priceInDiamonds(prior) / (prior.stackSize || 1);
+		let sold = 0;
+		if (!now) {
+			sold = priorAmount; // gone entirely — sold out, or delisted; can't tell which (see doc comment above)
+		} else if (Number(now.amount) < priorAmount) {
+			sold = priorAmount - Number(now.amount);
+		}
+		if (sold <= 0) continue;
+		const b = bucketFor(prior.seller, prior.baseItem, prior.itemName, prior.world);
+		b.inferredSold += sold;
+		b.inferredRevenue += sold * priceDia;
+	}
+
+	const stmts = [];
+	for (const b of buckets.values()) {
+		const avg = b.prices.length ? b.prices.reduce((a, c) => a + c, 0) / b.prices.length : 0;
+		stmts.push(env.DB.prepare(
+			`INSERT INTO sellerItemDailyStats (seller, sellerKey, itemKey, itemName, world, date, totalStock, listingCount, avgPriceDiamonds, inferredSold, inferredRevenueDiamonds)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(sellerKey, itemKey, world, date) DO UPDATE SET
+			   seller=excluded.seller, itemName=excluded.itemName, totalStock=excluded.totalStock, listingCount=excluded.listingCount,
+			   avgPriceDiamonds=excluded.avgPriceDiamonds, inferredSold=excluded.inferredSold, inferredRevenueDiamonds=excluded.inferredRevenueDiamonds`
+		).bind(b.seller, b.sellerKey, b.itemKey, b.itemName, b.world, today, b.totalStock, b.listingCount, avg, b.inferredSold, b.inferredRevenue));
+	}
+	for (const chunk of chunkArray(stmts, 100)) {
+		if (chunk.length > 0) await env.DB.batch(chunk);
+	}
+
+	return { sellerItemBucketsSnapshotted: buckets.size };
 }
 
 // Full daily dump of the live listings table — same query/shape as GET
@@ -2303,6 +2434,133 @@ async function handleGetItemHistory(request, env, ctx) {
 			"SELECT world, date, avgPrice, lowestPrice, highestPrice, listingCount, sellerCount, totalStock FROM itemDailyStats WHERE itemKey = ? ORDER BY date"
 		).bind(itemKey).all();
 		return results;
+	});
+}
+
+// Public — extends the per-day series above with all-time aggregates: total
+// ESTIMATED units sold and distinct sellers who've ever carried it, per
+// world (from sellerItemDailyStats — see computeSellerItemStats' doc comment
+// on why this is an estimate, never a verified sales count), plus the most
+// recent day's snapshot for a quick "right now" summary.
+async function handleGetItemStats(request, env, ctx) {
+	const url = new URL(request.url);
+	const itemKey = url.searchParams.get("itemKey");
+	if (!itemKey) return json({ error: "itemKey is required" }, 400);
+
+	return cachedGet(request, ctx, HISTORY_CACHE_TTL_SECONDS, async () => {
+		const { results: totalsByWorld } = await env.DB.prepare(
+			`SELECT world, SUM(inferredSold) as totalInferredSold, SUM(inferredRevenueDiamonds) as totalInferredRevenue,
+			 COUNT(DISTINCT sellerKey) as distinctSellersEver
+			 FROM sellerItemDailyStats WHERE itemKey = ? GROUP BY world`
+		).bind(itemKey).all();
+
+		const latestDateRow = await env.DB.prepare("SELECT MAX(date) as d FROM itemDailyStats WHERE itemKey = ?").bind(itemKey).first();
+		const latestDate = latestDateRow ? latestDateRow.d : null;
+		const current = latestDate
+			? (await env.DB.prepare(
+				"SELECT world, sellerCount, totalStock, avgPrice, lowestPrice, highestPrice FROM itemDailyStats WHERE itemKey = ? AND date = ?"
+			).bind(itemKey, latestDate).all()).results
+			: [];
+
+		return { itemKey, asOfDate: latestDate, current, totalsByWorld };
+	});
+}
+
+// Public — world-wide economy trend (from itemDailyStats/sellerItemDailyStats,
+// both already seller-anonymous at this aggregation level) plus a top-selling
+// items list. "Top selling" is an ESTIMATE — see computeSellerItemStats.
+async function handleGetWorldStats(request, env, ctx) {
+	const url = new URL(request.url);
+	const world = url.searchParams.get("world");
+	if (world !== "Firefly" && world !== "Honeybee") return json({ error: "world must be 'Firefly' or 'Honeybee'" }, 400);
+
+	return cachedGet(request, ctx, HISTORY_CACHE_TTL_SECONDS, async () => {
+		const { results: dailyRows } = await env.DB.prepare(
+			`SELECT date, SUM(listingCount) as listings, SUM(totalStock) as stock, COUNT(DISTINCT itemKey) as distinctItems
+			 FROM itemDailyStats WHERE world = ? GROUP BY date ORDER BY date`
+		).bind(world).all();
+
+		const { results: sellerCountRows } = await env.DB.prepare(
+			"SELECT date, COUNT(DISTINCT sellerKey) as sellers FROM sellerItemDailyStats WHERE world = ? GROUP BY date"
+		).bind(world).all();
+		const sellersByDate = new Map(sellerCountRows.map((r) => [r.date, r.sellers]));
+
+		const trend = dailyRows.map((r) => ({
+			date: r.date, listings: r.listings, stock: r.stock,
+			distinctItems: r.distinctItems, sellers: sellersByDate.get(r.date) || 0,
+		}));
+
+		const { results: topSellingItems } = await env.DB.prepare(
+			`SELECT itemKey, itemName, SUM(inferredSold) as totalInferredSold
+			 FROM sellerItemDailyStats WHERE world = ? GROUP BY itemKey HAVING totalInferredSold > 0
+			 ORDER BY totalInferredSold DESC LIMIT 15`
+		).bind(world).all();
+
+		return { world, latest: trend.length ? trend[trend.length - 1] : null, trend, topSellingItems };
+	});
+}
+
+// Any logged-in account (see requireAnyAdmin) with a VERIFIED linked Minecraft
+// username can see their own shop's stats — nobody else's. Everything derived
+// from inferredSold/inferredRevenueDiamonds is an ESTIMATE (see
+// computeSellerItemStats' doc comment) and must be presented as such.
+async function handleGetMyStats(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	if (!auth.admin.mcVerified || !auth.admin.mcUsername) {
+		return json({ error: "Link and verify your Minecraft username first (ask a head admin)." }, 403);
+	}
+	const sellerKey = auth.admin.mcUsername.toLowerCase();
+
+	const { results: rows } = await env.DB.prepare(
+		`SELECT itemKey, itemName, world, date, totalStock, listingCount, avgPriceDiamonds, inferredSold, inferredRevenueDiamonds
+		 FROM sellerItemDailyStats WHERE sellerKey = ? ORDER BY date`
+	).bind(sellerKey).all();
+
+	if (rows.length === 0) return json({ hasData: false });
+
+	const dates = [...new Set(rows.map((r) => r.date))].sort();
+	const latestDate = dates[dates.length - 1];
+
+	const current = rows.filter((r) => r.date === latestDate);
+	const activeListings = current.reduce((a, r) => a + r.listingCount, 0);
+	const distinctItemsActive = current.length;
+	const currentStockValueDiamonds = current.reduce((a, r) => a + r.totalStock * r.avgPriceDiamonds, 0);
+
+	const totalInferredSold = rows.reduce((a, r) => a + r.inferredSold, 0);
+	const totalInferredRevenue = rows.reduce((a, r) => a + r.inferredRevenueDiamonds, 0);
+
+	const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+	const recent = rows.filter((r) => r.date >= cutoff);
+	const recentInferredSold = recent.reduce((a, r) => a + r.inferredSold, 0);
+	const recentInferredRevenue = recent.reduce((a, r) => a + r.inferredRevenueDiamonds, 0);
+
+	const byItem = new Map();
+	const byDate = new Map();
+	for (const r of rows) {
+		const itemKey2 = r.itemKey + "|" + r.world;
+		let ie = byItem.get(itemKey2);
+		if (!ie) { ie = { itemName: r.itemName, world: r.world, inferredSold: 0, inferredRevenue: 0 }; byItem.set(itemKey2, ie); }
+		ie.inferredSold += r.inferredSold;
+		ie.inferredRevenue += r.inferredRevenueDiamonds;
+
+		let de = byDate.get(r.date);
+		if (!de) { de = { date: r.date, inferredSold: 0, inferredRevenue: 0 }; byDate.set(r.date, de); }
+		de.inferredSold += r.inferredSold;
+		de.inferredRevenue += r.inferredRevenueDiamonds;
+	}
+	const bestSellers = [...byItem.values()].filter((e) => e.inferredSold > 0).sort((a, b) => b.inferredSold - a.inferredSold).slice(0, 10);
+	const trend = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-60);
+	const busiestDay = [...byDate.values()].sort((a, b) => b.inferredSold - a.inferredSold)[0] || null;
+
+	return json({
+		hasData: true,
+		seller: auth.admin.mcUsername,
+		activeListings, distinctItemsActive, currentStockValueDiamonds,
+		totalInferredSold, totalInferredRevenue,
+		recentInferredSold, recentInferredRevenue,
+		bestSellers, trend, busiestDay,
+		trackingStartDate: dates[0], trackingDays: dates.length,
 	});
 }
 
@@ -2373,11 +2631,15 @@ const ROUTES = [
 	["POST", "/admin/listings/manual-delete", handleAdminDeleteManualListing],
 	["POST", "/admin/listings/delete-shop", handleAdminDeleteShopListings],
 	["GET", "/items/history", handleGetItemHistory],
+	["GET", "/stats/item", handleGetItemStats],
+	["GET", "/stats/world", handleGetWorldStats],
+	["GET", "/stats/mine", handleGetMyStats],
 	["POST", "/admin/run-snapshot", handleAdminRunSnapshot],
 	["GET", "/admin/snapshots", handleAdminSnapshots],
 	["GET", "/admin/reports", handleListReports],
 	["GET", "/admin/shared-shop-requests", handleListSharedShopRequests],
 	["POST", "/admin/reports/resolve", handleResolveReport],
+	["POST", "/admin/listings/remove", handleAdminRemoveListingDirect],
 	["POST", "/admin/shared-shop-requests/resolve", handleResolveSharedShopRequest],
 	["GET", "/admin/faq", handleListFaq],
 	["POST", "/admin/faq/add", handleAddFaq],

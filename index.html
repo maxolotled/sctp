@@ -373,6 +373,9 @@
 		border-radius:8px;padding:4px 10px;font-size:11.5px;cursor:pointer;white-space:nowrap;
 	}
 	.report-btn:hover{color:#E27D6B;border-color:#E27D6B;}
+	.report-btn.remove-btn{color:#E27D6B;border-color:#E27D6B;}
+	.report-btn.remove-btn:hover{background:#E27D6B;color:#2a0f0a;}
+	.report-btn:disabled{opacity:.5;cursor:default;}
 
 	.info-icon{
 		display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;
@@ -441,6 +444,7 @@
 				<a href="list/" class="docs-cta">Build List</a>
 				<a href="marketplace/" class="docs-cta" data-require-auth hidden>Marketplace</a>
 				<a href="docs.html" class="docs-cta">Info</a>
+				<a href="stats/" class="docs-cta">Stats</a>
 				<a href="roadmap/" class="docs-cta">Roadmap</a>
 				<button class="upload-cta" id="downloadMod" type="button">Download mod</button>
 				<div id="accountWidgetMount"></div>
@@ -612,17 +616,19 @@
 		<h2>Download Shop Logger</h2>
 		<p>Pick the version that matches the Minecraft version you're playing.</p>
 		<div class="download-options">
-			<a class="download-option" href="shoplogger-1.21.11-1.5.1.jar" download="shoplogger-1.21.11-1.5.1.jar">
+			<a class="download-option" href="shoplogger-1.21.11-1.5.2.jar" download="shoplogger-1.21.11-1.5.2.jar">
 				<strong>Minecraft 1.21.11</strong>
-				<span>shoplogger-1.21.11-1.5.1.jar</span>
+				<strong>The 1.21.11 mod will not receive any futher updates past 1.5.2; update to 26.2!</strong>
+				<span>shoplogger-1.21.11-1.5.2.jar</span>
 			</a>
-			<a class="download-option" href="shoplogger-26.1-1.5.1.jar" download="shoplogger-26.1-1.5.1.jar">
+			<a class="download-option" href="shoplogger-26.1-1.5.2.jar" download="shoplogger-26.1-1.5.2.jar">
 				<strong>Minecraft 26.1</strong>
-				<span>shoplogger-26.1-1.5.1.jar</span>
+				<strong>The 26.1 mod will not receive any futher updates past 1.5.2; update to 26.2!</strong>
+				<span>shoplogger-26.1-1.5.2.jar</span>
 			</a>
-			<a class="download-option" href="shoplogger-26.2-1.5.1.jar" download="shoplogger-26.2-1.5.1.jar">
+			<a class="download-option" href="shoplogger-26.2-1.5.2.jar" download="shoplogger-26.2-1.5.2.jar">
 				<strong>Minecraft 26.2</strong>
-				<span>shoplogger-26.2-1.5.1.jar</span>
+				<span>shoplogger-26.2-1.5.2.jar</span>
 			</a>
 		</div>
 		<p class="download-reminder">Requires <strong>Fabric API</strong> installed alongside the mod, and <strong>Fabric Loader 0.19.3</strong> or newer.</p>
@@ -1528,7 +1534,9 @@
 				'<td class="position">'+esc(r.position)+'</td>'+
 				'<td>'+lastSeenCell+'</td>'+
 				'<td>'+availableSinceCell(r)+'</td>'+
-				'<td><button class="report-btn" type="button" data-row-idx="'+idx+'">Report</button></td>'+
+				'<td>'+(canRemoveListings()
+					? '<button class="report-btn remove-btn" type="button" data-row-idx="'+idx+'">Remove</button>'
+					: '<button class="report-btn" type="button" data-row-idx="'+idx+'">Report</button>')+'</td>'+
 				'</tr>';
 		});
 		html += '</tbody></table></div>';
@@ -1547,7 +1555,9 @@
 
 		area.querySelectorAll(".report-btn").forEach(function(btn){
 			btn.addEventListener("click", function(){
-				openReport(pageRows[Number(btn.getAttribute("data-row-idx"))]);
+				var row = pageRows[Number(btn.getAttribute("data-row-idx"))];
+				if(canRemoveListings()) removeListingDirect(row, btn);
+				else openReport(row);
 			});
 		});
 
@@ -1718,6 +1728,37 @@
 
 	// ---------------- report modal ----------------
 	var reportTarget = null;
+
+	// True for a logged-in account that can already resolve reports (or a
+	// head admin) — swaps the per-row Report button for an instant Remove
+	// button instead, skipping the report queue entirely for someone already
+	// trusted to act on it. See handleAdminRemoveListingDirect in worker.js.
+	function canRemoveListings(){
+		var session = window.sctpAccount ? window.sctpAccount.getSession() : null;
+		if(!session) return false;
+		return !!session.isHeadAdmin || (session.permissions || []).indexOf("reports") !== -1;
+	}
+
+	async function removeListingDirect(row, btn){
+		btn.disabled = true;
+		var session = window.sctpAccount.getSession();
+		try {
+			var res = await fetch(API_BASE + "/admin/listings/remove", {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "Authorization": "Bearer " + session.token },
+				body: JSON.stringify({ rowKey: rowKey(row) }),
+			});
+			var data = await res.json();
+			if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+			var idx = allListings.indexOf(row);
+			if(idx !== -1) allListings.splice(idx, 1);
+			showToast("Listing removed.");
+			applyFilters();
+		} catch(err){
+			showToast("Couldn't remove: " + err.message);
+			btn.disabled = false;
+		}
+	}
 
 	function openReport(row){
 		reportTarget = row;
@@ -2011,6 +2052,10 @@
 	setInterval(loadListings, 2 * 60 * 1000); // data updates on its own now — pick it up without a manual refresh
 	loadRareLists();
 	loadTextureCatalogs();
+
+	// Report/Remove button depends on login state — re-render whenever
+	// account-widget.js's login/logout changes it, not just on page load.
+	window.sctpOnAccountChange = function(){ renderTable(); };
 
 	// Seller pages link here with ?addShop=<username> when a seller has no
 	// shop info yet, so the modal opens pre-filled instead of them retyping it.

@@ -30,12 +30,17 @@ public final class WatchlistAlert {
 	/** Call after any scan (manual or silent) that read a valid sign, with whatever entries it built. */
 	public static void maybeAlert(MinecraftClient client, List<ShopEntry> entries) {
 		if (client.player == null || entries.isEmpty()) return;
-		List<String> watched = WatchlistStore.getAll();
+		List<WatchedItem> watched = WatchlistStore.getAll();
 		if (watched.isEmpty()) return;
 
 		for (ShopEntry entry : entries) {
-			if (ShopSign.DISPLAY_CURRENCY.equalsIgnoreCase(entry.currency())) continue; // never alert on display/free listings
-			if (!isWatched(entry.itemName(), watched)) continue;
+			WatchedItem match = findWatched(entry.itemName(), watched);
+			if (match == null) continue;
+			// A display sign has no real price, so a max-price cap can't apply to
+			// it either way — it only ever gets filtered by excludeNoPriceOrDisplay.
+			boolean isDisplay = ShopSign.DISPLAY_CURRENCY.equalsIgnoreCase(entry.currency());
+			if (match.excludeNoPriceOrDisplay && isDisplay) continue;
+			if (!isDisplay && match.maxPrice != null && entry.pricePerItemInDiamonds() > match.maxPrice) continue;
 
 			String cooldownKey = "watchlist/lastAlert/" + entry.world().toLowerCase(Locale.ROOT)
 					+ "|" + entry.seller().toLowerCase(Locale.ROOT)
@@ -49,12 +54,12 @@ public final class WatchlistAlert {
 		}
 	}
 
-	private static boolean isWatched(String itemName, List<String> watched) {
+	private static WatchedItem findWatched(String itemName, List<WatchedItem> watched) {
 		String normalized = MatchUtil.alphaOnly(itemName);
-		for (String w : watched) {
-			if (MatchUtil.alphaOnly(w).equals(normalized)) return true;
+		for (WatchedItem w : watched) {
+			if (MatchUtil.alphaOnly(w.itemName).equals(normalized)) return w;
 		}
-		return false;
+		return null;
 	}
 
 	private static void report(MinecraftClient client, ShopEntry entry) {
