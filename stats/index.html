@@ -54,6 +54,12 @@
 	.world-tabs button{background:var(--panel-alt);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:8px 16px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;}
 	.world-tabs button.active{border-color:var(--accent-dim);color:var(--accent);background:rgba(183,226,61,0.08);}
 
+	.best-sellers-search{width:100%;box-sizing:border-box;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 12px;font-family:inherit;font-size:13.5px;margin-bottom:10px;}
+	.best-sellers-search:focus{outline:none;border-color:var(--accent-dim);}
+	.best-sellers .name a{color:inherit;text-decoration:none;}
+	.best-sellers .name a:hover{color:var(--accent);text-decoration:underline;}
+	.best-sellers .pct{color:var(--muted);font-size:11.5px;margin-left:6px;}
+
 	.estimate-note{color:var(--warn);font-size:12px;margin:10px 0 0;}
 	.empty{color:var(--muted);font-size:13.5px;padding:8px 0;}
 
@@ -69,15 +75,7 @@
 			<div class="brand-mark">📊</div>
 			<h1>Statistics</h1>
 		</div>
-		<div class="nav-links">
-			<a href="../">Home</a>
-			<a href="../items/">Items</a>
-			<a href="../list/">Build List</a>
-			<a href="../marketplace/" data-require-auth hidden>Marketplace</a>
-			<a href="../docs.html">Info</a>
-			<a href="../roadmap/">Roadmap</a>
-			<div id="accountWidgetMount"></div>
-		</div>
+		<nav id="siteNavMount"></nav>
 	</div>
 </header>
 
@@ -95,6 +93,7 @@
 
 </main>
 
+<script src="/site-nav.js" defer></script>
 <script src="/account-widget.js" defer></script>
 <script>
 (function(){
@@ -110,6 +109,36 @@
 		});
 	}
 	function fmtNum(n){ return Math.round(n).toLocaleString(); }
+
+	// itemKey is "v:<baseItem>|<display name>" (lowercased) — matches
+	// items/index.html's slugFromBaseItem() convention (baseItem minus the
+	// "minecraft:" prefix) so best-sellers list entries can link straight to
+	// their item page.
+	function itemKeyToSlug(itemKey){
+		var base = String(itemKey).replace(/^v:/, "").split("|")[0];
+		return base.replace(/^minecraft:/, "");
+	}
+
+	var allTopSellingItems = [];
+	var worldTotalSold = 0;
+	var BEST_SELLERS_DEFAULT_COUNT = 15;
+
+	function renderBestSellers(query){
+		var el = document.getElementById("worldBestSellers");
+		if(!el) return;
+		var q = (query || "").trim().toLowerCase();
+		var rows = q
+			? allTopSellingItems.filter(function(it){ return it.itemName.toLowerCase().indexOf(q) !== -1; }).slice(0, 50)
+			: allTopSellingItems.slice(0, BEST_SELLERS_DEFAULT_COUNT);
+		el.innerHTML = rows.length
+			? rows.map(function(it, i){
+				var pct = worldTotalSold > 0 ? (it.totalInferredSold / worldTotalSold * 100) : 0;
+				return '<li><span class="rank">' + (i+1) + '.</span>' +
+					'<span class="name"><a href="/items/' + esc(itemKeyToSlug(it.itemKey)) + '">' + esc(it.itemName) + '</a><span class="pct">' + pct.toFixed(pct < 1 ? 2 : 1) + '%</span></span>' +
+					'<span class="qty">' + fmtNum(it.totalInferredSold) + ' sold (est.)</span></li>';
+			}).join("")
+			: (q ? '<li class="empty">No items matched "' + esc(query) + '".</li>' : '<li class="empty">Not enough history yet.</li>');
+	}
 
 	// ---------------- world stats (public) ----------------
 
@@ -139,11 +168,16 @@
 				'<div class="chart-wrap"><canvas id="worldChartCanvas"></canvas></div>' +
 				'<div style="display:flex;gap:32px;flex-wrap:wrap;">' +
 					'<div style="flex:1;min-width:220px;"><b style="font-size:13px;color:var(--shell);">Best-selling items</b>' +
+						'<input type="text" class="best-sellers-search" id="bestSellerSearch" placeholder="Search all items sold on this world…">' +
 						'<ol class="best-sellers" id="worldBestSellers" style="list-style:none;margin-top:8px;"></ol>' +
 					'</div>' +
 				'</div>' +
-				'<p class="estimate-note">"Best-selling" is estimated from stock changes across all sellers, which can include shops removing items.</p>' +
+				'<p class="estimate-note">"Best-selling" is estimated from stock changes across all sellers, which can include shops removing items. % is that item\'s share of all estimated units sold on this world.</p>' +
 			'</div>';
+
+		allTopSellingItems = data.topSellingItems || [];
+		worldTotalSold = allTopSellingItems.reduce(function(a, it){ return a + it.totalInferredSold; }, 0);
+		document.getElementById("bestSellerSearch").addEventListener("input", function(){ renderBestSellers(this.value); });
 
 		var ctx = document.getElementById("worldChartCanvas").getContext("2d");
 		if(worldChart) worldChart.destroy();
@@ -168,12 +202,7 @@
 			},
 		});
 
-		var bestEl = document.getElementById("worldBestSellers");
-		bestEl.innerHTML = data.topSellingItems.length
-			? data.topSellingItems.map(function(it, i){
-				return '<li><span class="rank">' + (i+1) + '.</span><span class="name">' + esc(it.itemName) + '</span><span class="qty">' + fmtNum(it.totalInferredSold) + ' sold (est.)</span></li>';
-			}).join("")
-			: '<li class="empty">Not enough history yet.</li>';
+		renderBestSellers("");
 	}
 
 	document.getElementById("fireflyTab").addEventListener("click", function(){ loadWorld("Firefly"); });

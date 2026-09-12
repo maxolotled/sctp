@@ -29,7 +29,7 @@
 	.nav-links a:hover{color:var(--accent);}
 
 	main{padding:24px 0 70px;}
-	.toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:18px;}
+	.toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:14px;}
 	.segmented{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
 	.segmented button{background:var(--panel-alt);border:none;color:var(--muted);padding:9px 16px;font-weight:600;font-size:13.5px;cursor:pointer;border-right:1px solid var(--line);font-family:inherit;}
 	.segmented button:last-child{border-right:none;}
@@ -39,6 +39,9 @@
 	.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:9px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
 	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
 	.btn-danger{background:transparent;border:1px solid var(--bad);color:var(--bad);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;}
+
+	.search-row{margin-bottom:14px;}
+	.search-row input{max-width:340px;}
 
 	.tabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--line);}
 	.tab-btn{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-weight:600;font-size:14px;padding:10px 4px;margin-right:20px;margin-bottom:-1px;cursor:pointer;font-family:inherit;}
@@ -54,19 +57,20 @@
 	.badge.selling{background:rgba(183,226,61,0.15);color:var(--accent);}
 	.badge.lookingfor{background:rgba(140,147,232,0.18);color:#8C93E8;}
 	.lc-meta{color:var(--muted);font-size:12.5px;margin:0 0 10px;}
-	.lc-price{font-family:var(--font-mono);font-size:15px;color:var(--accent);font-weight:700;margin-bottom:6px;}
+	.lc-price{font-family:var(--font-mono);font-size:15px;color:var(--accent);font-weight:700;margin-bottom:2px;}
+	.lc-bid-line{font-family:var(--font-mono);font-size:12.5px;color:var(--shell);margin-bottom:6px;}
 	.lc-notes{color:var(--text);font-size:13px;margin:0 0 10px;opacity:0.85;}
 	.lc-foot{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--muted);}
 	.verified{color:var(--accent);}
 	.empty-state{color:var(--muted);font-size:13.5px;padding:30px 0;text-align:center;}
 
 	.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
-	.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;}
+	.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;width:100%;max-width:440px;max-height:85vh;overflow-y:auto;}
 	.modal h2{font-family:var(--font-display);font-size:19px;margin:0 0 16px;}
-	.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+	.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;position:relative;}
 	.field label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.03em;}
 	.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-	select,input[type=text],input[type=number],textarea{
+	select,input[type=text],input[type=number],input[type=search],textarea{
 		width:100%;box-sizing:border-box;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
 		border-radius:8px;padding:9px 12px;font-family:inherit;font-size:14px;
 	}
@@ -79,15 +83,23 @@
 	.type-toggle button{flex:1;background:var(--panel-alt);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit;}
 	.type-toggle button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
 
-	.bid-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+	.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:var(--panel-alt);border:1px solid var(--line);border-top:none;border-radius:0 0 8px 8px;max-height:220px;overflow-y:auto;z-index:50;}
+	.autocomplete-list div{padding:8px 12px;font-size:13.5px;cursor:pointer;}
+	.autocomplete-list div:hover,.autocomplete-list div.hl{background:var(--panel);color:var(--accent);}
+	.autocomplete-hint{color:var(--muted);font-size:11.5px;margin-top:2px;}
+
+	.bid-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;gap:10px;}
 	.bid-row:last-child{border-bottom:none;}
-	.notif-row{padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+	.bid-row .bid-status{font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--muted);}
+	.notif-row{padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px;white-space:pre-line;}
 	.notif-row:last-child{border-bottom:none;}
 	.notif-row.unread{border-left:3px solid var(--accent);padding-left:10px;}
-	.notif-time{color:var(--muted);font-size:11.5px;}
+	.notif-time{color:var(--muted);font-size:11.5px;margin-top:4px;}
+
+	.big-disclaimer{background:rgba(226,163,61,0.12);border:1px solid var(--warn);color:var(--warn);border-radius:12px;padding:14px 16px;font-size:14px;font-weight:600;margin-bottom:18px;}
 
 	footer.site{padding:20px 0 40px;color:var(--muted);font-size:12.5px;text-align:center;}
-	datalist{display:none;}
+	footer.site .big-disclaimer{max-width:640px;margin:0 auto;text-align:left;}
 </style>
 </head>
 <body>
@@ -98,15 +110,7 @@
 			<div class="brand-mark">🛒</div>
 			<h1>Marketplace</h1>
 		</div>
-		<div class="nav-links">
-			<a href="../">Home</a>
-			<a href="../items/">Items</a>
-			<a href="../list/">Build List</a>
-			<a href="../docs.html">Info</a>
-			<a href="../stats/">Stats</a>
-			<a href="../roadmap/">Roadmap</a>
-			<div id="accountWidgetMount"></div>
-		</div>
+		<nav id="siteNavMount"></nav>
 	</div>
 </header>
 
@@ -118,11 +122,15 @@
 	</div>
 
 	<div class="tab-pane active" id="paneBrowse">
+		<div class="search-row">
+			<input type="search" id="itemSearchInput" placeholder="Search listings by item name…">
+		</div>
 		<div class="toolbar">
 			<div class="segmented" id="worldSeg">
 				<button type="button" data-v="">Both</button>
 				<button type="button" data-v="Firefly" class="active">Firefly</button>
 				<button type="button" data-v="Honeybee">Honeybee</button>
+				<button type="button" data-v="Cross-world">Cross-world</button>
 			</div>
 			<div style="display:flex;gap:10px;align-items:center;">
 				<div class="segmented" id="typeSeg">
@@ -142,25 +150,29 @@
 	</div>
 
 	<div class="tab-pane" id="paneNotifications">
+		<div class="big-disclaimer">This marketplace is community-maintained — trades are arranged and carried out entirely between players yourselves. Nothing here, including any contact info shown below, is verified by server staff.</div>
 		<div id="notifContent"></div>
 	</div>
 </main>
 
-<datalist id="marketItemsList"></datalist>
-
 <footer class="site">
-	<div class="wrap">Community-maintained · arrange trades in-game yourselves · nothing here is verified by server staff</div>
+	<div class="wrap">
+		<div class="big-disclaimer">Community-maintained · arrange trades in-game yourselves · nothing here is verified by server staff</div>
+	</div>
 </footer>
 
+<script src="/site-nav.js" defer></script>
 <script src="/account-widget.js" defer></script>
 <script>
 (function(){
 	"use strict";
 
 	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var CURRENCY_LABELS = { diamond: "Dia", diamondblock: "DB (9 dia)", diamondstack: "STX (64 DB)" };
 	var listings = [];
 	var worldFilter = "Firefly";
 	var typeFilter = "";
+	var itemSearch = "";
 	var vanillaByNormName = {};
 	var itemCatalog = []; // {name, baseItem} for both vanilla + rare
 
@@ -180,23 +192,55 @@
 		});
 	}
 
+	function currencySelectHtml(id, selected){
+		return '<select id="' + id + '">' + Object.keys(CURRENCY_LABELS).map(function(c){
+			return '<option value="' + c + '"' + (c === selected ? " selected" : "") + '>' + CURRENCY_LABELS[c] + '</option>';
+		}).join("") + '</select>';
+	}
+
 	// ---------------- catalog (for the "select an item" autocomplete) ----------------
 	function loadCatalog(){
 		return Promise.all([
 			fetch("../data/vanilla-items.json").then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
 			fetch("../data/rare-items.json").then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; })
 		]).then(function(results){
-			var datalist = document.getElementById("marketItemsList");
 			results[0].concat(results[1]).forEach(function(it){
 				if(!it.name) return;
 				itemCatalog.push({ name: it.name, baseItem: it.baseItem || null });
 				var key = alphaOnly(it.name);
 				if(key && !vanillaByNormName[key]) vanillaByNormName[key] = it;
-				var opt = document.createElement("option");
-				opt.value = it.name;
-				datalist.appendChild(opt);
 			});
 		});
+	}
+
+	// Custom autocomplete instead of a native <datalist> — a datalist would
+	// dump the ENTIRE ~1000+ item catalog into the suggestion popup from the
+	// very first keystroke, which is exactly the "too big" list this replaces.
+	// Suggestions only appear once at least MIN_CHARS have been typed.
+	var AUTOCOMPLETE_MIN_CHARS = 2;
+	function attachItemAutocomplete(input){
+		var list = document.createElement("div");
+		list.className = "autocomplete-list";
+		list.hidden = true;
+		input.parentNode.appendChild(list);
+
+		function close(){ list.hidden = true; list.innerHTML = ""; }
+		input.addEventListener("input", function(){
+			var q = input.value.trim().toLowerCase();
+			if(q.length < AUTOCOMPLETE_MIN_CHARS){ close(); return; }
+			var matches = itemCatalog.filter(function(it){ return it.name.toLowerCase().indexOf(q) !== -1; }).slice(0, 40);
+			if(matches.length === 0){ close(); return; }
+			list.innerHTML = matches.map(function(it){ return '<div data-name="' + esc(it.name) + '">' + esc(it.name) + '</div>'; }).join("");
+			list.hidden = false;
+			list.querySelectorAll("div").forEach(function(row){
+				row.addEventListener("mousedown", function(e){
+					e.preventDefault();
+					input.value = row.getAttribute("data-name");
+					close();
+				});
+			});
+		});
+		input.addEventListener("blur", function(){ setTimeout(close, 150); });
 	}
 
 	// ---------------- browse ----------------
@@ -207,33 +251,37 @@
 		});
 	}
 
-	function currencyText(amount, currency){ return amount == null ? null : fmtNum(amount) + " " + esc(currency || "?"); }
+	function currencyText(amount, currency){ return amount == null ? null : fmtNum(amount) + " " + esc(CURRENCY_LABELS[currency] || currency || "?"); }
 
 	function renderListings(){
 		var grid = document.getElementById("listingsGrid");
+		var q = itemSearch.trim().toLowerCase();
 		var rows = listings.filter(function(l){
 			if(worldFilter && l.world !== worldFilter) return false;
 			if(typeFilter && l.type !== typeFilter) return false;
+			if(q && l.itemName.toLowerCase().indexOf(q) === -1) return false;
 			return true;
 		});
 		document.getElementById("listingsEmpty").hidden = rows.length > 0;
 		grid.innerHTML = rows.map(function(l){
 			var priceLine = l.type === "selling"
-				? [l.askingPrice != null ? currencyText(l.askingPrice, l.askingCurrency) + " (asking)" : null,
-				   l.startingBid != null ? currencyText(l.startingBid, l.startingBidCurrency) + " (starting bid)" : null]
-					.filter(Boolean).join(" · ")
+				? (l.askingPrice != null ? currencyText(l.askingPrice, l.askingCurrency) + " (asking)" : "No asking price set")
 				: currencyText(l.budget, l.budgetCurrency) + " (budget)";
-			var bidText = l.type === "selling"
-				? (l.bidCount ? l.bidCount + " bid" + (l.bidCount===1?"":"s") + (l.highestBid ? " · highest " + currencyText(l.highestBid.amount, l.highestBid.currency) : "") : "No bids yet")
-				: "";
+			var bidLine = "";
+			if(l.type === "selling"){
+				var parts = [];
+				if(l.startingBid != null) parts.push("Starting bid " + currencyText(l.startingBid, l.startingBidCurrency));
+				parts.push(l.bidCount ? l.bidCount + " bid" + (l.bidCount===1?"":"s") + (l.highestBid ? ", highest " + currencyText(l.highestBid.amount, l.highestBid.currency) : "") : "No bids yet");
+				bidLine = parts.join(" · ");
+			}
 			return '<div class="listing-card">' +
 				'<div class="lc-top"><h3>' + esc(l.itemName) + '</h3><span class="badge ' + (l.type === "selling" ? "selling" : "lookingfor") + '">' + (l.type === "selling" ? "Selling" : "Looking for") + '</span></div>' +
 				'<p class="lc-meta">' + esc(l.world) + ' · qty ' + fmtNum(l.quantity) + '</p>' +
 				'<div class="lc-price">' + esc(priceLine || "—") + '</div>' +
+				(bidLine ? '<div class="lc-bid-line">' + esc(bidLine) + '</div>' : '') +
 				(l.notes ? '<p class="lc-notes">' + esc(l.notes) + '</p>' : '') +
 				'<div class="lc-foot">' +
 					'<span>' + esc(l.seller) + (l.sellerVerified ? ' <span class="verified">&#10003;</span>' : '') + '</span>' +
-					(l.type === "selling" ? '<span>' + esc(bidText) + '</span>' : '') +
 				'</div>' +
 				'<button type="button" class="btn-ghost" style="width:100%;margin-top:10px;" data-open-listing="' + esc(l.id) + '">' + (l.type === "selling" ? "View / Bid" : "View") + '</button>' +
 			'</div>';
@@ -242,6 +290,11 @@
 			btn.addEventListener("click", function(){ openListingDetail(btn.getAttribute("data-open-listing")); });
 		});
 	}
+
+	document.getElementById("itemSearchInput").addEventListener("input", function(){
+		itemSearch = this.value;
+		renderListings();
+	});
 
 	document.querySelectorAll("#worldSeg button").forEach(function(btn){
 		btn.addEventListener("click", function(){
@@ -274,11 +327,12 @@
 		var html = '<div class="modal">' +
 			'<h2>' + esc(l.itemName) + '</h2>' +
 			'<p class="lc-meta">' + esc(l.world) + ' · qty ' + fmtNum(l.quantity) + ' · posted by ' + esc(l.seller) + (l.sellerVerified ? ' <span class="verified">&#10003;</span>' : '') + '</p>' +
+			'<p class="lc-meta">Posted ' + esc(new Date(l.createdAt).toLocaleDateString()) + ' · expires ' + esc(new Date(l.expiresAt).toLocaleDateString()) + '</p>' +
 			'<div class="lc-price">' + esc(priceLine || "—") + '</div>' +
 			(l.notes ? '<p class="lc-notes">' + esc(l.notes) + '</p>' : '');
 		if(l.type === "selling"){
 			html += '<div id="bidPlaceArea"></div>';
-			html += '<h3 style="font-size:14px;margin:16px 0 8px;">Bids</h3><div id="bidListArea"></div>';
+			html += '<h3 style="font-size:14px;margin:16px 0 8px;">Previous bids</h3><div id="bidListArea"></div>';
 		}
 		html += '<div class="actions"><button type="button" class="btn-ghost" id="detailClose" style="width:100%;">Close</button></div></div>';
 		wrap.innerHTML = html;
@@ -293,17 +347,17 @@
 			} else {
 				placeArea.innerHTML =
 					'<div class="row2"><div class="field"><label>Your bid</label><input type="number" id="bidAmount" min="0" step="any"></div>' +
-					'<div class="field"><label>Currency</label><input type="text" id="bidCurrency" placeholder="diamond"></div></div>' +
+					'<div class="field"><label>Currency</label>' + currencySelectHtml("bidCurrency", "diamond") + '</div></div>' +
 					'<div class="field"><label>Message (optional)</label><input type="text" id="bidMessage" maxlength="300"></div>' +
 					'<p class="err" id="bidErr" hidden></p>' +
 					'<button type="button" class="btn" style="width:100%;" id="bidSubmit">Place bid</button>';
 				document.getElementById("bidSubmit").onclick = function(){
 					var amount = Number(document.getElementById("bidAmount").value);
-					var currency = document.getElementById("bidCurrency").value.trim();
+					var currency = document.getElementById("bidCurrency").value;
 					var message = document.getElementById("bidMessage").value.trim();
 					var errEl = document.getElementById("bidErr");
 					errEl.hidden = true;
-					if(!amount || amount <= 0 || !currency){ errEl.textContent = "Enter a positive amount and a currency."; errEl.hidden = false; return; }
+					if(!amount || amount <= 0){ errEl.textContent = "Enter a positive bid amount."; errEl.hidden = false; return; }
 					authFetch("/marketplace/bids/place", { method: "POST", body: JSON.stringify({ listingId: l.id, amount: amount, currency: currency, message: message || undefined }) })
 						.then(function(res){
 							if(!res.ok){ errEl.textContent = res.data.error || "Couldn't place bid."; errEl.hidden = false; return; }
@@ -312,12 +366,16 @@
 						});
 				};
 			}
-			// Bidder-side view only shows a count/summary (see the card) — full
-			// per-bid accept/reject is only meaningful to the seller, shown
-			// under "My Marketplace" instead of here, since a bidder identity
-			// list on a public page would leak who's bidding on what.
-			document.getElementById("bidListArea").innerHTML =
-				'<p class="lc-meta">' + (l.bidCount ? l.bidCount + " bid" + (l.bidCount===1?"":"s") + " so far" + (l.highestBid ? ", highest " + currencyText(l.highestBid.amount, l.highestBid.currency) : "") : "No bids yet") + '. Manage your own listing\'s bids under My Marketplace.</p>';
+			// Previous bids show amount/currency/message/status/time only — never
+			// who placed them. Full bidder identity is only ever visible to the
+			// listing's own owner, under My Marketplace.
+			var bidListArea = document.getElementById("bidListArea");
+			var history = l.bidHistory || [];
+			bidListArea.innerHTML = history.length
+				? history.map(function(b){
+					return '<div class="bid-row"><span>' + fmtNum(b.amount) + ' ' + esc(CURRENCY_LABELS[b.currency] || b.currency) + (b.message ? ' — "' + esc(b.message) + '"' : '') + '</span><span class="bid-status">' + esc(b.status) + '</span></div>';
+				}).join("")
+				: '<p class="lc-meta">No bids yet.</p>';
 		}
 	}
 
@@ -332,8 +390,8 @@
 			'<div class="modal">' +
 				'<h2>New listing</h2>' +
 				'<div class="type-toggle"><button type="button" class="active" data-type="selling">Selling</button><button type="button" data-type="lookingFor">Looking for</button></div>' +
-				'<div class="field"><label>Item</label><input type="text" id="nlItem" list="marketItemsList" placeholder="Start typing an item name…"></div>' +
-				'<div class="row2"><div class="field"><label>World</label><select id="nlWorld"><option value="Firefly">Firefly</option><option value="Honeybee">Honeybee</option></select></div>' +
+				'<div class="field"><label>Item</label><input type="text" id="nlItem" placeholder="Start typing an item name…" autocomplete="off"></div>' +
+				'<div class="row2"><div class="field"><label>World</label><select id="nlWorld"><option value="Firefly">Firefly</option><option value="Honeybee">Honeybee</option><option value="Cross-world">Cross-world</option></select></div>' +
 				'<div class="field"><label>Quantity</label><input type="number" id="nlQty" min="1" value="1"></div></div>' +
 				'<div id="nlPriceFields"></div>' +
 				'<div class="field"><label>Notes (optional)</label><textarea id="nlNotes" maxlength="500"></textarea></div>' +
@@ -341,6 +399,7 @@
 				'<div class="actions"><button type="button" class="btn-ghost" id="nlCancel">Cancel</button><button type="button" class="btn" id="nlSubmit">Post listing</button></div>' +
 			'</div>';
 		document.body.appendChild(wrap);
+		attachItemAutocomplete(document.getElementById("nlItem"));
 		document.getElementById("nlCancel").onclick = function(){ wrap.remove(); };
 		wrap.addEventListener("click", function(e){ if(e.target === wrap) wrap.remove(); });
 
@@ -349,13 +408,13 @@
 			if(type === "selling"){
 				area.innerHTML =
 					'<div class="row2"><div class="field"><label>Asking price (optional)</label><input type="number" id="nlAsking" min="0" step="any"></div>' +
-					'<div class="field"><label>Currency</label><input type="text" id="nlAskingCur" placeholder="diamond"></div></div>' +
+					'<div class="field"><label>Currency</label>' + currencySelectHtml("nlAskingCur", "diamond") + '</div></div>' +
 					'<div class="row2"><div class="field"><label>Starting bid (optional)</label><input type="number" id="nlStarting" min="0" step="any"></div>' +
-					'<div class="field"><label>Currency</label><input type="text" id="nlStartingCur" placeholder="diamond"></div></div>';
+					'<div class="field"><label>Currency</label>' + currencySelectHtml("nlStartingCur", "diamond") + '</div></div>';
 			} else {
 				area.innerHTML =
 					'<div class="row2"><div class="field"><label>Budget (optional)</label><input type="number" id="nlBudget" min="0" step="any"></div>' +
-					'<div class="field"><label>Currency</label><input type="text" id="nlBudgetCur" placeholder="diamond"></div></div>';
+					'<div class="field"><label>Currency</label>' + currencySelectHtml("nlBudgetCur", "diamond") + '</div></div>';
 			}
 		}
 		renderPriceFields();
@@ -384,11 +443,11 @@
 				var asking = document.getElementById("nlAsking").value;
 				var starting = document.getElementById("nlStarting").value;
 				if(!asking && !starting){ errEl.textContent = "Provide an asking price, a starting bid, or both."; errEl.hidden = false; return; }
-				if(asking){ body.askingPrice = Number(asking); body.askingCurrency = document.getElementById("nlAskingCur").value.trim(); }
-				if(starting){ body.startingBid = Number(starting); body.startingBidCurrency = document.getElementById("nlStartingCur").value.trim(); }
+				if(asking){ body.askingPrice = Number(asking); body.askingCurrency = document.getElementById("nlAskingCur").value; }
+				if(starting){ body.startingBid = Number(starting); body.startingBidCurrency = document.getElementById("nlStartingCur").value; }
 			} else {
 				var budget = document.getElementById("nlBudget").value;
-				if(budget){ body.budget = Number(budget); body.budgetCurrency = document.getElementById("nlBudgetCur").value.trim(); }
+				if(budget){ body.budget = Number(budget); body.budgetCurrency = document.getElementById("nlBudgetCur").value; }
 			}
 			authFetch("/marketplace/listings/create", { method: "POST", body: JSON.stringify(body) }).then(function(res){
 				if(!res.ok){ errEl.textContent = res.data.error || "Couldn't post listing."; errEl.hidden = false; return; }
@@ -433,7 +492,7 @@
 			var received = (bidsByListing[l.id] || []);
 			var pending = received.filter(function(b){ return b.status === "pending"; });
 			var bidsHtml = pending.length ? pending.map(function(b){
-				return '<div class="bid-row"><span>' + fmtNum(b.amount) + ' ' + esc(b.currency) + (b.message ? ' — "' + esc(b.message) + '"' : '') + '</span>' +
+				return '<div class="bid-row"><span>' + fmtNum(b.amount) + ' ' + esc(CURRENCY_LABELS[b.currency] || b.currency) + (b.message ? ' — "' + esc(b.message) + '"' : '') + '</span>' +
 					(l.status === "active" ? '<span><button type="button" class="btn-ghost" data-accept-bid="' + esc(b.id) + '" style="margin-right:6px;">Accept</button><button type="button" class="btn-danger" data-reject-bid="' + esc(b.id) + '">Decline</button></span>' : '') +
 				'</div>';
 			}).join("") : '<p class="lc-meta">No pending bids.</p>';
@@ -446,7 +505,7 @@
 		}).join("") : '<p class="empty-state">You haven\'t posted anything yet.</p>';
 
 		var myBidsHtml = data.myBids.length ? data.myBids.map(function(b){
-			return '<div class="bid-row"><span>' + esc(b.itemName) + ' (' + esc(b.world) + ') — ' + fmtNum(b.amount) + ' ' + esc(b.currency) + '</span>' +
+			return '<div class="bid-row"><span>' + esc(b.itemName) + ' (' + esc(b.world) + ') — ' + fmtNum(b.amount) + ' ' + esc(CURRENCY_LABELS[b.currency] || b.currency) + '</span>' +
 				'<span><span class="badge ' + (b.status === "pending" ? "lookingfor" : "selling") + '">' + esc(b.status) + '</span>' +
 				(b.status === "pending" ? ' <button type="button" class="btn-danger" data-withdraw-bid="' + esc(b.id) + '" style="margin-left:8px;">Withdraw</button>' : '') + '</span></div>';
 		}).join("") : '<p class="empty-state">You haven\'t bid on anything yet.</p>';

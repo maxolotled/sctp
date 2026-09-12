@@ -13,9 +13,8 @@
 	var style = document.createElement("style");
 	style.textContent =
 		".acct-widget{position:relative;font-family:inherit;}" +
-		".acct-btn{background:var(--panel-alt,#22332A);border:1px solid var(--line,#33453A);color:var(--text,#EAEFE7);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}" +
-		".acct-btn:hover{border-color:var(--accent-dim,#87AE29);color:var(--accent,#B7E23D);}" +
-		".acct-verified{color:var(--accent,#B7E23D);}" +
+		".acct-btn{background:var(--accent,#B7E23D);border:none;color:var(--accent-ink,#16210F);border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}" +
+		".acct-btn:hover{background:var(--accent-dim,#87AE29);}" +
 		".acct-menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel,#1B2A20);border:1px solid var(--line,#33453A);border-radius:10px;padding:6px;min-width:170px;z-index:80;box-shadow:0 8px 24px rgba(0,0,0,0.35);}" +
 		".acct-menu a,.acct-menu button{display:block;width:100%;text-align:left;background:transparent;border:none;color:var(--text,#EAEFE7);padding:8px 10px;border-radius:6px;font-size:13px;cursor:pointer;text-decoration:none;font-family:inherit;box-sizing:border-box;}" +
 		".acct-menu a:hover,.acct-menu button:hover{background:var(--panel-alt,#22332A);}" +
@@ -63,11 +62,12 @@
 			menu.hidden = true;
 			return;
 		}
-		btn.innerHTML = esc(session.username) + (session.mcVerified ? ' <span class="acct-verified">&#10003;</span>' : "");
+		btn.textContent = session.username;
 		btn.onclick = function () { menu.hidden = !menu.hidden; };
 		var isAdmin = session.isHeadAdmin || (session.permissions && session.permissions.length > 0);
 		var html = '<a href="/marketplace/#mine">My Marketplace</a>';
 		html += '<a href="/stats/mine/">My Shop Statistics</a>';
+		html += '<a href="/account/">Account Settings</a>';
 		if (isAdmin) html += '<a href="/admin.html">Admin Panel</a>';
 		html += '<button type="button" id="acctLogout">Log out</button>';
 		menu.innerHTML = html;

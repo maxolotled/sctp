@@ -47,6 +47,10 @@
 // Any logged-in admin (own account only, unless caller is head admin):
 //   POST /admin/admins/change-password       body: {id?, oldPassword?, newPassword} -- id omitted = self; oldPassword required unless a head admin is resetting someone else's
 //
+// Any logged-in account, self-service (see account/index.html):
+//   GET  /account/me                         -> {username, isHeadAdmin, mcUsername, mcVerified, contactDiscord, contactTimezone}
+//   POST /account/contact-info               body: {contactDiscord?, contactTimezone?} -- free text, shown to the other party once a trade is confirmed (see contactInfoText)
+//
 // Permission bucket "reports":
 //   GET  /admin/reports
 //   POST /admin/reports/resolve              body: {id, action: "approve"|"deny"|"edit", field?, value?}
@@ -93,9 +97,11 @@
 //   for vanilla items. Populated by a daily cron trigger (see wrangler.toml), not
 //   by any upload — see computeDailySnapshots() below.
 // GET /stats/item?itemKey=<key> (public, cached 1hr) -> all-time totals (estimated units
-//   sold, distinct sellers ever) per world, plus the latest day's snapshot.
+//   sold, distinct sellers ever) per world, the latest day's snapshot, a daily sold-units
+//   trend (soldTrend, per world) and a combined daily average (avgSoldPerDay).
 // GET /stats/world?world=Firefly|Honeybee (public, cached 1hr) -> world-wide daily trend
-//   (listings/stock/distinct items/sellers) + a top-selling-items list (estimated).
+//   (listings/stock/distinct items/sellers) + every item ever sold here, sorted by units
+//   sold (estimated) — not just a top-N, so the /stats page can search the full list.
 // GET /stats/mine (any logged-in account with a verified linked MC username) -> that
 //   seller's own shop stats: active listings, best sellers, sales trend, all estimated
 //   from listing-snapshot deltas — see computeSellerItemStats' doc comment for why.
@@ -113,9 +119,12 @@
 // array. POST /admin/login is the one shared login for everyone.
 //   POST /admin/admins/set-mc (head-admin only)   body: {id, mcUsername, mcVerified} -> manually link + verify an account's MC username
 //   GET  /marketplace/listings (public, cached)   -> active selling/lookingFor posts with bid summaries
-//   POST /marketplace/listings/create             body: {type: "selling"|"lookingFor", itemName, baseItem?, world, quantity, notes?, askingPrice?, askingCurrency?, startingBid?, startingBidCurrency?, budget?, budgetCurrency?}
+//     + bidHistory (amount/currency/message/status/createdAt, never bidderAccountId — full
+//     bidder identity is only ever visible to the listing's own owner, via /marketplace/mine)
+//   POST /marketplace/listings/create             body: {type: "selling"|"lookingFor", itemName, baseItem?, world: "Firefly"|"Honeybee"|"Cross-world", quantity, notes?, askingPrice?, askingCurrency?, startingBid?, startingBidCurrency?, budget?, budgetCurrency?}
+//     -> currency fields must be one of MARKETPLACE_CURRENCIES ("diamond"|"diamondblock"|"diamondstack" — dia/db/stx in the UI)
 //   POST /marketplace/listings/cancel             body: {id} -> owner only
-//   POST /marketplace/bids/place                  body: {listingId, amount, currency, message?}
+//   POST /marketplace/bids/place                  body: {listingId, amount, currency, message?} -> currency must be one of MARKETPLACE_CURRENCIES
 //   POST /marketplace/bids/withdraw                body: {bidId} -> bidder only
 //   POST /marketplace/bids/accept                 body: {bidId} -> listing owner only, rejects every other pending bid
 //   POST /marketplace/bids/reject                 body: {bidId} -> listing owner only
@@ -147,7 +156,7 @@ const EDITABLE_LISTING_FIELDS = new Set([
 const WORLD_MAP_STATUSES = new Set(["unclaimed", "claimed", "done"]);
 const WORLD_MAP_GRID_SIZE = 49; // leaf squares per axis, see /world for the full grid math
 
-const CACHE_TTL_SECONDS = 30;
+const CACHE_TTL_SECONDS = 120;
 // Item history only changes once a day (see the scheduled handler at the
 // bottom of this file), so there's no point re-querying D1 every 30s for it.
 const HISTORY_CACHE_TTL_SECONDS = 3600;
@@ -158,11 +167,18 @@ const HISTORY_CACHE_TTL_SECONDS = 3600;
 // variants use the standard 9-per-block crafting ratio. Currencies outside
 // this map (emerald, coal, ...) default to 1:1, same as everywhere else.
 const CURRENCY_VALUE = {
-	diamond: 1, diamondblock: 9,
+	diamond: 1, diamondblock: 9, diamondstack: 576, // diamondstack = 64 diamond blocks — marketplace-only currency, see MARKETPLACE_CURRENCIES
 	iron: 1 / 64, ironingot: 1 / 64, ironblock: 9 / 64,
 	gold: 1 / 18, goldingot: 1 / 18, goldblock: 9 / 18,
 	netherite: 18, netheriteingot: 18, netheriteblock: 162,
 };
+
+// Marketplace price/bid fields are a fixed 3-option dropdown (dia/db/stx in
+// the UI) rather than free text — unlike real shop-sign currencies (which
+// come from whatever a player actually wrote on a sign), a marketplace post
+// is hand-entered so there's no reason to allow arbitrary strings here.
+const MARKETPLACE_CURRENCIES = new Set(["diamond", "diamondblock", "diamondstack"]);
+const MARKETPLACE_WORLDS = new Set(["Firefly", "Honeybee", "Cross-world"]);
 function priceInDiamonds(r) {
 	const mult = CURRENCY_VALUE[String(r.currency || "").toLowerCase()];
 	return r.price * (mult || 1);
@@ -675,6 +691,39 @@ async function handleAdminChangePassword(request, env) {
 	return json({ ok: true });
 }
 
+// ---------------- account settings (self-service, any logged-in account) ----------------
+
+async function handleGetAccountMe(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	const a = auth.admin;
+	return json({
+		username: a.username, isHeadAdmin: !!a.isHeadAdmin,
+		mcUsername: a.mcUsername || null, mcVerified: !!a.mcVerified,
+		contactDiscord: a.contactDiscord || null, contactTimezone: a.contactTimezone || null,
+	});
+}
+
+// contactDiscord/contactTimezone are free text the account owner sets
+// themselves (unlike mcUsername, which only a head admin can set/verify) —
+// shown to a bid's other party once a trade is actually confirmed, see
+// contactInfoText. Deliberately no "personal info" validation here beyond
+// length; the warning against it lives in the account settings UI copy.
+async function handleSetAccountContactInfo(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	if (!auth.admin.id) return json({ error: "The master key has no account to set contact info for" }, 400);
+
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const contactDiscord = body.contactDiscord ? String(body.contactDiscord).trim().slice(0, 100) : null;
+	const contactTimezone = body.contactTimezone ? String(body.contactTimezone).trim().slice(0, 100) : null;
+
+	await env.DB.prepare("UPDATE admins SET contactDiscord = ?, contactTimezone = ? WHERE id = ?")
+		.bind(contactDiscord, contactTimezone, auth.admin.id).run();
+	return json({ ok: true, contactDiscord, contactTimezone });
+}
+
 // ---------------- blocked sellers ----------------
 
 async function handleAdminListBlockedSellers(request, env) {
@@ -982,6 +1031,20 @@ async function notifyAccount(env, accountId, type, message, listingId) {
 	).bind(newId(), accountId, type, message, listingId || null, new Date().toISOString()).run();
 }
 
+// Everything an admins row knows about how to reach that person in-game —
+// used only once a trade is actually confirmed (a bid accepted), never
+// exposed anywhere else. mcUsername is always shown when set, verified or
+// not, since it's still the most useful single piece of info for finding
+// someone in-game; contactDiscord/contactTimezone are self-reported free
+// text (see /account/contact-info) and only shown if the account set them.
+function contactInfoText(admin) {
+	const parts = [`account username: ${admin.username}`];
+	if (admin.mcUsername) parts.push(`Minecraft: ${admin.mcUsername}${admin.mcVerified ? " (verified)" : ""}`);
+	if (admin.contactDiscord) parts.push(`Discord: ${admin.contactDiscord}`);
+	if (admin.contactTimezone) parts.push(`Timezone: ${admin.contactTimezone}`);
+	return parts.join("\n");
+}
+
 function marketplacePriceLabel(amount, currency, suffix) {
 	if (amount == null) return null;
 	return `${amount} ${currency || "?"} (${suffix})`;
@@ -1032,8 +1095,12 @@ async function handleGetMarketplaceListings(request, env, ctx) {
 		if (listingIds.length > 0) {
 			for (const chunk of chunkArray(listingIds, MAX_QUERY_PARAMS_PER_CHUNK)) {
 				const placeholders = chunk.map(() => "?").join(",");
+				// Every bid regardless of status — "previous bids" in the listing
+				// popup shows the full history (amount/currency/message/status),
+				// never who placed it (see bidHistory below); bidCount/highestBid
+				// still only consider currently-open (pending) offers.
 				const { results: bids } = await env.DB.prepare(
-					`SELECT * FROM marketplaceBids WHERE listingId IN (${placeholders}) AND status = 'pending'`
+					`SELECT * FROM marketplaceBids WHERE listingId IN (${placeholders}) ORDER BY createdAt DESC`
 				).bind(...chunk).all();
 				for (const b of bids) {
 					if (!bidsByListing.has(b.listingId)) bidsByListing.set(b.listingId, []);
@@ -1043,9 +1110,10 @@ async function handleGetMarketplaceListings(request, env, ctx) {
 		}
 
 		return results.map((m) => {
-			const bids = bidsByListing.get(m.id) || [];
+			const allBids = bidsByListing.get(m.id) || [];
+			const pendingBids = allBids.filter((b) => b.status === "pending");
 			let highestBid = null;
-			for (const b of bids) {
+			for (const b of pendingBids) {
 				if (!highestBid || marketplaceValueInDiamonds(b.amount, b.currency) > marketplaceValueInDiamonds(highestBid.amount, highestBid.currency)) highestBid = b;
 			}
 			return {
@@ -1056,8 +1124,12 @@ async function handleGetMarketplaceListings(request, env, ctx) {
 				budget: m.budget, budgetCurrency: m.budgetCurrency,
 				createdAt: m.createdAt, expiresAt: m.expiresAt,
 				seller: m.accountMcUsername || m.accountUsername, sellerVerified: !!m.accountMcVerified,
-				bidCount: bids.length,
+				bidCount: pendingBids.length,
 				highestBid: highestBid ? { amount: highestBid.amount, currency: highestBid.currency } : null,
+				// Anonymized bid history for the public popup — amount/currency/
+				// message/status/time only, never bidderAccountId, so a public
+				// visitor can see how bidding has gone without learning who's bidding.
+				bidHistory: allBids.map((b) => ({ amount: b.amount, currency: b.currency, message: b.message, status: b.status, createdAt: b.createdAt })),
 			};
 		});
 	});
@@ -1074,8 +1146,8 @@ async function handleCreateMarketplaceListing(request, env) {
 	if (!type) return json({ error: "type must be 'selling' or 'lookingFor'" }, 400);
 	const itemName = String(body.itemName || "").trim();
 	if (!itemName) return json({ error: "itemName is required" }, 400);
-	const world = body.world === "Honeybee" ? "Honeybee" : body.world === "Firefly" ? "Firefly" : null;
-	if (!world) return json({ error: "world must be 'Firefly' or 'Honeybee'" }, 400);
+	const world = MARKETPLACE_WORLDS.has(body.world) ? body.world : null;
+	if (!world) return json({ error: "world must be 'Firefly', 'Honeybee', or 'Cross-world'" }, 400);
 	const quantity = Math.max(1, parseInt(body.quantity, 10) || 1);
 	const baseItem = body.baseItem ? String(body.baseItem).trim() : null;
 	const notes = body.notes ? String(body.notes).trim().slice(0, 500) : null;
@@ -1091,6 +1163,8 @@ async function handleCreateMarketplaceListing(request, env) {
 		const startingBid = body.startingBid != null && body.startingBid !== "" ? Number(body.startingBid) : null;
 		const startingBidCurrency = startingBid != null ? String(body.startingBidCurrency || "").trim() : null;
 		if (askingPrice == null && startingBid == null) return json({ error: "Provide an asking price, a starting bid, or both" }, 400);
+		if (askingPrice != null && !MARKETPLACE_CURRENCIES.has(askingCurrency)) return json({ error: "askingCurrency must be diamond, diamondblock, or diamondstack" }, 400);
+		if (startingBid != null && !MARKETPLACE_CURRENCIES.has(startingBidCurrency)) return json({ error: "startingBidCurrency must be diamond, diamondblock, or diamondstack" }, 400);
 		await env.DB.prepare(
 			`INSERT INTO marketplaceListings (id, accountId, type, itemName, baseItem, world, quantity, notes, askingPrice, askingCurrency, startingBid, startingBidCurrency, status, createdAt, expiresAt)
 			 VALUES (?, ?, 'selling', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
@@ -1098,6 +1172,7 @@ async function handleCreateMarketplaceListing(request, env) {
 	} else {
 		const budget = body.budget != null && body.budget !== "" ? Number(body.budget) : null;
 		const budgetCurrency = budget != null ? String(body.budgetCurrency || "").trim() : null;
+		if (budget != null && !MARKETPLACE_CURRENCIES.has(budgetCurrency)) return json({ error: "budgetCurrency must be diamond, diamondblock, or diamondstack" }, 400);
 		await env.DB.prepare(
 			`INSERT INTO marketplaceListings (id, accountId, type, itemName, baseItem, world, quantity, notes, budget, budgetCurrency, status, createdAt, expiresAt)
 			 VALUES (?, ?, 'lookingFor', ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
@@ -1135,6 +1210,7 @@ async function handlePlaceBid(request, env) {
 	const currency = String(body.currency || "").trim();
 	const message = body.message ? String(body.message).trim().slice(0, 300) : null;
 	if (!listingId || !amount || amount <= 0 || !currency) return json({ error: "listingId, a positive amount, and currency are required" }, 400);
+	if (!MARKETPLACE_CURRENCIES.has(currency)) return json({ error: "currency must be diamond, diamondblock, or diamondstack" }, 400);
 
 	const listing = await env.DB.prepare("SELECT * FROM marketplaceListings WHERE id = ?").bind(listingId).first();
 	if (!listing || listing.status !== "active" || listing.type !== "selling") return json({ error: "That listing isn't open for bids" }, 400);
@@ -1193,8 +1269,13 @@ async function handleAcceptBid(request, env) {
 	for (const ob of otherBids) stmts.push(env.DB.prepare("UPDATE marketplaceBids SET status = 'rejected' WHERE id = ?").bind(ob.id));
 	await env.DB.batch(stmts);
 
+	const bidder = await env.DB.prepare("SELECT * FROM admins WHERE id = ?").bind(bid.bidderAccountId).first();
 	await notifyAccount(env, bid.bidderAccountId, "bidAccepted",
-		`Your bid of ${bid.amount} ${bid.currency} on ${listing.itemName} was accepted! Arrange the trade with ${auth.admin.username} in-game.`, listing.id);
+		`Your bid of ${bid.amount} ${bid.currency} on ${listing.itemName} was accepted! Contact the seller via:\n${contactInfoText(auth.admin)}`, listing.id);
+	if (bidder) {
+		await notifyAccount(env, auth.admin.id, "bidAcceptedConfirmation",
+			`You accepted a bid on ${listing.itemName}! Contact the buyer via:\n${contactInfoText(bidder)}`, listing.id);
+	}
 	for (const ob of otherBids) {
 		await notifyAccount(env, ob.bidderAccountId, "bidRejected", `Your bid on ${listing.itemName} wasn't selected — the seller accepted another offer.`, listing.id);
 	}
@@ -2462,7 +2543,18 @@ async function handleGetItemStats(request, env, ctx) {
 			).bind(itemKey, latestDate).all()).results
 			: [];
 
-		return { itemKey, asOfDate: latestDate, current, totalsByWorld };
+		// Daily "units sold" trend (estimated, per world) for the item page's
+		// sold-per-day chart, plus a combined (both worlds) daily average.
+		const { results: soldTrendRows } = await env.DB.prepare(
+			`SELECT date, world, SUM(inferredSold) as sold FROM sellerItemDailyStats WHERE itemKey = ? GROUP BY date, world ORDER BY date`
+		).bind(itemKey).all();
+		const soldByDate = new Map();
+		for (const r of soldTrendRows) soldByDate.set(r.date, (soldByDate.get(r.date) || 0) + r.sold);
+		const trackingDays = soldByDate.size;
+		const totalSoldAllWorlds = [...soldByDate.values()].reduce((a, v) => a + v, 0);
+		const avgSoldPerDay = trackingDays > 0 ? totalSoldAllWorlds / trackingDays : 0;
+
+		return { itemKey, asOfDate: latestDate, current, totalsByWorld, soldTrend: soldTrendRows, trackingDays, avgSoldPerDay };
 	});
 }
 
@@ -2490,10 +2582,13 @@ async function handleGetWorldStats(request, env, ctx) {
 			distinctItems: r.distinctItems, sellers: sellersByDate.get(r.date) || 0,
 		}));
 
+		// Unlimited (not just a top-N) so the /stats page's item search can find
+		// and show the % share of ANY item that's ever sold here, not only
+		// whichever ones happen to be in the top of the list.
 		const { results: topSellingItems } = await env.DB.prepare(
 			`SELECT itemKey, itemName, SUM(inferredSold) as totalInferredSold
 			 FROM sellerItemDailyStats WHERE world = ? GROUP BY itemKey HAVING totalInferredSold > 0
-			 ORDER BY totalInferredSold DESC LIMIT 15`
+			 ORDER BY totalInferredSold DESC`
 		).bind(world).all();
 
 		return { world, latest: trend.length ? trend[trend.length - 1] : null, trend, topSellingItems };
@@ -2651,6 +2746,8 @@ const ROUTES = [
 	["POST", "/admin/admins/update-permissions", handleAdminUpdatePermissions],
 	["POST", "/admin/admins/delete", handleAdminDeleteAdmin],
 	["POST", "/admin/admins/change-password", handleAdminChangePassword],
+	["GET", "/account/me", handleGetAccountMe],
+	["POST", "/account/contact-info", handleSetAccountContactInfo],
 	["GET", "/admin/blocked-sellers", handleAdminListBlockedSellers],
 	["POST", "/admin/blocked-sellers/add", handleAdminBlockSeller],
 	["POST", "/admin/blocked-sellers/remove", handleAdminUnblockSeller],
