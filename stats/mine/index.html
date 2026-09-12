@@ -72,9 +72,9 @@
 </header>
 
 <main class="wrap">
-	<p class="lede">Private to you — nobody else can see this page's data. Log in with a Minecraft-verified account to see your own shop's stats.</p>
+	<p class="lede">Your own shop's stats from the SCTP. Log in with a Minecraft-verified account to see your own shop's stats.</p>
 
-	<div id="loginCta" class="login-cta" hidden>You need to be logged in with a verified Minecraft account to see this. Log in from the button up top, or ask a head admin to link/verify your account.</div>
+	<div id="loginCta" class="login-cta" hidden>You need to be logged in with a verified SCTP account to see this. Log in from the button up top, or ask a head admin to link/verify your account.</div>
 	<div id="mineContent"></div>
 </main>
 
@@ -138,7 +138,7 @@
 				'<b style="font-size:13px;color:var(--shell);">Your best sellers</b>' +
 				'<ol class="best-sellers" id="mineBestSellers"></ol>' +
 				(d.busiestDay ? '<p class="sub" style="color:var(--muted);font-size:12px;margin-top:10px;">Busiest day: ' + esc(d.busiestDay.date) + ' — ' + fmtNum(d.busiestDay.inferredSold) + ' sold (est.)</p>' : '') +
-				'<p class="estimate-note">Tracking since ' + esc(d.trackingStartDate) + ' (' + d.trackingDays + ' day' + (d.trackingDays===1?"":"s") + ' of data). "Sold" is estimated from your listings\' stock dropping (or disappearing) between daily snapshots — it can\'t tell a real sale apart from you pulling or changing a listing yourself, so treat it as a rough signal, not a receipt.</p>' +
+				'<p class="estimate-note">Tracking since ' + esc(d.trackingStartDate) + ' (' + d.trackingDays + ' day' + (d.trackingDays===1?"":"s") + ' of data). "Sold" is estimated from your listings\' stock dropping (or disappearing) between daily snapshots, so may not be accurate.</p>' +
 			'</div>';
 
 		var ctx = document.getElementById("mineChartCanvas").getContext("2d");

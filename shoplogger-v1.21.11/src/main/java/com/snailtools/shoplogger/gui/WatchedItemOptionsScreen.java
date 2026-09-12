@@ -12,10 +12,15 @@ import net.minecraft.text.Text;
 
 /**
  * Opened by clicking an already-watched item in WatchlistScreen — set a max
- * price (in diamonds-equivalent) and/or skip display/no-price listings for
- * just this item, or stop watching it entirely.
+ * price (entered in diamond blocks) and/or skip display/no-price listings
+ * for just this item, or stop watching it entirely.
  */
 public class WatchedItemOptionsScreen extends Screen {
+
+	// The field is entered/shown in diamond blocks (the more natural unit for
+	// a price cap), but WatchedItem.maxPrice is still stored in diamonds
+	// internally, matching every price comparison elsewhere in the mod.
+	private static final double DIAMONDS_PER_BLOCK = 9.0;
 
 	private final Screen parent;
 	private final WatchedItem item;
@@ -35,9 +40,9 @@ public class WatchedItemOptionsScreen extends Screen {
 		int w = 220;
 		int y = height / 2 - 50;
 
-		maxPriceField = new TextFieldWidget(textRenderer, centerX - w / 2, y, w, 20, Text.literal("Max price"));
+		maxPriceField = new TextFieldWidget(textRenderer, centerX - w / 2, y, w, 20, Text.literal("Max price (diamond blocks)"));
 		maxPriceField.setMaxLength(10);
-		if (item.maxPrice != null) maxPriceField.setText(formatPrice(item.maxPrice));
+		if (item.maxPrice != null) maxPriceField.setText(formatPrice(item.maxPrice / DIAMONDS_PER_BLOCK));
 		addDrawableChild(maxPriceField);
 		y += 28;
 
@@ -75,7 +80,9 @@ public class WatchedItemOptionsScreen extends Screen {
 	}
 
 	private void save() {
-		WatchlistStore.updateOptions(item.itemName, parsePrice(maxPriceField.getText()), excludeNoPriceOrDisplay);
+		Double maxPriceBlocks = parsePrice(maxPriceField.getText());
+		Double maxPriceDiamonds = maxPriceBlocks == null ? null : maxPriceBlocks * DIAMONDS_PER_BLOCK;
+		WatchlistStore.updateOptions(item.itemName, maxPriceDiamonds, excludeNoPriceOrDisplay);
 		ChatFormat.send(client, ChatFormat.SUCCESS, "Updated watchlist options for " + item.itemName + ".");
 		close();
 	}
@@ -90,7 +97,7 @@ public class WatchedItemOptionsScreen extends Screen {
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		super.render(context, mouseX, mouseY, delta);
 		context.drawCenteredTextWithShadow(textRenderer, title, width / 2, height / 2 - 92, 0xFFFFFFFF);
-		context.drawCenteredTextWithShadow(textRenderer, "Max price is in diamonds-equivalent (1 diamond block = 9)", width / 2, height / 2 - 78, 0xFF8FA593);
+		context.drawCenteredTextWithShadow(textRenderer, "Max price is in diamond blocks (e.g. 2 = 18 diamonds)", width / 2, height / 2 - 78, 0xFF8FA593);
 	}
 
 	@Override
