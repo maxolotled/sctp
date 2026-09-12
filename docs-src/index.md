@@ -1,7 +1,7 @@
 ---
 layout: home
 hero:
-  name: SCTP Docs
+  name: SCTP information
   tagline: Documentation for the Snailcraft Trading Post site and Shop Logger mod is coming soon. For now,
   actions:
     - theme: brand
