@@ -69,7 +69,7 @@
 	.tile.close{background:var(--near);color:#1A1205;}
 	.tile.wrong{background:var(--bad);color:var(--text);}
 	.tile.none{background:transparent;border:1px dashed var(--line);color:var(--muted);}
-	.tile .arr{position:absolute;right:5px;top:3px;font-size:11px;opacity:.9;}
+	.tile .arr{position:absolute;right:4px;top:3px;font-size:8px;font-weight:700;text-transform:uppercase;opacity:.85;white-space:nowrap;}
 	.tile.empty{background:transparent;border:1px solid var(--line);opacity:.35;animation:none;}
 	@keyframes pop{from{transform:scale(.85);opacity:0;}to{transform:scale(1);opacity:1;}}
 	.twin-note{grid-column:1 / -1;background:rgba(217,150,43,0.12);border:1px solid var(--near);border-radius:8px;padding:6px 10px;font-size:12.5px;color:var(--near);font-weight:600;margin:-2px 0 4px;}
@@ -151,7 +151,7 @@
 			<div class="hint-locked" id="hintLocked"></div>
 			<div class="nopeek" id="noPeek" hidden></div>
 			<div class="grid-wrap"><div class="gtable" id="gtable"></div></div>
-			<div class="legend"><span><i style="background:var(--good)"></i>match</span><span><i style="background:var(--near)"></i>close / partly</span><span><i style="background:var(--bad)"></i>no match</span><span>&#9650; answer is later &nbsp; &#9660; answer is earlier</span></div>
+			<div class="legend"><span><i style="background:var(--good)"></i>match</span><span><i style="background:var(--near)"></i>close / partly</span><span><i style="background:var(--bad)"></i>no match</span><span>"more recent" / "older" &mdash; how the secret rare's release date compares</span></div>
 		</div>
 
 		<div class="card" id="resultCard" hidden></div>
@@ -175,7 +175,7 @@
 			<p>There's one secret rare item each day (same for everyone, changes at midnight UTC). Guess any rare &mdash; each guess shows how it compares to the secret one:</p>
 			<ul>
 				<li><b>Category, type/slot, dyeable, particles</b>: green when they match. Type/slot and particles turn orange when they only partly match.</li>
-				<li><b>Released</b>: green for the same date, orange when it's within about 3 months (or the same year), with an arrow telling you whether the secret rare came later &#9650; or earlier &#9660;.</li>
+				<li><b>Released</b>: green for the same date, orange when it's within about 3 months (or the same year), labeled "more recent" or "older" to tell you which way the secret rare's date differs.</li>
 				<li><b>Obtained from</b>: green for the same source, orange when it's the same kind (e.g. another crate).</li>
 				<li><b>Pixel hint</b>: after 4 guesses you see the rare's icon as a 2&times;2 picture, then 3&times;3 after 5, 4&times;4 after 6 and 8&times;8 after 7.</li>
 			</ul>
@@ -261,7 +261,7 @@
 		st.guesses.forEach(function(g){
 			html += '<div class="item-cell"><img src="' + esc(g.texture) + '" alt="" onerror="this.style.visibility=\'hidden\'"><span>' + esc(g.name) + '</span></div>';
 			g.feedback.forEach(function(f, i){
-				var arrow = f.d ? '<span class="arr" title="' + (f.d === "up" ? "The secret rare came later" : "The secret rare came earlier") + '">' + (f.d === "up" ? "&#9650;" : "&#9660;") + '</span>' : "";
+				var arrow = f.d ? '<span class="arr" title="' + (f.d === "up" ? "The secret rare came later" : "The secret rare came earlier") + '">' + (f.d === "up" ? "more recent" : "older") + '</span>' : "";
 				html += '<div class="tile ' + f.s + '" style="animation-delay:' + (i * 0.07) + 's">' + esc(f.v) + arrow + '</div>';
 			});
 			if(g.note) html += '<div class="twin-note">' + esc(g.note) + '</div>';
