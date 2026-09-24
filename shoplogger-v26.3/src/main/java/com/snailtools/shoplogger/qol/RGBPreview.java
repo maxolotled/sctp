@@ -73,7 +73,84 @@ public class RGBPreview {
             return;
         }
 
-        name.append(Component.literal(text).withStyle(style -> style.withColor(color).withItalic(false)));
+        LegacyFormat format = new LegacyFormat();
+        int runStart = 0;
+
+        for (int i = 0; i < text.length() - 1; i++) {
+            if (text.charAt(i) != '&') {
+                continue;
+            }
+
+            char code = Character.toLowerCase(text.charAt(i + 1));
+            if (!isLegacyFormatCode(code)) {
+                continue;
+            }
+
+            appendStyledRun(name, text.substring(runStart, i), color, format);
+            format.apply(code);
+            i++;
+            runStart = i + 1;
+        }
+
+        appendStyledRun(name, text.substring(runStart), color, format);
+    }
+
+    private static void appendStyledRun(MutableComponent name, String text, int color, LegacyFormat format) {
+        if (text.isEmpty()) {
+            return;
+        }
+
+        boolean bold = format.bold;
+        boolean italic = format.italic;
+        boolean underlined = format.underlined;
+        boolean strikethrough = format.strikethrough;
+        boolean obfuscated = format.obfuscated;
+
+        name.append(Component.literal(text).withStyle(style -> style
+                .withColor(color)
+                .withBold(bold)
+                .withItalic(italic)
+                .withUnderlined(underlined)
+                .withStrikethrough(strikethrough)
+                .withObfuscated(obfuscated)));
+    }
+
+    private static boolean isLegacyFormatCode(char code) {
+        return code == 'k'
+                || code == 'l'
+                || code == 'm'
+                || code == 'n'
+                || code == 'o'
+                || code == 'r';
+    }
+
+    private static final class LegacyFormat {
+        private boolean bold;
+        private boolean italic;
+        private boolean underlined;
+        private boolean strikethrough;
+        private boolean obfuscated;
+
+        private void apply(char code) {
+            switch (code) {
+                case 'k' -> obfuscated = true;
+                case 'l' -> bold = true;
+                case 'm' -> strikethrough = true;
+                case 'n' -> underlined = true;
+                case 'o' -> italic = true;
+                case 'r' -> reset();
+                default -> {
+                }
+            }
+        }
+
+        private void reset() {
+            bold = false;
+            italic = false;
+            underlined = false;
+            strikethrough = false;
+            obfuscated = false;
+        }
     }
 
     private static String unwrapQuoted(String input) {
@@ -89,7 +166,6 @@ public class RGBPreview {
 
         return input;
     }
-
 
 
 
