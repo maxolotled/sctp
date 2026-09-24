@@ -82,6 +82,7 @@
 		btn.textContent = session.username;
 		btn.onclick = function () { menu.hidden = !menu.hidden; };
 		var isAdmin = session.isHeadAdmin || (session.permissions && session.permissions.length > 0);
+		var canManageForms = session.isHeadAdmin || (session.permissions && session.permissions.indexOf("manageForms") !== -1);
 		var html = '<a href="/s/ff/' + encodeURIComponent((session.mcUsername || session.username || "").replace(/^\./, "")) + '">My Profile</a>';
 		html += '<a href="/marketplace/#mine">My Marketplace</a>';
 		html += '<a href="/stats/mine/">My Shop Statistics</a>';
@@ -90,6 +91,7 @@
 		html += '<a href="/store/manage/">Manage my store</a>';
 		html += '<a href="/account/">Account Settings</a>';
 		if (isAdmin) html += '<a href="/admin.html">Admin Panel</a>';
+		if (canManageForms) html += '<a href="/admin-forms.html">Forms</a>';
 		html += '<button type="button" id="acctLogout">Log out</button>';
 		menu.innerHTML = html;
 		document.getElementById("acctLogout").onclick = function () {

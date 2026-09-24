@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Form - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><rect x='40' y='30' width='120' height='140' rx='8' fill='%23B7E23D'/><rect x='58' y='56' width='84' height='10' rx='3' fill='%23101B14'/><rect x='58' y='82' width='84' height='10' rx='3' fill='%23101B14'/><rect x='58' y='108' width='56' height='10' rx='3' fill='%23101B14'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(183,226,61,0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:680px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+	.brand-row{display:flex;align-items:center;gap:12px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;}
+	header.site .tag{color:var(--muted);font-size:13px;margin:0;}
+	main{padding:36px 0 60px;}
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px;margin-bottom:18px;}
+	.card h1{font-family:var(--font-display);font-weight:600;font-size:26px;margin:0 0 8px;}
+	.card .desc{color:var(--muted);font-size:14.5px;white-space:pre-wrap;margin:0 0 4px;}
+	.notice{background:rgba(217,150,43,0.10);border:1px solid rgba(217,150,43,0.45);border-radius:10px;padding:12px 16px;font-size:13.5px;color:var(--warn);margin-bottom:18px;}
+	.notice.locked{background:rgba(140,147,232,0.10);border-color:rgba(140,147,232,0.45);color:#AEB4F0;}
+	.field{margin-bottom:20px;}
+	.field label{display:block;font-weight:600;font-size:15px;margin-bottom:4px;}
+	.field .req{color:var(--bad);margin-left:3px;}
+	.field .help{color:var(--muted);font-size:12.5px;margin-bottom:8px;}
+	input[type=text],input[type=number],input[type=date],textarea,select{
+		width:100%;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
+		border-radius:8px;padding:10px 12px;font-family:inherit;font-size:14.5px;
+	}
+	textarea{resize:vertical;min-height:80px;}
+	input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent-dim);}
+	.choice-row{display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14.5px;cursor:pointer;}
+	.choice-row input{width:auto;flex:0 0 auto;}
+	.scale-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;}
+	.scale-btn{flex:0 0 auto;width:42px;height:42px;border-radius:8px;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;}
+	.scale-btn.on{background:var(--accent);color:var(--accent-ink);border-color:transparent;}
+	.scale-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:4px;max-width:340px;}
+	.yn-row{display:flex;gap:10px;margin-top:4px;}
+	.yn-btn{flex:1;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:10px;font-weight:600;cursor:pointer;font-family:inherit;}
+	.yn-btn.on{background:var(--accent);color:var(--accent-ink);border-color:transparent;}
+	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:12px 20px;font-weight:700;font-size:14.5px;cursor:pointer;font-family:inherit;}
+	.btn:hover{background:var(--accent-dim);}
+	.btn:disabled{opacity:.5;cursor:default;}
+	.err{color:var(--bad);font-size:13px;margin:0 0 12px;}
+	.readonly-answer{background:var(--panel-alt);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14.5px;color:var(--text);white-space:pre-wrap;}
+	[hidden]{display:none!important;}
+	footer.site{padding:20px 0 40px;color:var(--muted);font-size:12.5px;text-align:center;}
+</style>
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">F</div>
+			<div><p class="tag">SCTP form</p></div>
+		</div>
+		<div id="accountWidgetMount"></div>
+	</div>
+</header>
+
+<main class="wrap">
+	<div class="card" id="loading"><p style="margin:0;color:var(--muted);">Loading…</p></div>
+	<div class="card" id="invalid" hidden>
+		<h1 style="color:var(--bad);">Form not found</h1>
+		<p class="desc">That form doesn't exist, or was removed.</p>
+	</div>
+	<div id="app" hidden></div>
+</main>
+
+<footer class="site"><div class="wrap">Powered by Snailcraft Trading Post</div></footer>
+
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var slug = new URLSearchParams(location.search).get("slug") || "";
+	var form = null, myAnswers = null, submitting = false;
+
+	function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+	function session(){ return window.sctpAccount ? window.sctpAccount.getSession() : null; }
+	function show(id){ ["loading","invalid","app"].forEach(function(s){ document.getElementById(s).hidden = (s !== id); }); }
+
+	function tokenKey(){ return "sctp_form_token_" + slug; }
+	function getToken(){
+		try {
+			var t = localStorage.getItem(tokenKey());
+			if(!t){ t = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)); localStorage.setItem(tokenKey(), t); }
+			return t;
+		} catch(e){ return "notoken"; }
+	}
+
+	function apiFetch(path, opts){
+		opts = opts || {};
+		var s = session(), headers = opts.headers || {};
+		if(s) headers["Authorization"] = "Bearer " + s.token;
+		if(opts.body) headers["Content-Type"] = "application/json";
+		return fetch(API_BASE + path, { method: opts.method || "GET", headers: headers, body: opts.body })
+			.then(function(r){ return r.json().catch(function(){ return {}; }).then(function(d){ return { ok: r.ok, status: r.status, data: d }; }); });
+	}
+
+	function load(){
+		if(!slug){ show("invalid"); return; }
+		apiFetch("/forms/get?slug=" + encodeURIComponent(slug)).then(function(res){
+			if(!res.ok){ show("invalid"); return; }
+			form = res.data;
+			document.title = form.title + " - SCTP";
+			fetchMyResponse();
+		}).catch(function(){ show("invalid"); });
+	}
+
+	function fetchMyResponse(){
+		var s = session();
+		if(form.responsePolicy === "unlimited" && !s){ myAnswers = null; render(); return; }
+		var path = "/forms/my-response?slug=" + encodeURIComponent(slug);
+		if(!s) path += "&token=" + encodeURIComponent(getToken());
+		apiFetch(path).then(function(res){
+			myAnswers = (res.ok && res.data.exists) ? res.data : null;
+			render();
+		}).catch(function(){ myAnswers = null; render(); });
+	}
+
+	window.sctpOnAccountChange = function(){ if(form) fetchMyResponse(); };
+
+	// ---------------- rendering ----------------
+	function render(){
+		var app = document.getElementById("app");
+		var s = session();
+		var html = '<div class="card"><h1>' + esc(form.title) + '</h1>' + (form.description ? '<p class="desc">' + esc(form.description) + '</p>' : '') + '</div>';
+
+		if(form.requireLogin && !s){
+			html += '<div class="card"><p class="desc" style="margin:0;">Log in above to fill out this form — an account is required.</p></div>';
+			app.innerHTML = html; show("app"); return;
+		}
+
+		var locked = form.responsePolicy === "oncePerRespondentLocked" && myAnswers;
+		var notAccepting = !form.acceptingResponses;
+
+		if(notAccepting){
+			var reason = form.status === "closed" ? "This form is closed and no longer accepting responses."
+				: form.responseLimit != null && form.responsesSoFar >= form.responseLimit ? "This form has reached its response limit."
+				: "This form isn't accepting responses right now.";
+			html += '<div class="notice">' + esc(reason) + '</div>';
+			if(myAnswers){
+				html += '<div class="card"><h2 style="font-family:var(--font-display);font-size:18px;margin:0 0 14px;">Your response</h2>' + renderReadonlyAnswers() + '</div>';
+			}
+			app.innerHTML = html; show("app"); return;
+		}
+
+		if(locked){
+			html += '<div class="notice locked">You already submitted this form on ' + esc(new Date(myAnswers.submittedAt).toLocaleString()) + ' — it can\'t be changed.</div>';
+			html += '<div class="card">' + renderReadonlyAnswers() + '</div>';
+			app.innerHTML = html; show("app"); return;
+		}
+
+		var editing = form.responsePolicy === "oncePerRespondentEditable" && myAnswers;
+		html += '<div class="card">' +
+			(editing ? '<div class="notice">You\'ve already submitted this — saving below will update your previous answer.</div>' : '') +
+			'<form id="fform">' + form.questions.map(renderField).join("") +
+			'<p class="err" id="fErr" hidden></p>' +
+			'<button type="submit" class="btn" id="submitBtn">' + (editing ? "Update response" : "Submit") + '</button>' +
+			'</form></div>';
+		app.innerHTML = html; show("app");
+
+		document.getElementById("fform").addEventListener("submit", function(e){ e.preventDefault(); submit(); });
+		document.querySelectorAll(".scale-btn").forEach(function(b){
+			b.addEventListener("click", function(){
+				var group = b.getAttribute("data-group");
+				document.querySelectorAll('.scale-btn[data-group="' + group + '"]').forEach(function(x){ x.classList.remove("on"); });
+				b.classList.add("on");
+				document.getElementById("val_" + group).value = b.getAttribute("data-value");
+			});
+		});
+		document.querySelectorAll(".yn-btn").forEach(function(b){
+			b.addEventListener("click", function(){
+				var group = b.getAttribute("data-group");
+				document.querySelectorAll('.yn-btn[data-group="' + group + '"]').forEach(function(x){ x.classList.remove("on"); });
+				b.classList.add("on");
+				document.getElementById("val_" + group).value = b.getAttribute("data-value");
+			});
+		});
+	}
+
+	function renderReadonlyAnswers(){
+		return form.questions.map(function(q){
+			var v = myAnswers.answers[q.id];
+			var text = v == null || v === "" ? "—" : Array.isArray(v) ? v.join(", ") : String(v);
+			return '<div class="field"><label>' + esc(q.label) + '</label><div class="readonly-answer">' + esc(text) + '</div></div>';
+		}).join("");
+	}
+
+	function reqMark(q){ return q.required ? '<span class="req">*</span>' : ""; }
+	function helpHtml(q){ return q.help ? '<div class="help">' + esc(q.help) + '</div>' : ""; }
+	function prefill(q){ return myAnswers ? myAnswers.answers[q.id] : undefined; }
+
+	function renderField(q){
+		var pv = prefill(q);
+		var label = '<label for="in_' + esc(q.id) + '">' + esc(q.label) + reqMark(q) + '</label>' + helpHtml(q);
+		if(q.type === "short_text") return '<div class="field">' + label + '<input type="text" id="in_' + esc(q.id) + '" value="' + esc(pv || "") + '"></div>';
+		if(q.type === "paragraph") return '<div class="field">' + label + '<textarea id="in_' + esc(q.id) + '">' + esc(pv || "") + '</textarea></div>';
+		if(q.type === "date") return '<div class="field">' + label + '<input type="date" id="in_' + esc(q.id) + '" value="' + esc(pv || "") + '"></div>';
+		if(q.type === "number") return '<div class="field">' + label + '<input type="number"' + (q.min != null ? ' min="' + q.min + '"' : "") + (q.max != null ? ' max="' + q.max + '"' : "") + ' id="in_' + esc(q.id) + '" value="' + (pv == null ? "" : esc(pv)) + '"></div>';
+		if(q.type === "dropdown"){
+			return '<div class="field">' + label + '<select id="in_' + esc(q.id) + '"><option value="">Choose…</option>' +
+				q.options.map(function(o){ return '<option value="' + esc(o) + '"' + (o === pv ? " selected" : "") + '>' + esc(o) + '</option>'; }).join("") + '</select></div>';
+		}
+		if(q.type === "multiple_choice"){
+			return '<div class="field">' + label + q.options.map(function(o, i){
+				return '<label class="choice-row"><input type="radio" name="q_' + esc(q.id) + '" value="' + esc(o) + '"' + (o === pv ? " checked" : "") + '> ' + esc(o) + '</label>';
+			}).join("") + '</div>';
+		}
+		if(q.type === "checkboxes"){
+			var pvArr = Array.isArray(pv) ? pv : [];
+			return '<div class="field">' + label + q.options.map(function(o){
+				return '<label class="choice-row"><input type="checkbox" name="q_' + esc(q.id) + '" value="' + esc(o) + '"' + (pvArr.indexOf(o) !== -1 ? " checked" : "") + '> ' + esc(o) + '</label>';
+			}).join("") + '</div>';
+		}
+		if(q.type === "yes_no"){
+			return '<div class="field">' + label +
+				'<input type="hidden" id="val_' + esc(q.id) + '" value="' + esc(pv || "") + '">' +
+				'<div class="yn-row">' +
+					'<button type="button" class="yn-btn' + (pv === "Yes" ? " on" : "") + '" data-group="' + esc(q.id) + '" data-value="Yes">Yes</button>' +
+					'<button type="button" class="yn-btn' + (pv === "No" ? " on" : "") + '" data-group="' + esc(q.id) + '" data-value="No">No</button>' +
+				'</div></div>';
+		}
+		if(q.type === "rating"){
+			var n = [];
+			for(var i = q.min; i <= q.max; i++) n.push(i);
+			return '<div class="field">' + label +
+				'<input type="hidden" id="val_' + esc(q.id) + '" value="' + (pv == null ? "" : esc(pv)) + '">' +
+				'<div class="scale-row">' + n.map(function(v){ return '<button type="button" class="scale-btn' + (pv === v ? " on" : "") + '" data-group="' + esc(q.id) + '" data-value="' + v + '">' + v + '</button>'; }).join("") + '</div>' +
+				(q.minLabel || q.maxLabel ? '<div class="scale-labels"><span>' + esc(q.minLabel || "") + '</span><span>' + esc(q.maxLabel || "") + '</span></div>' : '') +
+			'</div>';
+		}
+		return "";
+	}
+
+	function collectAnswers(){
+		var answers = {};
+		form.questions.forEach(function(q){
+			if(q.type === "short_text" || q.type === "paragraph" || q.type === "date"){
+				var el = document.getElementById("in_" + q.id);
+				if(el && el.value.trim() !== "") answers[q.id] = el.value.trim();
+			} else if(q.type === "number"){
+				var el2 = document.getElementById("in_" + q.id);
+				if(el2 && el2.value !== "") answers[q.id] = Number(el2.value);
+			} else if(q.type === "dropdown"){
+				var el3 = document.getElementById("in_" + q.id);
+				if(el3 && el3.value !== "") answers[q.id] = el3.value;
+			} else if(q.type === "multiple_choice"){
+				var checked = document.querySelector('input[name="q_' + q.id + '"]:checked');
+				if(checked) answers[q.id] = checked.value;
+			} else if(q.type === "checkboxes"){
+				var vals = Array.prototype.slice.call(document.querySelectorAll('input[name="q_' + q.id + '"]:checked')).map(function(c){ return c.value; });
+				if(vals.length) answers[q.id] = vals;
+			} else if(q.type === "yes_no" || q.type === "rating"){
+				var hidden = document.getElementById("val_" + q.id);
+				if(hidden && hidden.value !== "") answers[q.id] = q.type === "rating" ? Number(hidden.value) : hidden.value;
+			}
+		});
+		return answers;
+	}
+
+	function submit(){
+		if(submitting) return;
+		var errEl = document.getElementById("fErr");
+		errEl.hidden = true;
+		var answers = collectAnswers();
+		for(var i = 0; i < form.questions.length; i++){
+			var q = form.questions[i];
+			if(q.required && (answers[q.id] === undefined || (Array.isArray(answers[q.id]) && !answers[q.id].length))){
+				errEl.textContent = '"' + q.label + '" is required.'; errEl.hidden = false; return;
+			}
+		}
+		submitting = true;
+		var btn = document.getElementById("submitBtn");
+		btn.disabled = true; btn.textContent = "Submitting…";
+		var s = session();
+		var body = { slug: slug, answers: answers };
+		if(!s) body.respondentToken = getToken();
+		apiFetch("/forms/submit", { method: "POST", body: JSON.stringify(body) }).then(function(res){
+			submitting = false;
+			if(!res.ok){ errEl.textContent = res.data.error || "Couldn't submit — try again."; errEl.hidden = false; btn.disabled = false; btn.textContent = "Submit"; return; }
+			var app = document.getElementById("app");
+			app.innerHTML = '<div class="card"><h1>Thanks!</h1><p class="desc" style="margin:0;">' + esc(res.data.confirmationMessage) + '</p></div>';
+		}).catch(function(){
+			submitting = false;
+			errEl.textContent = "Network problem — try again."; errEl.hidden = false;
+			btn.disabled = false; btn.textContent = "Submit";
+		});
+	}
+
+	load();
+})();
+</script>
+</body>
+</html>

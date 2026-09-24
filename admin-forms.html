@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Post — Forms</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><rect x='40' y='30' width='120' height='140' rx='8' fill='%23B7E23D'/><rect x='58' y='56' width='84' height='10' rx='3' fill='%23101B14'/><rect x='58' y='82' width='84' height='10' rx='3' fill='%23101B14'/><rect x='58' y='108' width='56' height='10' rx='3' fill='%23101B14'/></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<style>
+	:root{
+		--bg:#101B14; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --danger:#E27D6B; --info:#8C93E8;
+		--font-body:'Segoe UI',Arial,sans-serif; --font-mono:'Consolas',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	.wrap{max-width:980px;margin:0 auto;padding:32px 20px 60px;}
+	h1{font-size:22px;margin:0 0 4px;}
+	.brand-row{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+	.brand-row h1{margin:0;}
+	.brand-mark{flex:0 0 auto;width:26px;height:26px;background:var(--accent);border-radius:6px;color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;}
+	.sub{color:var(--muted);font-size:13.5px;margin:0 0 24px;}
+	.sub a{color:var(--accent);}
+	h2{font-size:16px;color:var(--shell);text-transform:uppercase;letter-spacing:.05em;margin:32px 0 12px;}
+	.login{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;max-width:420px;margin:60px auto;}
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;}
+	.card .row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;}
+	.card .title{font-weight:600;}
+	.card .meta{color:var(--muted);font-size:12.5px;margin-top:4px;}
+	.actions{display:flex;gap:8px;flex-wrap:wrap;}
+	button{background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 14px;font-size:13.5px;cursor:pointer;font-family:inherit;}
+	button:hover{border-color:var(--accent-dim);}
+	button.primary{background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;}
+	button.primary:hover{background:var(--accent-dim);}
+	button.danger{color:var(--danger);border-color:var(--danger);}
+	button.ghost{background:transparent;}
+	button:disabled{opacity:.5;cursor:default;}
+	.badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;margin-left:6px;}
+	.badge.open{background:rgba(183,226,61,0.16);color:var(--accent);}
+	.badge.closed{background:rgba(226,125,107,0.16);color:var(--danger);}
+	.badge.draft{background:rgba(217,150,43,0.18);color:var(--warn);}
+	.badge.login{background:rgba(140,147,232,0.18);color:var(--info);}
+	.err{color:var(--danger);font-size:13px;min-height:18px;margin-top:6px;}
+	.ok{color:var(--accent);font-size:13px;min-height:18px;margin-top:6px;}
+	.empty{color:var(--muted);font-size:13.5px;padding:12px 0;}
+	details{margin-top:0;}
+	details.section-toggle > summary{cursor:pointer;list-style:none;font-size:15px;color:var(--shell);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:0 0 12px;display:flex;align-items:center;gap:7px;user-select:none;}
+	details.section-toggle > summary::-webkit-details-marker{display:none;}
+	details.section-toggle > summary::before{content:"▸";display:inline-block;color:var(--muted);font-size:11px;transition:transform .15s;}
+	details.section-toggle[open] > summary::before{transform:rotate(90deg);}
+	[hidden]{display:none!important;}
+
+	label{display:block;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;margin:10px 0 4px;}
+	label:first-child{margin-top:0;}
+	input[type=text],input[type=number],input[type=datetime-local],select,textarea{
+		width:100%;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
+		border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;
+	}
+	textarea{resize:vertical;min-height:60px;}
+	.hint{font-size:12px;color:var(--muted);margin-top:3px;font-weight:400;text-transform:none;letter-spacing:0;}
+	.field-row{display:flex;gap:12px;flex-wrap:wrap;}
+	.field-row > div{flex:1;min-width:160px;}
+	.check-row{display:flex;align-items:center;gap:6px;font-size:13px;margin-top:10px;text-transform:none;color:var(--text);font-weight:400;}
+	.slug-preview{font-family:var(--font-mono);font-size:12.5px;color:var(--accent);margin-top:4px;word-break:break-all;}
+
+	.qcard{background:var(--panel-alt);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px;}
+	.qcard-head{display:flex;gap:8px;align-items:center;}
+	.qcard-head select{flex:0 0 200px;}
+	.qcard-head input{flex:1;}
+	.qcard-tools{display:flex;gap:4px;flex:0 0 auto;}
+	.qcard-tools button{padding:6px 9px;font-size:12px;}
+	.qopts{margin-top:10px;}
+	.qopt-row{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
+	.qopt-row input{flex:1;}
+	.qopt-row button{padding:5px 9px;font-size:12px;flex:0 0 auto;}
+	.addopt{font-size:12.5px;padding:6px 10px;}
+
+	.tabs{display:flex;gap:8px;margin-bottom:14px;border-bottom:1px solid var(--line);}
+	.tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:inherit;font-weight:600;font-size:14px;padding:8px 6px;margin:0 10px -1px 0;cursor:pointer;border-radius:0;}
+	.tab:hover{border-color:transparent;}
+	.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+	table.rtable{width:100%;border-collapse:collapse;font-size:13px;}
+	table.rtable th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
+	table.rtable td{padding:8px 10px;border-bottom:1px solid rgba(51,69,58,0.5);vertical-align:top;}
+	.rtable-wrap{overflow-x:auto;}
+
+	.summary-q{background:var(--panel-alt);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;}
+	.summary-q h3{margin:0 0 4px;font-size:14.5px;}
+	.summary-q .n{color:var(--muted);font-size:12px;margin-bottom:10px;}
+	.summary-q canvas{max-height:220px;}
+	.stat-row{display:flex;gap:16px;flex-wrap:wrap;}
+	.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;min-width:90px;}
+	.stat .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+	.stat .v{font-size:20px;font-weight:700;}
+	.textlist{max-height:220px;overflow-y:auto;font-size:13px;}
+	.textlist div{padding:6px 8px;border-bottom:1px solid var(--line);}
+	.textlist div:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+	<div class="brand-row">
+		<div class="brand-mark">F</div>
+		<h1>Trading Post — Forms</h1>
+		<div id="accountWidgetMount" style="margin-left:auto;"></div>
+	</div>
+	<p class="sub">Not linked from the site. Build and manage custom forms — <a href="/admin.html">back to the main admin panel</a>.</p>
+
+	<div class="login" id="loginBox">
+		<p>Log in with the account button above — this page shares the same login as the rest of the site. You'll need an account with the <b>manageForms</b> permission (or head admin) to see anything here.</p>
+	</div>
+
+	<div id="panel" hidden>
+
+		<details class="section-toggle" open id="builderSection">
+		<summary id="builderSummary">Create a form</summary>
+		<div class="card">
+			<div class="field-row">
+				<div>
+					<label for="fTitle">Title</label>
+					<input type="text" id="fTitle" placeholder="e.g. Server Feedback">
+				</div>
+				<div>
+					<label for="fSlug">URL</label>
+					<input type="text" id="fSlug" placeholder="e.g. feedback">
+					<div class="slug-preview">sctp.nl/f/<span id="fSlugPreview">&hellip;</span></div>
+				</div>
+			</div>
+			<label for="fDescription">Description <span class="hint">(shown above the questions)</span></label>
+			<textarea id="fDescription" rows="2" placeholder="What's this form for?"></textarea>
+
+			<div class="field-row">
+				<div>
+					<label for="fStatus">Status</label>
+					<select id="fStatus">
+						<option value="draft">Draft (not public yet)</option>
+						<option value="open">Open (accepting responses)</option>
+						<option value="closed">Closed (view-only)</option>
+					</select>
+				</div>
+				<div>
+					<label for="fResponsePolicy">Repeat submissions</label>
+					<select id="fResponsePolicy">
+						<option value="unlimited">Unlimited — anyone can submit as many times as they want</option>
+						<option value="oncePerRespondentEditable">One per respondent, editable — resubmitting updates their answer</option>
+						<option value="oncePerRespondentLocked">One per respondent, locked — final once submitted</option>
+					</select>
+				</div>
+			</div>
+			<div class="check-row"><label style="margin:0;text-transform:none;font-weight:400;color:var(--text);"><input type="checkbox" id="fRequireLogin"> Require an SCTP account to submit</label></div>
+			<div class="hint" style="margin-top:2px;">"One per respondent" is enforced by account when login is required, or by a local browser token when it isn't (a respondent clearing their browser data can bypass that — same limitation any anonymous form has).</div>
+
+			<div class="field-row">
+				<div>
+					<label for="fResponseLimit">Response limit <span class="hint">(optional)</span></label>
+					<input type="number" id="fResponseLimit" min="1" placeholder="No limit">
+				</div>
+				<div>
+					<label for="fClosesAt">Auto-close at <span class="hint">(optional)</span></label>
+					<input type="datetime-local" id="fClosesAt">
+				</div>
+			</div>
+			<label for="fConfirmation">Confirmation message <span class="hint">(shown after submitting)</span></label>
+			<textarea id="fConfirmation" rows="2" placeholder="Thanks — your response has been recorded."></textarea>
+
+			<h2 style="margin:24px 0 10px;">Questions</h2>
+			<div id="qList"></div>
+			<button type="button" id="addQuestionBtn" style="margin-top:10px;">+ Add question</button>
+
+			<div class="actions" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+				<button type="button" class="primary" id="saveFormBtn">Save form</button>
+				<button type="button" class="ghost" id="cancelEditBtn" hidden>Cancel editing</button>
+			</div>
+			<div class="err" id="formErr"></div>
+			<div class="ok" id="formOk"></div>
+		</div>
+		</details>
+
+		<details class="section-toggle" open id="listSection">
+		<summary>Your forms <span id="formsCount" style="color:var(--muted);font-weight:400;text-transform:none;"></span></summary>
+		<div id="formsList"><div class="empty">Loading…</div></div>
+		</details>
+
+		<details class="section-toggle" id="responsesSection">
+		<summary>Responses <span id="responsesFormTitle" style="color:var(--muted);font-weight:400;text-transform:none;"></span></summary>
+		<div id="responsesBody"><div class="empty">Pick a form below and click "View responses".</div></div>
+		</details>
+
+	</div>
+</div>
+
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+
+	var QUESTION_TYPES = [
+		["short_text", "Short answer"], ["paragraph", "Paragraph"],
+		["multiple_choice", "Multiple choice (pick one)"], ["checkboxes", "Checkboxes (pick many)"],
+		["dropdown", "Dropdown"], ["number", "Number"], ["date", "Date"],
+		["rating", "Rating / linear scale"], ["yes_no", "Yes / No"],
+	];
+	var CHOICE_TYPES = { multiple_choice: 1, checkboxes: 1, dropdown: 1 };
+
+	var session = window.sctpAccount ? window.sctpAccount.getSession() : null;
+	var forms = [];
+	var questions = []; // builder state, each: {_key, id, type, label, help, required, options, min, max, minLabel, maxLabel}
+	var editingId = null;
+	var chartInstances = [];
+	var $ = function(id){ return document.getElementById(id); };
+
+	function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+	function uid(){ return "k" + Math.random().toString(36).slice(2, 10); }
+
+	async function api(path, options){
+		options = options || {};
+		options.headers = Object.assign({ "Authorization": "Bearer " + (session ? session.token : "") }, options.headers || {});
+		var res = await fetch(API_BASE + path, options);
+		var data = await res.json();
+		if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+		return data;
+	}
+	async function apiText(path){
+		var res = await fetch(API_BASE + path, { headers: { "Authorization": "Bearer " + (session ? session.token : "") } });
+		if(!res.ok){ var d = await res.json().catch(function(){ return {}; }); throw new Error(d.error || ("HTTP " + res.status)); }
+		return res.text();
+	}
+	function hasAccess(){
+		return !!session && (session.isHeadAdmin || (session.permissions && session.permissions.indexOf("manageForms") !== -1));
+	}
+
+	// ---------------- boot / session ----------------
+	function checkSession(){
+		session = window.sctpAccount ? window.sctpAccount.getSession() : null;
+		if(!hasAccess()){ $("loginBox").hidden = false; $("panel").hidden = true; return; }
+		$("loginBox").hidden = true; $("panel").hidden = false;
+		refreshForms();
+	}
+	window.sctpOnAccountChange = checkSession;
+
+	// ---------------- question builder ----------------
+	function blankQuestion(type){
+		var q = { _key: uid(), id: "", type: type || "short_text", label: "", help: "", required: false };
+		if(CHOICE_TYPES[q.type]) q.options = ["Option 1", "Option 2"];
+		if(q.type === "rating"){ q.min = 1; q.max = 5; q.minLabel = ""; q.maxLabel = ""; }
+		return q;
+	}
+
+	function renderQuestions(){
+		var el = $("qList");
+		if(!questions.length){ el.innerHTML = '<div class="empty">No questions yet — add one below.</div>'; return; }
+		el.innerHTML = questions.map(function(q, i){
+			var typeOpts = QUESTION_TYPES.map(function(t){ return '<option value="'+t[0]+'"'+(t[0]===q.type?' selected':'')+'>'+t[1]+'</option>'; }).join("");
+			var extra = "";
+			if(CHOICE_TYPES[q.type]){
+				extra = '<div class="qopts" data-opts="'+i+'">' +
+					q.options.map(function(o, oi){
+						return '<div class="qopt-row"><input type="text" value="'+esc(o)+'" data-qi="'+i+'" data-oi="'+oi+'" class="qopt-input">' +
+							'<button type="button" class="qopt-del" data-qi="'+i+'" data-oi="'+oi+'"'+(q.options.length<=2?' disabled title="Needs at least 2 options"':'')+'>&times;</button></div>';
+					}).join("") +
+					'<button type="button" class="addopt qopt-add" data-qi="'+i+'">+ Add option</button>' +
+				'</div>';
+			} else if(q.type === "rating"){
+				extra = '<div class="field-row" style="margin-top:8px;">' +
+					'<div><label style="margin-top:0;">Min</label><input type="number" class="q-min" data-qi="'+i+'" value="'+q.min+'"></div>' +
+					'<div><label style="margin-top:0;">Max</label><input type="number" class="q-max" data-qi="'+i+'" value="'+q.max+'"></div>' +
+					'<div><label style="margin-top:0;">Min label <span class="hint">(optional)</span></label><input type="text" class="q-minlabel" data-qi="'+i+'" value="'+esc(q.minLabel||"")+'" placeholder="e.g. Not at all"></div>' +
+					'<div><label style="margin-top:0;">Max label <span class="hint">(optional)</span></label><input type="text" class="q-maxlabel" data-qi="'+i+'" value="'+esc(q.maxLabel||"")+'" placeholder="e.g. Extremely"></div>' +
+				'</div>';
+			} else if(q.type === "number"){
+				extra = '<div class="field-row" style="margin-top:8px;">' +
+					'<div><label style="margin-top:0;">Min <span class="hint">(optional)</span></label><input type="number" class="q-min" data-qi="'+i+'" value="'+(q.min==null?"":q.min)+'"></div>' +
+					'<div><label style="margin-top:0;">Max <span class="hint">(optional)</span></label><input type="number" class="q-max" data-qi="'+i+'" value="'+(q.max==null?"":q.max)+'"></div>' +
+				'</div>';
+			}
+			return '<div class="qcard" data-qi="'+i+'">' +
+				'<div class="qcard-head">' +
+					'<select class="q-type" data-qi="'+i+'">'+typeOpts+'</select>' +
+					'<input type="text" class="q-label" data-qi="'+i+'" value="'+esc(q.label)+'" placeholder="Question text">' +
+					'<div class="qcard-tools">' +
+						'<button type="button" class="q-up" data-qi="'+i+'"'+(i===0?' disabled':'')+' title="Move up">&uarr;</button>' +
+						'<button type="button" class="q-down" data-qi="'+i+'"'+(i===questions.length-1?' disabled':'')+' title="Move down">&darr;</button>' +
+						'<button type="button" class="q-del" data-qi="'+i+'" title="Remove">&times;</button>' +
+					'</div>' +
+				'</div>' +
+				'<input type="text" class="q-help" data-qi="'+i+'" value="'+esc(q.help||"")+'" placeholder="Help text (optional)" style="margin-top:8px;">' +
+				'<div class="check-row"><label style="margin:0;text-transform:none;font-weight:400;color:var(--text);"><input type="checkbox" class="q-required" data-qi="'+i+'"'+(q.required?' checked':'')+'> Required</label></div>' +
+				extra +
+			'</div>';
+		}).join("");
+	}
+
+	function qi(el){ return Number(el.getAttribute("data-qi")); }
+
+	$("addQuestionBtn").addEventListener("click", function(){
+		questions.push(blankQuestion("short_text"));
+		renderQuestions();
+	});
+
+	$("qList").addEventListener("click", function(e){
+		var t = e.target;
+		if(t.classList.contains("q-del")){ questions.splice(qi(t), 1); renderQuestions(); return; }
+		if(t.classList.contains("q-up")){ var i=qi(t); var tmp=questions[i-1]; questions[i-1]=questions[i]; questions[i]=tmp; renderQuestions(); return; }
+		if(t.classList.contains("q-down")){ var i2=qi(t); var tmp2=questions[i2+1]; questions[i2+1]=questions[i2]; questions[i2]=tmp2; renderQuestions(); return; }
+		if(t.classList.contains("qopt-add")){ questions[qi(t)].options.push("Option " + (questions[qi(t)].options.length + 1)); renderQuestions(); return; }
+		if(t.classList.contains("qopt-del")){ var qidx=Number(t.getAttribute("data-qi")), oidx=Number(t.getAttribute("data-oi")); questions[qidx].options.splice(oidx, 1); renderQuestions(); return; }
+	});
+	$("qList").addEventListener("change", function(e){
+		var t = e.target;
+		if(t.classList.contains("q-type")){ var i=qi(t); var old=questions[i]; var fresh=blankQuestion(t.value); fresh._key=old._key; fresh.id=old.id; fresh.label=old.label; fresh.help=old.help; fresh.required=old.required; questions[i]=fresh; renderQuestions(); return; }
+		if(t.classList.contains("q-required")) questions[qi(t)].required = t.checked;
+		if(t.classList.contains("q-min")) questions[qi(t)].min = t.value === "" ? null : Number(t.value);
+		if(t.classList.contains("q-max")) questions[qi(t)].max = t.value === "" ? null : Number(t.value);
+	});
+	$("qList").addEventListener("input", function(e){
+		var t = e.target;
+		if(t.classList.contains("q-label")) questions[qi(t)].label = t.value;
+		if(t.classList.contains("q-help")) questions[qi(t)].help = t.value;
+		if(t.classList.contains("q-minlabel")) questions[qi(t)].minLabel = t.value;
+		if(t.classList.contains("q-maxlabel")) questions[qi(t)].maxLabel = t.value;
+		if(t.classList.contains("qopt-input")){
+			var qidx=Number(t.getAttribute("data-qi")), oidx=Number(t.getAttribute("data-oi"));
+			questions[qidx].options[oidx] = t.value;
+		}
+	});
+
+	$("fSlug").addEventListener("input", function(){
+		$("fSlugPreview").textContent = $("fSlug").value.trim().toLowerCase() || "…";
+	});
+
+	// ---------------- save / reset ----------------
+	function resetBuilder(){
+		editingId = null;
+		$("fTitle").value = ""; $("fSlug").value = ""; $("fSlugPreview").textContent = "…";
+		$("fDescription").value = ""; $("fStatus").value = "draft"; $("fResponsePolicy").value = "unlimited";
+		$("fRequireLogin").checked = false; $("fResponseLimit").value = ""; $("fClosesAt").value = "";
+		$("fConfirmation").value = "";
+		questions = [blankQuestion("short_text")];
+		renderQuestions();
+		$("builderSummary").textContent = "Create a form";
+		$("cancelEditBtn").hidden = true;
+		$("formErr").textContent = ""; $("formOk").textContent = "";
+	}
+
+	function loadIntoBuilder(form){
+		editingId = form.id;
+		$("fTitle").value = form.title; $("fSlug").value = form.slug; $("fSlugPreview").textContent = form.slug;
+		$("fDescription").value = form.description || ""; $("fStatus").value = form.status;
+		$("fResponsePolicy").value = form.responsePolicy;
+		$("fRequireLogin").checked = !!form.requireLogin;
+		$("fResponseLimit").value = form.responseLimit == null ? "" : form.responseLimit;
+		$("fClosesAt").value = form.closesAt ? toLocalInputValue(form.closesAt) : "";
+		$("fConfirmation").value = form.confirmationMessage || "";
+		questions = form.questions.map(function(q){ return Object.assign({ _key: uid() }, q); });
+		renderQuestions();
+		$("builderSummary").textContent = "Editing: " + form.title;
+		$("cancelEditBtn").hidden = false;
+		$("formErr").textContent = ""; $("formOk").textContent = "";
+		$("builderSection").open = true;
+		$("builderSection").scrollIntoView({ behavior: "smooth", block: "start" });
+	}
+
+	function toLocalInputValue(iso){
+		var d = new Date(iso);
+		var p = function(n){ return (n<10?"0":"")+n; };
+		return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());
+	}
+
+	$("cancelEditBtn").addEventListener("click", resetBuilder);
+
+	$("saveFormBtn").addEventListener("click", async function(){
+		var errEl = $("formErr"), okEl = $("formOk");
+		errEl.textContent = ""; okEl.textContent = "";
+		var body = {
+			title: $("fTitle").value.trim(), slug: $("fSlug").value.trim().toLowerCase(),
+			description: $("fDescription").value.trim(), status: $("fStatus").value,
+			responsePolicy: $("fResponsePolicy").value, requireLogin: $("fRequireLogin").checked,
+			responseLimit: $("fResponseLimit").value === "" ? null : Number($("fResponseLimit").value),
+			closesAt: $("fClosesAt").value ? new Date($("fClosesAt").value).toISOString() : null,
+			confirmationMessage: $("fConfirmation").value.trim(),
+			questions: questions.map(function(q){
+				var out = { id: q.id, type: q.type, label: q.label, help: q.help, required: q.required };
+				if(CHOICE_TYPES[q.type]) out.options = q.options;
+				if(q.type === "rating"){ out.min = q.min; out.max = q.max; out.minLabel = q.minLabel; out.maxLabel = q.maxLabel; }
+				if(q.type === "number"){ out.min = q.min; out.max = q.max; }
+				return out;
+			}),
+		};
+		try {
+			var saved = editingId
+				? await api("/admin/forms/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ id: editingId }, body)) })
+				: await api("/admin/forms/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+			okEl.textContent = "Saved.";
+			loadIntoBuilder(saved);
+			await refreshForms();
+		} catch(err){
+			errEl.textContent = err.message;
+		}
+	});
+
+	// ---------------- forms list ----------------
+	async function refreshForms(){
+		try {
+			forms = await api("/admin/forms");
+			renderFormsList();
+		} catch(err){
+			$("formsList").innerHTML = '<div class="empty">Couldn\'t load forms: ' + esc(err.message) + '</div>';
+		}
+	}
+
+	var RESPONSE_POLICY_LABELS = {
+		unlimited: "Unlimited", oncePerRespondentEditable: "One per respondent (editable)", oncePerRespondentLocked: "One per respondent (locked)",
+	};
+
+	function renderFormsList(){
+		var el = $("formsList");
+		$("formsCount").textContent = forms.length ? "(" + forms.length + ")" : "";
+		if(!forms.length){ el.innerHTML = '<div class="empty">No forms yet — create one above.</div>'; return; }
+		el.innerHTML = forms.map(function(f){
+			var url = "https://sctp.nl/f/" + f.slug;
+			return '<div class="card" data-id="'+esc(f.id)+'">' +
+				'<div class="row">' +
+					'<div>' +
+						'<div class="title">'+esc(f.title)+' <span class="badge '+f.status+'">'+f.status+'</span>'+(f.requireLogin?' <span class="badge login">login required</span>':'')+'</div>' +
+						'<div class="meta"><a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(url)+'</a> &middot; '+f.responseCount+' response'+(f.responseCount===1?"":"s")+' &middot; '+esc(RESPONSE_POLICY_LABELS[f.responsePolicy]||f.responsePolicy)+'</div>' +
+						'<div class="meta">created '+esc(new Date(f.createdAt).toLocaleString())+' by '+esc(f.createdBy)+(f.closesAt?' &middot; closes '+esc(new Date(f.closesAt).toLocaleString()):'')+(f.responseLimit?' &middot; limit '+f.responseLimit:'')+'</div>' +
+					'</div>' +
+					'<div class="actions">' +
+						'<button type="button" class="form-edit" data-id="'+esc(f.id)+'">Edit</button>' +
+						'<button type="button" class="form-copy" data-url="'+esc(url)+'">Copy link</button>' +
+						'<button type="button" class="form-status" data-id="'+esc(f.id)+'" data-status="'+(f.status==="open"?"closed":"open")+'">'+(f.status==="open"?"Close":"Open")+'</button>' +
+						'<button type="button" class="form-responses" data-id="'+esc(f.id)+'" data-title="'+esc(f.title)+'" data-slug="'+esc(f.slug)+'">View responses</button>' +
+						'<button type="button" class="danger form-delete" data-id="'+esc(f.id)+'">Delete</button>' +
+					'</div>' +
+				'</div>' +
+			'</div>';
+		}).join("");
+	}
+
+	$("formsList").addEventListener("click", async function(e){
+		var t = e.target, id = t.getAttribute("data-id");
+		if(t.classList.contains("form-edit")){
+			try { loadIntoBuilder(await api("/admin/forms/get?id=" + encodeURIComponent(id))); } catch(err){ alert("Failed: " + err.message); }
+			return;
+		}
+		if(t.classList.contains("form-copy")){
+			var url = t.getAttribute("data-url");
+			try { await navigator.clipboard.writeText(url); t.textContent = "Copied!"; setTimeout(function(){ t.textContent = "Copy link"; }, 1500); }
+			catch(err){ window.prompt("Copy this link:", url); }
+			return;
+		}
+		if(t.classList.contains("form-status")){
+			try { await api("/admin/forms/set-status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, status: t.getAttribute("data-status") }) }); await refreshForms(); }
+			catch(err){ alert("Failed: " + err.message); }
+			return;
+		}
+		if(t.classList.contains("form-delete")){
+			if(!confirm("Delete this form and every one of its responses? This can't be undone.")) return;
+			try { await api("/admin/forms/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }); if(editingId === id) resetBuilder(); await refreshForms(); }
+			catch(err){ alert("Failed: " + err.message); }
+			return;
+		}
+		if(t.classList.contains("form-responses")){
+			openResponses(id, t.getAttribute("data-title"), t.getAttribute("data-slug"));
+			return;
+		}
+	});
+
+	// ---------------- responses ----------------
+	var currentResponsesForm = null;
+	var responsesTab = "table";
+
+	async function openResponses(formId, title, slug){
+		currentResponsesForm = { id: formId, title: title, slug: slug };
+		$("responsesSection").open = true;
+		$("responsesFormTitle").textContent = "— " + title;
+		$("responsesSection").scrollIntoView({ behavior: "smooth", block: "start" });
+		responsesTab = "table";
+		await renderResponsesPanel();
+	}
+
+	async function renderResponsesPanel(){
+		var el = $("responsesBody");
+		el.innerHTML = '<div class="empty">Loading…</div>';
+		try {
+			var form = await api("/admin/forms/get?id=" + encodeURIComponent(currentResponsesForm.id));
+			var html = '<div class="tabs">' +
+				'<button type="button" class="tab' + (responsesTab==="table"?" active":"") + '" data-rtab="table">Table</button>' +
+				'<button type="button" class="tab' + (responsesTab==="summary"?" active":"") + '" data-rtab="summary">Summary</button>' +
+				'<button type="button" style="margin-left:auto;" id="csvBtn">Download CSV</button>' +
+			'</div><div id="rtabBody"></div>';
+			el.innerHTML = html;
+			$("csvBtn").addEventListener("click", async function(){
+				try {
+					var text = await apiText("/admin/forms/responses?id=" + encodeURIComponent(currentResponsesForm.id) + "&format=csv");
+					var blob = new Blob([text], { type: "text/csv" });
+					var url = URL.createObjectURL(blob);
+					var a = document.createElement("a");
+					a.href = url; a.download = currentResponsesForm.slug + "-responses.csv";
+					document.body.appendChild(a); a.click(); a.remove();
+					setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+				} catch(err){ alert("Failed: " + err.message); }
+			});
+			document.querySelectorAll("#responsesBody [data-rtab]").forEach(function(b){
+				b.addEventListener("click", function(){ responsesTab = b.getAttribute("data-rtab"); renderResponsesPanel(); });
+			});
+			if(responsesTab === "table") await renderTableTab(form);
+			else await renderSummaryTab(form);
+		} catch(err){
+			el.innerHTML = '<div class="empty">Couldn\'t load responses: ' + esc(err.message) + '</div>';
+		}
+	}
+
+	async function renderTableTab(form){
+		var body = $("rtabBody");
+		var responses = await api("/admin/forms/responses?id=" + encodeURIComponent(currentResponsesForm.id));
+		if(!responses.length){ body.innerHTML = '<div class="empty">No responses yet.</div>'; return; }
+		var head = '<tr><th>Respondent</th><th>Submitted</th><th>Updated</th>' + form.questions.map(function(q){ return "<th>"+esc(q.label)+"</th>"; }).join("") + "<th></th></tr>";
+		var rows = responses.map(function(r){
+			var cells = form.questions.map(function(q){
+				var v = r.answers[q.id];
+				return "<td>" + esc(Array.isArray(v) ? v.join(", ") : (v == null ? "" : v)) + "</td>";
+			}).join("");
+			return '<tr><td>'+esc(r.respondent)+'</td><td>'+esc(new Date(r.submittedAt).toLocaleString())+'</td><td>'+esc(new Date(r.updatedAt).toLocaleString())+'</td>'+cells+
+				'<td><button type="button" class="danger resp-delete" data-id="'+esc(r.id)+'" style="font-size:11.5px;padding:4px 8px;">Delete</button></td></tr>';
+		}).join("");
+		body.innerHTML = '<div class="rtable-wrap"><table class="rtable"><thead>'+head+'</thead><tbody>'+rows+'</tbody></table></div>';
+		body.querySelectorAll(".resp-delete").forEach(function(b){
+			b.addEventListener("click", async function(){
+				if(!confirm("Delete this response?")) return;
+				try { await api("/admin/forms/responses/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.getAttribute("data-id") }) }); await refreshForms(); await renderResponsesPanel(); }
+				catch(err){ alert("Failed: " + err.message); }
+			});
+		});
+	}
+
+	var CHART_COLORS = ["#B7E23D", "#8C93E8", "#E2A33D", "#E27D6B", "#5FB8D9", "#C98BE2", "#7FD1A8", "#E2D35F"];
+
+	async function renderSummaryTab(form){
+		var body = $("rtabBody");
+		chartInstances.forEach(function(c){ c.destroy(); });
+		chartInstances = [];
+		var data = await api("/admin/forms/summary?id=" + encodeURIComponent(currentResponsesForm.id));
+		if(!data.totalResponses){ body.innerHTML = '<div class="empty">No responses yet.</div>'; return; }
+		body.innerHTML = '<div class="meta" style="margin-bottom:14px;">' + data.totalResponses + ' total response' + (data.totalResponses===1?"":"s") + '</div>' +
+			data.summary.map(function(s, i){
+				if(s.type === "short_text" || s.type === "paragraph" || s.type === "date"){
+					return '<div class="summary-q"><h3>'+esc(s.label)+'</h3><div class="n">'+s.totalResponses+' answer'+(s.totalResponses===1?"":"s")+'</div>' +
+						(s.values.length ? '<div class="textlist">'+s.values.map(function(v){ return '<div>'+esc(v)+'</div>'; }).join("")+'</div>' : '<div class="empty">No answers yet.</div>') +
+					'</div>';
+				}
+				if(s.type === "number"){
+					return '<div class="summary-q"><h3>'+esc(s.label)+'</h3><div class="n">'+s.totalResponses+' answer'+(s.totalResponses===1?"":"s")+'</div>' +
+						'<div class="stat-row"><div class="stat"><div class="k">Average</div><div class="v">'+(s.avg==null?"—":s.avg)+'</div></div>' +
+						'<div class="stat"><div class="k">Min</div><div class="v">'+(s.min==null?"—":s.min)+'</div></div>' +
+						'<div class="stat"><div class="k">Max</div><div class="v">'+(s.max==null?"—":s.max)+'</div></div></div>' +
+					'</div>';
+				}
+				// choice / checkboxes / rating / yes_no — bar chart
+				return '<div class="summary-q"><h3>'+esc(s.label)+'</h3><div class="n">'+s.totalResponses+' answer'+(s.totalResponses===1?"":"s")+(s.avg!=null?' &middot; average '+s.avg:'')+'</div><canvas id="schart_'+i+'"></canvas></div>';
+			}).join("");
+
+		data.summary.forEach(function(s, i){
+			if(s.type === "short_text" || s.type === "paragraph" || s.type === "date" || s.type === "number") return;
+			var canvas = $("schart_" + i);
+			if(!canvas || typeof Chart === "undefined") return;
+			var labels = Object.keys(s.counts);
+			var values = labels.map(function(l){ return s.counts[l]; });
+			chartInstances.push(new Chart(canvas.getContext("2d"), {
+				type: "bar",
+				data: { labels: labels, datasets: [{ data: values, backgroundColor: labels.map(function(_, li){ return CHART_COLORS[li % CHART_COLORS.length]; }) }] },
+				options: {
+					plugins: { legend: { display: false } },
+					scales: {
+						x: { ticks: { color: "#8FA593" }, grid: { color: "#33453A" } },
+						y: { ticks: { color: "#8FA593", precision: 0 }, grid: { color: "#33453A" }, beginAtZero: true },
+					},
+				},
+			}));
+		});
+	}
+
+	// ---------------- boot ----------------
+	resetBuilder();
+	if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", checkSession); else checkSession();
+})();
+</script>
+</body>
+</html>

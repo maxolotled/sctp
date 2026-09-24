@@ -113,6 +113,22 @@
 //   GET  /password-reset-link/info?token=    (public) -> {username, expiresAt}
 //   POST /password-reset-link/redeem         (public) body: {token, newPassword} -> session
 //
+// Forms — a small custom form builder, entirely separate from every other
+// content type here. See ADMIN-ONLY below for the "manageForms" bucket
+// (create/edit/list/delete forms + view responses); these are the PUBLIC
+// routes anyone filling out a form actually hits:
+//   GET  /forms/get?slug=<slug>              -> {id, title, description, questions, requireLogin,
+//     responsePolicy, status, closesAt, responseLimit, responsesSoFar, confirmationMessage} for an
+//     OPEN form; a draft/closed form 404s here unless the caller has "manageForms" (lets the
+//     admin preview before publishing) — see handleGetPublicForm.
+//   GET  /forms/my-response?slug=<slug>&token=<respondentToken>   -> {exists, answers?, submittedAt?,
+//     updatedAt?} for the caller's own prior response, if any — token is only used when logged
+//     out (Authorization header takes priority when present). Lets the public page pre-fill an
+//     editable form, or show a locked form's own answers read-only.
+//   POST /forms/submit    body: {slug, answers: {questionId: value}, respondentToken?} -> {ok,
+//     confirmationMessage, updated} — updated is true when this overwrote an existing response
+//     (see responsePolicy "oncePerRespondentEditable" in recordFormResponse).
+//
 // Permission bucket "reports":
 //   GET  /admin/reports
 //   POST /admin/reports/resolve              body: {id, action: "approve"|"deny"|"edit", field?, value?}
@@ -150,6 +166,19 @@
 //   POST /admin/player-reports/resolve       body: {id, action: "ban"|"remove"|"none"} -> ban blocks the seller
 //     (both worlds, permanent until unblocked); remove wipes just their listings in the
 //     reported world (not banned, can sell again); none dismisses with no side effect.
+// Permission bucket "manageForms" (see "Forms" above for the public routes):
+//   POST /admin/forms/create   body: {slug, title, description?, questions, requireLogin, responsePolicy,
+//     status?, closesAt?, responseLimit?, confirmationMessage?} -> full form (slug must be unique,
+//     [a-z0-9-]+, 2-64 chars)
+//   GET  /admin/forms                        -> every form, metadata + responseCount only (no questions/responses)
+//   GET  /admin/forms/get?id=<id>            -> one form's full definition, for editing
+//   POST /admin/forms/update   body: {id, ...same fields as create}
+//   POST /admin/forms/set-status              body: {id, status: "draft"|"open"|"closed"}
+//   POST /admin/forms/delete                  body: {id} -> also deletes every response
+//   GET  /admin/forms/responses?id=<id>&format=json|csv (default json)  -> every response, raw
+//   POST /admin/forms/responses/delete        body: {id} -> delete one response (moderation)
+//   GET  /admin/forms/summary?id=<id>         -> per-question aggregates for the Summary tab
+//     (option counts for choice/rating types, min/avg/max for number, a raw value list for text/date)
 //
 // GET /items/history?itemKey=<key> (public, cached 1hr) -> daily price/stock/seller
 //   history for one item. itemKey is "v:<baseItem>|<exact display name>" (lowercased)
@@ -221,6 +250,15 @@ const EDITABLE_LISTING_FIELDS = new Set([
 ]);
 const WORLD_MAP_STATUSES = new Set(["unclaimed", "claimed", "done"]);
 const WORLD_MAP_GRID_SIZE = 49; // leaf squares per axis, see /world for the full grid math
+
+// ---- forms (see the "Forms" doc-comment block above) ----
+const FORM_QUESTION_TYPES = new Set(["short_text", "paragraph", "multiple_choice", "checkboxes", "dropdown", "number", "date", "rating", "yes_no"]);
+const FORM_CHOICE_TYPES = new Set(["multiple_choice", "checkboxes", "dropdown"]); // these carry an `options` array
+const FORM_STATUSES = new Set(["draft", "open", "closed"]);
+const FORM_RESPONSE_POLICIES = new Set(["unlimited", "oncePerRespondentEditable", "oncePerRespondentLocked"]);
+const FORM_SLUG_RE = /^[a-z0-9-]{2,64}$/;
+const FORM_MAX_QUESTIONS = 50;
+const FORM_RATING_MAX_SPAN = 10; // e.g. 1-10 at most — keeps the summary chart sane
 
 const CACHE_TTL_SECONDS = 120;
 // Item history only changes once a day (see the scheduled handler at the
@@ -5816,6 +5854,415 @@ async function handlePasswordResetLinkRedeem(request, env) {
 	});
 }
 
+// ---------------- forms ----------------
+// See the "Forms" and "manageForms" doc-comment blocks near the top of this
+// file for the full route list and shapes.
+
+function formRowToAdminJson(row) {
+	return {
+		id: row.id, slug: row.slug, title: row.title, description: row.description || "",
+		questions: JSON.parse(row.questionsJson), requireLogin: !!row.requireLogin,
+		responsePolicy: row.responsePolicy, status: row.status, closesAt: row.closesAt || null,
+		responseLimit: row.responseLimit, confirmationMessage: row.confirmationMessage || "",
+		createdBy: row.createdBy, createdAt: row.createdAt, updatedAt: row.updatedAt,
+	};
+}
+
+// "open" isn't quite the same as "currently accepting responses" — an admin
+// can leave status="open" and let closesAt/responseLimit do the actual
+// cutoff, so this is re-checked live rather than ever cached on the row.
+function formIsAcceptingResponses(form, responseCount) {
+	if (form.status !== "open") return false;
+	if (form.closesAt && Date.parse(form.closesAt) < Date.now()) return false;
+	if (form.responseLimit != null && responseCount >= form.responseLimit) return false;
+	return true;
+}
+
+// Validates + normalizes a question list at create/update time. Doesn't touch
+// D1 — pure validation, shared by create and update.
+function validateFormQuestions(questionsIn) {
+	if (!Array.isArray(questionsIn) || !questionsIn.length) return { ok: false, error: "At least one question is required." };
+	if (questionsIn.length > FORM_MAX_QUESTIONS) return { ok: false, error: `At most ${FORM_MAX_QUESTIONS} questions.` };
+	const seen = new Set();
+	const cleaned = [];
+	for (const qIn of questionsIn) {
+		const type = String((qIn && qIn.type) || "");
+		if (!FORM_QUESTION_TYPES.has(type)) return { ok: false, error: "Unknown question type: " + type };
+		const label = String((qIn && qIn.label) || "").trim();
+		if (!label) return { ok: false, error: "Every question needs a label." };
+		let id = String((qIn && qIn.id) || "").trim();
+		if (!id || seen.has(id)) id = "q_" + crypto.randomUUID().slice(0, 8);
+		while (seen.has(id)) id = "q_" + crypto.randomUUID().slice(0, 8);
+		seen.add(id);
+		const q = { id, type, label: label.slice(0, 300), required: !!(qIn && qIn.required) };
+		const help = String((qIn && qIn.help) || "").trim().slice(0, 500);
+		if (help) q.help = help;
+		if (FORM_CHOICE_TYPES.has(type)) {
+			const options = Array.isArray(qIn.options) ? [...new Set(qIn.options.map((o) => String(o).trim()).filter(Boolean))].slice(0, 40) : [];
+			if (options.length < 2) return { ok: false, error: `"${label}" needs at least 2 options.` };
+			q.options = options;
+		}
+		if (type === "number") {
+			if (qIn.min !== undefined && qIn.min !== null && qIn.min !== "") q.min = Number(qIn.min);
+			if (qIn.max !== undefined && qIn.max !== null && qIn.max !== "") q.max = Number(qIn.max);
+			if (q.min != null && q.max != null && q.max < q.min) return { ok: false, error: `"${label}"'s max must be at least its min.` };
+		}
+		if (type === "rating") {
+			const min = qIn.min !== undefined && qIn.min !== null && qIn.min !== "" ? Math.floor(Number(qIn.min)) : 1;
+			const max = qIn.max !== undefined && qIn.max !== null && qIn.max !== "" ? Math.floor(Number(qIn.max)) : 5;
+			if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min || (max - min) > FORM_RATING_MAX_SPAN) {
+				return { ok: false, error: `"${label}" needs a valid scale (2-${FORM_RATING_MAX_SPAN + 1} points).` };
+			}
+			q.min = min; q.max = max;
+			const minLabel = String(qIn.minLabel || "").trim().slice(0, 60), maxLabel = String(qIn.maxLabel || "").trim().slice(0, 60);
+			if (minLabel) q.minLabel = minLabel;
+			if (maxLabel) q.maxLabel = maxLabel;
+		}
+		cleaned.push(q);
+	}
+	return { ok: true, cleaned };
+}
+
+// Validates a respondent's answers against the form's question list at submit
+// time — never trust the client's shape. Returns the same {questionId: value}
+// shape back, but coerced/clamped to what each question type actually allows.
+function validateFormAnswers(questions, answersIn) {
+	const answers = answersIn && typeof answersIn === "object" ? answersIn : {};
+	const cleaned = {};
+	for (const q of questions) {
+		const raw = answers[q.id];
+		const empty = raw === undefined || raw === null || raw === "" || (Array.isArray(raw) && raw.length === 0);
+		if (empty) {
+			if (q.required) return { ok: false, error: `"${q.label}" is required.` };
+			continue;
+		}
+		if (q.type === "short_text" || q.type === "date") {
+			cleaned[q.id] = String(raw).slice(0, 500);
+		} else if (q.type === "paragraph") {
+			cleaned[q.id] = String(raw).slice(0, 5000);
+		} else if (q.type === "number") {
+			const n = Number(raw);
+			if (!Number.isFinite(n)) return { ok: false, error: `"${q.label}" must be a number.` };
+			if (q.min != null && n < q.min) return { ok: false, error: `"${q.label}" must be at least ${q.min}.` };
+			if (q.max != null && n > q.max) return { ok: false, error: `"${q.label}" must be at most ${q.max}.` };
+			cleaned[q.id] = n;
+		} else if (q.type === "rating") {
+			const n = Number(raw);
+			if (!Number.isInteger(n) || n < q.min || n > q.max) return { ok: false, error: `"${q.label}" must be between ${q.min} and ${q.max}.` };
+			cleaned[q.id] = n;
+		} else if (q.type === "yes_no") {
+			const v = String(raw);
+			if (v !== "Yes" && v !== "No") return { ok: false, error: `"${q.label}" must be Yes or No.` };
+			cleaned[q.id] = v;
+		} else if (q.type === "multiple_choice" || q.type === "dropdown") {
+			const v = String(raw);
+			if (!(q.options || []).includes(v)) return { ok: false, error: `"${q.label}" has an invalid selection.` };
+			cleaned[q.id] = v;
+		} else if (q.type === "checkboxes") {
+			if (!Array.isArray(raw)) return { ok: false, error: `"${q.label}" must be a list.` };
+			const opts = new Set(q.options || []);
+			const vals = [...new Set(raw.map(String).filter((v) => opts.has(v)))];
+			if (!vals.length) return { ok: false, error: `"${q.label}" is required.` };
+			cleaned[q.id] = vals;
+		}
+	}
+	return { ok: true, cleaned };
+}
+
+function csvEscape(v) {
+	const s = v === undefined || v === null ? "" : String(v);
+	return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function formResponsesToCsv(questions, responses) {
+	const header = ["Respondent", "Submitted at", "Updated at", ...questions.map((q) => q.label)];
+	const lines = [header.map(csvEscape).join(",")];
+	for (const r of responses) {
+		const row = [r.respondent, r.submittedAt, r.updatedAt];
+		for (const q of questions) {
+			const v = r.answers[q.id];
+			row.push(Array.isArray(v) ? v.join("; ") : v);
+		}
+		lines.push(row.map(csvEscape).join(","));
+	}
+	return lines.join("\r\n");
+}
+
+async function handleAdminCreateForm(request, env) {
+	const auth = await requireAdminAuth(request, env, "manageForms");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+
+	const slug = String(body.slug || "").trim().toLowerCase();
+	if (!FORM_SLUG_RE.test(slug)) return json({ error: "URL must be 2-64 characters, lowercase letters/digits/hyphens only." }, 400);
+	const title = String(body.title || "").trim();
+	if (!title) return json({ error: "Title is required." }, 400);
+	const status = FORM_STATUSES.has(body.status) ? body.status : "draft";
+	const responsePolicy = FORM_RESPONSE_POLICIES.has(body.responsePolicy) ? body.responsePolicy : "unlimited";
+	const qv = validateFormQuestions(body.questions);
+	if (!qv.ok) return json({ error: qv.error }, 400);
+	const responseLimit = body.responseLimit !== undefined && body.responseLimit !== null && body.responseLimit !== "" ? Math.max(1, Math.floor(Number(body.responseLimit))) : null;
+	let closesAt = null;
+	if (body.closesAt) {
+		const parsed = Date.parse(body.closesAt);
+		if (Number.isNaN(parsed)) return json({ error: "Invalid close date." }, 400);
+		closesAt = new Date(parsed).toISOString();
+	}
+
+	const existing = await env.DB.prepare("SELECT id FROM forms WHERE slug = ?").bind(slug).first();
+	if (existing) return json({ error: "That URL is already taken by another form." }, 409);
+
+	const id = crypto.randomUUID();
+	const now = new Date().toISOString();
+	await env.DB.prepare(
+		`INSERT INTO forms (id, slug, title, description, questionsJson, requireLogin, responsePolicy, status, closesAt, responseLimit, confirmationMessage, createdBy, createdAt, updatedAt)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	).bind(id, slug, title.slice(0, 200), String(body.description || "").slice(0, 2000) || null, JSON.stringify(qv.cleaned),
+		body.requireLogin ? 1 : 0, responsePolicy, status, closesAt, responseLimit, String(body.confirmationMessage || "").slice(0, 500) || null,
+		auth.admin ? auth.admin.username : "master", now, now).run();
+
+	return json(formRowToAdminJson(await env.DB.prepare("SELECT * FROM forms WHERE id = ?").bind(id).first()));
+}
+
+async function handleAdminListForms(request, env) {
+	const auth = await requireAdminAuth(request, env, "manageForms");
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare(
+		`SELECT f.id, f.slug, f.title, f.status, f.requireLogin, f.responsePolicy, f.closesAt, f.responseLimit, f.createdBy, f.createdAt, f.updatedAt,
+		 (SELECT COUNT(*) FROM formResponses r WHERE r.formId = f.id) AS responseCount
+		 FROM forms f ORDER BY f.createdAt DESC`
+	).all();
+	return json(results.map((r) => ({ ...r, requireLogin: !!r.requireLogin })));
+}
+
+async function handleAdminGetForm(request, env) {
+	const auth = await requireAdminAuth(request, env, "manageForms");
+	if (!auth.ok) return auth.response;
+	const id = new URL(request.url).searchParams.get("id") || "";
+	const form = await env.DB.prepare("SELECT * FROM forms WHERE id = ?").bind(id).first();
+	if (!form) return json({ error: "Form not found" }, 404);
+	return json(formRowToAdminJson(form));
+}
+
+async function handleAdminUpdateForm(request, env) {
+	const auth = await requireAdminAuth(request, env, "manageForms");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const id = String(body.id || "");
+	const form = await env.DB.prepare("SELECT * FROM forms WHERE id = ?").bind(id).first();
+	if (!form) return json({ error: "Form not found" }, 404);
+
+	const slug = String(body.slug || "").trim().toLowerCase();
+	if (!FORM_SLUG_RE.test(slug)) return json({ error: "URL must be 2-64 characters, lowercase letters/digits/hyphens only." }, 400);
+	if (slug !== form.slug) {
+		const clash = await env.DB.prepare("SELECT id FROM forms WHERE slug = ? AND id != ?").bind(slug, id).first();
+		if (clash) return json({ error: "That URL is already taken by another form." }, 409);
+	}
+	const title = String(body.title || "").trim();
+	if (!title) return json({ error: "Title is required." }, 400);
+	const status = FORM_STATUSES.has(body.status) ? body.status : form.status;
+	const responsePolicy = FORM_RESPONSE_POLICIES.has(body.responsePolicy) ? body.responsePolicy : form.responsePolicy;
+	const qv = validateFormQuestions(body.questions);
+	if (!qv.ok) return json({ error: qv.error }, 400);
+	const responseLimit = body.responseLimit !== undefined && body.responseLimit !== null && body.responseLimit !== "" ? Math.max(1, Math.floor(Number(body.responseLimit))) : null;
+	let closesAt = null;
+	if (body.closesAt) {
+		const parsed = Date.parse(body.closesAt);
+		if (Number.isNaN(parsed)) return json({ error: "Invalid close date." }, 400);
+		closesAt = new Date(parsed).toISOString();
+	}
+	const now = new Date().toISOString();
+
+	await env.DB.prepare(
+		`UPDATE forms SET slug=?, title=?, description=?, questionsJson=?, requireLogin=?, responsePolicy=?, status=?, closesAt=?, responseLimit=?, confirmationMessage=?, updatedAt=? WHERE id=?`
+	).bind(slug, title.slice(0, 200), String(body.description || "").slice(0, 2000) || null, JSON.stringify(qv.cleaned),
+		body.requireLogin ? 1 : 0, responsePolicy, status, closesAt, responseLimit, String(body.confirmationMessage || "").slice(0, 500) || null, now, id).run();
+
+	return json(formRowToAdminJson(await env.DB.prepare("SELECT * FROM forms WHERE id = ?").bind(id).first()));
+}
+
+async function handleAdminSetFormStatus(request, env) {
+	const auth = await requireAdminAuth(request, env, "manageForms");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	if (!FORM_STATUSES.has(body.status)) return json({ error: "Invalid status" }, 400);
+	const res = await env.DB.prepare("UPDATE forms SET status = ?, updatedAt = ? WHERE id = ?").bind(body.status, new Date().toISOString(), String(body.id || "")).run();
+	if (res.meta.changes === 0) return json({ error: "Form not found" }, 404);
+	return json({ ok: true });
+}
+
+async function handleAdminDeleteForm(request, env) {
+	const auth = await requireAdminAuth(request, env, "manageForms");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const id = String(body.id || "");
+	await env.DB.prepare("DELETE FROM formResponses WHERE formId = ?").bind(id).run();
+	const res = await env.DB.prepare("DELETE FROM forms WHERE id = ?").bind(id).run();
+	if (res.meta.changes === 0) return json({ error: "Form not found" }, 404);
+	return json({ ok: true });
+}
+
+async function handleAdminGetFormResponses(request, env) {
+	const auth = await requireAdminAuth(request, env, "manageForms");
+	if (!auth.ok) return auth.response;
+	const url = new URL(request.url);
+	const id = url.searchParams.get("id") || "";
+	const format = url.searchParams.get("format") === "csv" ? "csv" : "json";
+	const form = await env.DB.prepare("SELECT * FROM forms WHERE id = ?").bind(id).first();
+	if (!form) return json({ error: "Form not found" }, 404);
+	const { results } = await env.DB.prepare(
+		"SELECT id, respondentUsername, answersJson, submittedAt, updatedAt FROM formResponses WHERE formId = ? ORDER BY submittedAt DESC"
+	).bind(id).all();
+	const responses = results.map((r) => ({
+		id: r.id, respondent: r.respondentUsername || "Anonymous", answers: JSON.parse(r.answersJson),
+		submittedAt: r.submittedAt, updatedAt: r.updatedAt,
+	}));
+	if (format === "json") return json(responses);
+
+	const csv = formResponsesToCsv(JSON.parse(form.questionsJson), responses);
+	return new Response(csv, { headers: { ...corsHeaders(), "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${form.slug}-responses.csv"` } });
+}
+
+async function handleAdminDeleteFormResponse(request, env) {
+	const auth = await requireAdminAuth(request, env, "manageForms");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const res = await env.DB.prepare("DELETE FROM formResponses WHERE id = ?").bind(String(body.id || "")).run();
+	if (res.meta.changes === 0) return json({ error: "Response not found" }, 404);
+	return json({ ok: true });
+}
+
+async function handleAdminGetFormSummary(request, env) {
+	const auth = await requireAdminAuth(request, env, "manageForms");
+	if (!auth.ok) return auth.response;
+	const id = new URL(request.url).searchParams.get("id") || "";
+	const form = await env.DB.prepare("SELECT * FROM forms WHERE id = ?").bind(id).first();
+	if (!form) return json({ error: "Form not found" }, 404);
+	const questions = JSON.parse(form.questionsJson);
+	const { results } = await env.DB.prepare("SELECT answersJson FROM formResponses WHERE formId = ?").bind(id).all();
+	const answersList = results.map((r) => JSON.parse(r.answersJson));
+
+	const summary = questions.map((q) => {
+		const values = answersList.map((a) => a[q.id]).filter((v) => v !== undefined && v !== null && v !== "");
+		const base = { questionId: q.id, type: q.type, label: q.label, totalResponses: values.length };
+		if (q.type === "multiple_choice" || q.type === "dropdown" || q.type === "yes_no") {
+			const counts = {};
+			for (const o of (q.type === "yes_no" ? ["Yes", "No"] : (q.options || []))) counts[o] = 0;
+			for (const v of values) counts[v] = (counts[v] || 0) + 1;
+			return { ...base, counts };
+		}
+		if (q.type === "checkboxes") {
+			const counts = {};
+			for (const o of (q.options || [])) counts[o] = 0;
+			for (const v of values) for (const o of (Array.isArray(v) ? v : [])) counts[o] = (counts[o] || 0) + 1;
+			return { ...base, counts };
+		}
+		if (q.type === "rating") {
+			const counts = {};
+			for (let n = q.min; n <= q.max; n++) counts[n] = 0;
+			let sum = 0;
+			for (const v of values) { counts[v] = (counts[v] || 0) + 1; sum += Number(v); }
+			return { ...base, counts, avg: values.length ? Math.round((sum / values.length) * 100) / 100 : null, min: q.min, max: q.max };
+		}
+		if (q.type === "number") {
+			const nums = values.map(Number).filter(Number.isFinite);
+			const sum = nums.reduce((a, b) => a + b, 0);
+			return { ...base, avg: nums.length ? Math.round((sum / nums.length) * 100) / 100 : null, min: nums.length ? Math.min(...nums) : null, max: nums.length ? Math.max(...nums) : null };
+		}
+		// short_text, paragraph, date — free text, no meaningful aggregate: just the raw values (capped)
+		return { ...base, values: values.slice(0, 200).map(String) };
+	});
+	return json({ form: { id: form.id, title: form.title }, totalResponses: answersList.length, summary });
+}
+
+// ---- public ----
+
+async function handleGetPublicForm(request, env) {
+	const slug = (new URL(request.url).searchParams.get("slug") || "").trim().toLowerCase();
+	if (!slug) return json({ error: "slug is required" }, 400);
+	const form = await env.DB.prepare("SELECT * FROM forms WHERE slug = ?").bind(slug).first();
+	if (!form) return json({ error: "Form not found" }, 404);
+	if (form.status === "draft") {
+		const auth = await requireAdminAuth(request, env, "manageForms");
+		if (!auth.ok) return json({ error: "Form not found" }, 404); // don't leak that a draft exists
+	}
+	const countRow = await env.DB.prepare("SELECT COUNT(*) AS c FROM formResponses WHERE formId = ?").bind(form.id).first();
+	const responsesSoFar = countRow.c;
+	return json({
+		id: form.id, slug: form.slug, title: form.title, description: form.description || "",
+		questions: JSON.parse(form.questionsJson), requireLogin: !!form.requireLogin,
+		responsePolicy: form.responsePolicy, status: form.status, closesAt: form.closesAt || null,
+		responseLimit: form.responseLimit, responsesSoFar,
+		acceptingResponses: formIsAcceptingResponses(form, responsesSoFar),
+		confirmationMessage: form.confirmationMessage || "Thanks — your response has been recorded.",
+	});
+}
+
+async function handleGetMyFormResponse(request, env) {
+	const url = new URL(request.url);
+	const slug = (url.searchParams.get("slug") || "").trim().toLowerCase();
+	if (!slug) return json({ error: "slug is required" }, 400);
+	const form = await env.DB.prepare("SELECT id FROM forms WHERE slug = ?").bind(slug).first();
+	if (!form) return json({ error: "Form not found" }, 404);
+
+	const auth = await requireAnyAdmin(request, env);
+	let dedupKey;
+	if (auth.ok) {
+		dedupKey = auth.admin.id;
+	} else {
+		const token = (url.searchParams.get("token") || "").trim();
+		if (!token) return json({ exists: false });
+		dedupKey = "anon:" + token;
+	}
+	const row = await env.DB.prepare("SELECT answersJson, submittedAt, updatedAt FROM formResponses WHERE formId = ? AND dedupKey = ?").bind(form.id, dedupKey).first();
+	if (!row) return json({ exists: false });
+	return json({ exists: true, answers: JSON.parse(row.answersJson), submittedAt: row.submittedAt, updatedAt: row.updatedAt });
+}
+
+async function handleSubmitForm(request, env) {
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const slug = String(body.slug || "").trim().toLowerCase();
+	if (!slug) return json({ error: "slug is required" }, 400);
+	const form = await env.DB.prepare("SELECT * FROM forms WHERE slug = ?").bind(slug).first();
+	if (!form) return json({ error: "Form not found" }, 404);
+
+	const countRow = await env.DB.prepare("SELECT COUNT(*) AS c FROM formResponses WHERE formId = ?").bind(form.id).first();
+	if (!formIsAcceptingResponses(form, countRow.c)) return json({ error: "This form isn't accepting responses right now." }, 403);
+
+	const auth = await requireAnyAdmin(request, env);
+	if (form.requireLogin && !auth.ok) return json({ error: "You need to be logged in to submit this form." }, 401);
+
+	const questions = JSON.parse(form.questionsJson);
+	const validated = validateFormAnswers(questions, body.answers);
+	if (!validated.ok) return json({ error: validated.error }, 400);
+
+	const accountId = auth.ok ? auth.admin.id : null;
+	const respondentToken = accountId ? null : (String(body.respondentToken || "").trim() || null);
+	const dedupKey = accountId ? accountId : "anon:" + (respondentToken || crypto.randomUUID());
+	const respondentUsername = accountId ? auth.admin.username : null;
+	const now = new Date().toISOString();
+	const answersJson = JSON.stringify(validated.cleaned);
+
+	if (form.responsePolicy !== "unlimited") {
+		const existing = await env.DB.prepare("SELECT id FROM formResponses WHERE formId = ? AND dedupKey = ?").bind(form.id, dedupKey).first();
+		if (existing) {
+			if (form.responsePolicy === "oncePerRespondentLocked") return json({ error: "You've already submitted this form." }, 409);
+			await env.DB.prepare("UPDATE formResponses SET answersJson = ?, updatedAt = ?, respondentUsername = ? WHERE id = ?")
+				.bind(answersJson, now, respondentUsername, existing.id).run();
+			return json({ ok: true, confirmationMessage: form.confirmationMessage || "Thanks — your response has been updated.", updated: true });
+		}
+	}
+	await env.DB.prepare(
+		"INSERT INTO formResponses (id, formId, accountId, respondentToken, dedupKey, respondentUsername, answersJson, submittedAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	).bind(crypto.randomUUID(), form.id, accountId, respondentToken, dedupKey, respondentUsername, answersJson, now, now).run();
+	return json({ ok: true, confirmationMessage: form.confirmationMessage || "Thanks — your response has been recorded.", updated: false });
+}
+
 const ROUTES = [
 	["POST", "/listings", handleUploadListings],
 	["GET", "/listings", handleGetListings],
@@ -5919,6 +6366,18 @@ const ROUTES = [
 	["POST", "/admin/password-reset-links/revoke", handleAdminRevokePasswordResetLink],
 	["GET", "/password-reset-link/info", handlePasswordResetLinkInfo],
 	["POST", "/password-reset-link/redeem", handlePasswordResetLinkRedeem],
+	["POST", "/admin/forms/create", handleAdminCreateForm],
+	["GET", "/admin/forms", handleAdminListForms],
+	["GET", "/admin/forms/get", handleAdminGetForm],
+	["POST", "/admin/forms/update", handleAdminUpdateForm],
+	["POST", "/admin/forms/set-status", handleAdminSetFormStatus],
+	["POST", "/admin/forms/delete", handleAdminDeleteForm],
+	["GET", "/admin/forms/responses", handleAdminGetFormResponses],
+	["POST", "/admin/forms/responses/delete", handleAdminDeleteFormResponse],
+	["GET", "/admin/forms/summary", handleAdminGetFormSummary],
+	["GET", "/forms/get", handleGetPublicForm],
+	["GET", "/forms/my-response", handleGetMyFormResponse],
+	["POST", "/forms/submit", handleSubmitForm],
 	["GET", "/account/register/status", handleGetRegistrationStatus],
 	["POST", "/account/register/complete", handleCompleteRegistration],
 	["POST", "/account/register/verify-callback", handleRegistrationVerifyCallback],
