@@ -40,7 +40,12 @@ known shop that hasn't been scanned in the last 5 minutes, it:
    back to the server so nothing stays "open" server-side.
 
 Rate limits (edit constants at the top of `ShopAutoScanner.java`):
-- `GLOBAL_COOLDOWN_MS` — 750ms between any two silent opens
+- Minimum time between any two silent opens — no longer a fixed number.
+  It adapts to how long recent silent opens actually took to resolve
+  (`DEFAULT_COOLDOWN_MS` 750ms until there's real data, then
+  `COOLDOWN_SAFETY_MULTIPLIER`x the slowest of the last
+  `ROUND_TRIP_SAMPLES`, clamped between `MIN_COOLDOWN_MS` and
+  `MAX_COOLDOWN_MS`) — see `getAdaptiveCooldownMs()`.
 - `PER_SHOP_COOLDOWN_MS` — 5 minutes before re-checking the same shop
 - `INTERACT_RANGE` — 4.5 blocks (normal reach distance)
 

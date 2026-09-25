@@ -662,9 +662,25 @@
 	var itemMatch = /^\/items\/([^\/]+)\/?$/i.exec(window.location.pathname);
 	var mapartMatch = /^\/mapart\/([^\/]+)\/?$/i.exec(window.location.pathname);
 	var collectionMatch = /^\/collection\/([^\/]+)\/?$/i.exec(window.location.pathname);
+	// /s/<name> with no world: every generic "go to this player's profile" link
+	// (account menu, leaderboards, mapart artist links...) uses this, and it lands
+	// on whichever world that player has the most shop listings in. Links that
+	// come from an actual listing still name their world explicitly (/s/hb|ff/...).
+	var sellerAnyMatch = sellerMatch ? null : /^\/s\/([^\/]+)\/?$/i.exec(window.location.pathname);
+	if(sellerAnyMatch && /^(hb|ff)$/i.test(sellerAnyMatch[1])) sellerAnyMatch = null;
 
 	if(sellerMatch){
 		runSellerPage(sellerMatch[1], sellerMatch[2]);
+	} else if(sellerAnyMatch){
+		var anyName = decodeURIComponent(sellerAnyMatch[1]);
+		document.getElementById("app").innerHTML = '<div class="notfound"><p>Finding ' + esc(anyName) + '\'s profile…</p></div>';
+		fetch(API_BASE + "/seller/primary-world?name=" + encodeURIComponent(anyName))
+			.then(function(r){ return r.ok ? r.json() : {}; })
+			.catch(function(){ return {}; })
+			.then(function(d){
+				var slug = d && d.world === "Honeybee" ? "hb" : "ff";
+				window.location.replace("/s/" + slug + "/" + encodeURIComponent(anyName) + window.location.search + window.location.hash);
+			});
 	} else if(itemMatch){
 		// Enchanted books all share one catalog entry (baseItem, not a real
 		// per-enchantment id) — a specific form's own page is reached via
@@ -703,7 +719,7 @@
 				var worldSlug = m.world === "Honeybee" ? "hb" : "ff";
 				// Collabs: "Head & Second & …" — the head artist shows first, an arrow expands the full list.
 				var artistNames = m.artist ? m.artist.split(" & ").map(function(a){ return a.trim(); }).filter(Boolean) : [];
-				function artistLink(a){ return '<a href="/s/' + worldSlug + '/' + encodeURIComponent(a) + '">' + esc(a) + '</a>'; }
+				function artistLink(a){ return '<a href="/s/' + encodeURIComponent(a) + '">' + esc(a) + '</a>'; }
 				var artistsHtml = artistNames.length ? artistLink(artistNames[0]) : "";
 				if(artistNames.length > 1){
 					artistsHtml += ' <button type="button" class="artist-toggle" id="artistToggle" aria-expanded="false" title="Show all ' + artistNames.length + ' artists"><span class="arr">&#9662;</span> +' + (artistNames.length - 1) + '</button>' +
@@ -717,7 +733,7 @@
 						'<div class="mapart-detail">' +
 							'<h1>' + esc(m.title) + '</h1>' +
 							'<p class="by">' + (m.artist ? (m.commissioned ? 'built by ' : 'by ') + artistsHtml : (m.commissioned ? 'Builder unknown' : 'Unknown artist')) + '</p>' +
-							(m.commissioned && m.commissionedBy ? '<p class="by" style="margin-top:-8px;font-size:14px;color:var(--muted);">commissioned by <a href="/s/' + worldSlug + '/' + encodeURIComponent(m.commissionedBy) + '">' + esc(m.commissionedBy) + '</a></p>' : '') +
+							(m.commissioned && m.commissionedBy ? '<p class="by" style="margin-top:-8px;font-size:14px;color:var(--muted);">commissioned by <a href="/s/' + encodeURIComponent(m.commissionedBy) + '">' + esc(m.commissionedBy) + '</a></p>' : '') +
 							'<div class="mapart-pills">' +
 								(m.category ? '<span class="mapart-pill cat">' + esc(m.category) + '</span>' : '<span class="mapart-pill">no category</span>') +
 								'<span class="mapart-pill">' + esc(m.world) + '</span>' +
@@ -924,7 +940,7 @@
 					window.sctpShare.open({
 						modalTitle: "Make a card for " + p.username, type: "grid", eyebrow: "Snailcraft mapart artist", title: p.username,
 						subtitle: mp.length + " mapart" + (mp.length === 1 ? "" : "s") + (p.commission && p.commission.open ? "  \u00b7  open for commissions" : ""),
-						footerUrl: "sctp.nl/s/ff/" + encodeURIComponent(p.username), filename: "profile-" + p.username, gridAspect: 1.0,
+						footerUrl: "sctp.nl/s/" + encodeURIComponent(p.username), filename: "profile-" + p.username, gridAspect: 1.0,
 						items: mp.map(function(m){ return { name: m.title, imageUrl: API_BASE + "/mapart/image?id=" + encodeURIComponent(m.id) + "&v=" + encodeURIComponent(m.imageHash || ""), pixel: true }; })
 					});
 				});

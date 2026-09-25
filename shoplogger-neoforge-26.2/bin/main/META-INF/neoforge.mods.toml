@@ -2,7 +2,7 @@ license="MIT"
 
 [[mods]] #mandatory
 modId="shoplogger" #mandatory
-version="2.1" #mandatory
+version="2.2" #mandatory
 displayName="Shop Logger" #mandatory
 description='''
 Logs Snailcraft-style chest shop signs and contents (when you open them) to CSV/Excel.

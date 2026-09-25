@@ -27,7 +27,11 @@ import java.util.*;
  *
  * Rate-limited on purpose: hammering every container every tick is both
  * unnecessary (shop stock doesn't change that fast) and needlessly heavy on
- * the server. Tune the constants below to taste.
+ * the server. The wait between silent opens adapts to how long recent ones
+ * actually took to resolve (see getAdaptiveCooldownMs()) instead of one fixed
+ * guess — snappy on a good connection, but it stretches out during lag so a
+ * slow-to-resolve manual open elsewhere can't get raced by a fresh silent
+ * open before its own response arrives.
  */
 public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
@@ -39,12 +43,23 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 	/** Minimum time between re-scanning the *same* container. Configurable — see getPerShopCooldownMs(). */
 	private static final int DEFAULT_PER_SHOP_COOLDOWN_MINUTES = 5;
 	private static final String CONFIG_COOLDOWN_MINUTES = "scanning/cooldownMinutes";
-	/** Minimum time between any two silent opens, regardless of container. */
-	private static final long GLOBAL_COOLDOWN_MS = 750L;
 	/** How often (in ticks) we rescan nearby chunks for new shop signs. */
 	private static final int DISCOVERY_INTERVAL_TICKS = 100;
 	/** Chunk radius around the player to scan for shop signs. */
 	private static final int DISCOVERY_CHUNK_RADIUS = 4;
+
+	// ---- adaptive global cooldown (minimum time between any two silent
+	// opens, regardless of container) — replaces one fixed guess with a
+	// number sized from how long recent silent opens actually took to go
+	// from "sent" to "resolved", see recordRoundTrip()/getAdaptiveCooldownMs() ----
+	private static final long DEFAULT_COOLDOWN_MS = 750L; // used until enough real samples exist
+	private static final long MIN_COOLDOWN_MS = 400L;
+	private static final long MAX_COOLDOWN_MS = 3000L;
+	private static final int COOLDOWN_SAFETY_MULTIPLIER = 3; // headroom over the worst recent round trip
+	private static final int ROUND_TRIP_SAMPLES = 8;
+	private final long[] roundTripSamplesMs = new long[ROUND_TRIP_SAMPLES];
+	private int roundTripSampleCount = 0;
+	private int roundTripSampleIndex = 0;
 
 	private final Map<BlockPos, ShopSign> knownShops = new HashMap<>();
 	private final Map<BlockPos, Long> lastScanned = new HashMap<>();
@@ -141,6 +156,33 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 		return knownShops.get(containerPos);
 	}
 
+	/** Records how long a silent open actually took to resolve — feeds getAdaptiveCooldownMs(). */
+	private void recordRoundTrip(long ms) {
+		roundTripSamplesMs[roundTripSampleIndex] = ms;
+		roundTripSampleIndex = (roundTripSampleIndex + 1) % ROUND_TRIP_SAMPLES;
+		if (roundTripSampleCount < ROUND_TRIP_SAMPLES) roundTripSampleCount++;
+	}
+
+	/**
+	 * How long to wait between silent opens right now — DEFAULT_COOLDOWN_MS
+	 * until there's real data (just joined, or nothing nearby to scan in a
+	 * while), after that COOLDOWN_SAFETY_MULTIPLIER times the slowest of the
+	 * last ROUND_TRIP_SAMPLES silent opens, clamped between MIN_COOLDOWN_MS
+	 * and MAX_COOLDOWN_MS so one freak spike can't stall scanning for too
+	 * long, and a great connection can't shrink it away to nothing either.
+	 */
+	private long getAdaptiveCooldownMs() {
+		if (roundTripSampleCount == 0) return DEFAULT_COOLDOWN_MS;
+		long worst = 0;
+		for (int i = 0; i < roundTripSampleCount; i++) worst = Math.max(worst, roundTripSamplesMs[i]);
+		return Math.max(MIN_COOLDOWN_MS, Math.min(MAX_COOLDOWN_MS, worst * COOLDOWN_SAFETY_MULTIPLIER));
+	}
+
+	/** TEMPORARY (see CHANGELOG 2.2) — exposes the adaptive cooldown for TempScanWaitOverlay. */
+	public long getCurrentWaitMs() {
+		return getAdaptiveCooldownMs();
+	}
+
 	// ---- called every client tick ----
 
 	public void tick(Minecraft client) {
@@ -157,7 +199,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 		if (client.player.containerMenu != client.player.inventoryMenu) return; // player has a container open themselves — don't compete for it
 		if (isHoldingPausingItem(client)) return; // see isHoldingPausingItem() — don't silently right-click while holding one of these
 		long now = System.currentTimeMillis();
-		if (now - lastOpenAttempt < GLOBAL_COOLDOWN_MS) return;
+		if (now - lastOpenAttempt < getAdaptiveCooldownMs()) return;
 
 		findNextTarget(client).ifPresent(target -> {
 			openSilently(client, target.pos, target.sign);
@@ -239,6 +281,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 	@Override
 	public void onInventorySynced(int syncId, ClientPacketListener netHandler) {
 		if (!armed || syncId != armedSyncId || armedSyncId == -1) return;
+		recordRoundTrip(System.currentTimeMillis() - lastOpenAttempt);
 
 		Minecraft client = Minecraft.getInstance();
 		if (client.player == null) {

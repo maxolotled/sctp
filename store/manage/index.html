@@ -285,7 +285,7 @@
 			document.getElementById("content").hidden = false;
 			document.getElementById("capText").textContent = res.data.manualCap;
 			var firstWorld = (res.data.manual[0] || res.data.scanned[0] || {}).world;
-			document.getElementById("sellerLink").href = "/s/" + (firstWorld === "Honeybee" ? "hb" : "ff") + "/" + encodeURIComponent(seller);
+			document.getElementById("sellerLink").href = "/s/" + encodeURIComponent(seller);
 			manual = res.data.manual;
 			// Sellers whose manual listings were handed to this account show up here too.
 			var managed = res.data.managedSellers || [];

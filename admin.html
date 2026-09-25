@@ -960,9 +960,9 @@
 			var u = String(v.user || "").trim(); if(!u) return Promise.reject(new Error("Enter a username."));
 			return fetch(API_BASE + "/profile?username=" + encodeURIComponent(u)).then(function(r){ return r.json(); }).then(function(p){
 				var mp = (p && p.mapart) || [];
-				if(!mp.length) return { type: "text", eyebrow: "Community shoutout", title: v.headline || u, subtitle: "", footerUrl: "sctp.nl/s/ff/" + encodeURIComponent(u), filename: "shoutout-" + u };
+				if(!mp.length) return { type: "text", eyebrow: "Community shoutout", title: v.headline || u, subtitle: "", footerUrl: "sctp.nl/s/" + encodeURIComponent(u), filename: "shoutout-" + u };
 				return { type: "grid", eyebrow: "Community shoutout", title: v.headline || (p.username || u), subtitle: mp.length + " mapart" + (mp.length === 1 ? "" : "s") + (p.commission && p.commission.open ? "  \u00b7  open for commissions" : ""), gridAspect: 1.0,
-					footerUrl: "sctp.nl/s/ff/" + encodeURIComponent(p.username || u), filename: "shoutout-" + u,
+					footerUrl: "sctp.nl/s/" + encodeURIComponent(p.username || u), filename: "shoutout-" + u,
 					items: mp.slice(0, 30).map(function(m){ return { name: m.title, imageUrl: mkMapartUrl(m), pixel: true }; }) };
 			}); } },
 		{ id: "motd", label: "Today's mapart of the day", fields: [],
@@ -1606,6 +1606,7 @@
 						'<input type="text" data-f="assign" placeholder="assign to account username" style="width:190px;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 8px;font-size:13px;">' +
 						'<button type="button" class="mp-assign">Assign</button>' +
 						'<button type="button" class="mp-unclaim">Clear claim</button>' +
+						(m.width * m.height > 1 ? '<button type="button" class="mp-split" title="Cut this back into its individual maps">Split…</button>' : '') +
 						'<button type="button" class="mp-delete" style="color:var(--danger);border-color:var(--danger);">Delete</button>' +
 						'<span class="mp-status meta"></span>' +
 					'</div>' +
@@ -1631,6 +1632,7 @@
 				(t.reason ? '<div style="margin-top:6px;">&ldquo;' + esc(t.reason) + '&rdquo;</div>' : '<div class="meta" style="margin-top:6px;">No reason given.</div>') +
 				(isPending
 					? '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+						'<button type="button" class="td-split" data-mapart="' + esc(t.mapartId) + '" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;" title="These are really separate maps stitched together — cut the piece back into individual maps">Split into separate maps</button>' +
 						'<button type="button" class="td-approve" style="color:var(--danger);border-color:var(--danger);">Approve &amp; delete forever</button>' +
 						'<button type="button" class="td-deny">Deny</button>' +
 						'<span class="td-status meta"></span></div>'
@@ -1659,6 +1661,49 @@
 			if(isApprove) await refreshMapartAdmin();
 		} catch(err){
 			status.textContent = "Failed: " + err.message;
+		}
+	});
+
+	// Splits a wrongly stitched-together piece into its individual maps (POST
+	// /admin/mapart/split). Previews the tiles first, and — for a claimed piece —
+	// asks which tiles actually belong to the claimant (e.g. only the middle
+	// map of a shop-ad strip), so only those inherit the claim.
+	async function splitMapartFlow(mapartId, statusEl){
+		function say(msg){ if(statusEl) statusEl.textContent = msg; }
+		say("Loading tiles…");
+		var pre = await api("/admin/mapart/split", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id: mapartId, dryRun: true }) });
+		var list = pre.tiles.map(function(t){ return (t.index + 1) + ". " + (t.name || "(unnamed)") + "  [map #" + t.mapId + ", column " + (t.x + 1) + ", row " + (t.y + 1) + "]"; }).join("\n");
+		var owned = null;
+		if(pre.claimed){
+			var ans = window.prompt(
+				'Split "' + pre.title + '" (' + pre.width + "×" + pre.height + ") into " + pre.tiles.length + " separate maps?\n\n" + list +
+				"\n\nWhich of these belong to the person who claimed it? Type their numbers separated by commas (e.g. 2), or leave blank if ALL of them do. The rest become unclaimed.", "");
+			if(ans === null){ say(""); return null; }
+			ans = ans.trim();
+			if(ans){
+				owned = ans.split(/[,\s]+/).filter(Boolean).map(function(n){ return Number(n) - 1; });
+				if(owned.some(function(n){ return !Number.isInteger(n) || n < 0 || n >= pre.tiles.length; })){ say("Those numbers don't match the tile list."); return null; }
+			}
+		} else if(!confirm('Split "' + pre.title + '" into ' + pre.tiles.length + " separate maps?\n\n" + list)){ say(""); return null; }
+		say("Splitting…");
+		var body = { id: mapartId }; if(owned) body.ownedIndexes = owned;
+		var res = await api("/admin/mapart/split", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
+		say("Split into " + res.split + " maps" + (res.resolvedRequests ? " — takedown request resolved." : "."));
+		return res;
+	}
+
+	document.addEventListener("click", async function(e){
+		var t = e.target;
+		if(!t.classList) return;
+		var isTd = t.classList.contains("td-split"), isMp = t.classList.contains("mp-split");
+		if(!isTd && !isMp) return;
+		var card = t.closest(isTd ? ".takedown-card" : ".mapart-admin-card");
+		var statusEl = card.querySelector(isTd ? ".td-status" : ".mp-status");
+		try {
+			var res = await splitMapartFlow(isTd ? t.getAttribute("data-mapart") : card.getAttribute("data-id"), statusEl);
+			if(res){ await refreshTakedowns(); await refreshMapartAdmin(); }
+		} catch(err){
+			if(statusEl) statusEl.textContent = "Failed: " + err.message;
 		}
 	});
 

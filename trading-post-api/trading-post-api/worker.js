@@ -97,6 +97,7 @@
 //   POST /mapart/delete-own                  (verified account) body: {id} — only pieces the account uploaded itself
 //   POST /mapart/takedown | /mapart/takedown/cancel   (verified owner) body: {id, reason?} — asks a head admin to delete the piece for good and block re-uploads
 //   GET  /admin/mapart/takedowns, POST /admin/mapart/takedowns/resolve {id, action: approve|deny}   (head admin only)
+//   POST /admin/mapart/split {id, ownedIndexes?, dryRun?} ("manageMapart") splits a wrongly-merged piece into its 1x1 maps — see handleAdminSplitMapart
 //   GET  /store/listings                     (verified account) -> {seller, manual[], scanned[] (read-only), scannedTotal, manualCap}
 //   POST /store/listings/add | /update | /delete   (verified account; manual listings of its own MC username only, max 100)
 //   POST /admin/mapart/delete {id}           (head admin or "manageMapart"; also the "approve" of an inappropriate_image report)
@@ -375,7 +376,7 @@ function isAuthorized(request, key) {
 // Bump this to force every cachedGet() entry to miss once, on the next
 // deploy — an escape hatch for a bad/stale cached response (e.g. one that
 // got cached empty right before real data landed) without waiting out the TTL.
-const CACHE_EPOCH = "3";
+const CACHE_EPOCH = "5"; // bumped: mapart split tool changes the mapart list
 
 async function cachedGet(request, ctx, ttlSeconds, computeFn) {
 	const cache = caches.default;
@@ -1208,6 +1209,25 @@ async function handleUploadListings(request, env) {
 	} catch (e) {
 		return json({ error: String(e) }, 502);
 	}
+}
+
+// GET /seller/primary-world?name=<username> (public, cached) -> {world, counts}
+// world is whichever world the player has the most shop listings in (Firefly on
+// a tie or when they have none) — the site's generic "go to this player's
+// profile" links redirect through /s/<name> (see 404.html) and use this to
+// pick the world. Bedrock's leading '.' is ignored, same as everywhere else.
+async function handleGetSellerPrimaryWorld(request, env, ctx) {
+	const name = (new URL(request.url).searchParams.get("name") || "").trim();
+	if (!name) return json({ error: "name is required" }, 400);
+	return cachedGet(request, ctx, 300, async () => {
+		const { results } = await env.DB.prepare(
+			"SELECT world, COUNT(*) AS c FROM listings WHERE lower(ltrim(seller, '.')) = lower(ltrim(?, '.')) GROUP BY world"
+		).bind(name).all();
+		const counts = {};
+		for (const r of results) counts[r.world] = r.c;
+		const hb = counts.Honeybee || 0, ff = counts.Firefly || 0;
+		return { world: hb > ff ? "Honeybee" : "Firefly", counts };
+	});
 }
 
 async function handleGetListings(request, env, ctx) {
@@ -3704,6 +3724,8 @@ async function processMapartGroup(env, world, g, knownNames) {
 	const blocked = await env.DB.prepare("SELECT 1 AS x FROM mapartBlocked WHERE world = ? AND leadMapId = ?").bind(world, leadMapId).first();
 	if (blocked) return { leadMapId, status: "skipped", reason: "blocked by an admin" };
 	if (await mapartAnyPartBlocked(env, world, partIds)) return { leadMapId, status: "skipped", reason: "removed at its owner's request" };
+	// An admin split these apart (see handleAdminSplitMapart) — don't stitch them back together.
+	if (await mapartSplitConflict(env, world, partIds)) return { leadMapId, status: "skipped", reason: "was split into separate pieces by an admin" };
 
 	const now = new Date().toISOString();
 	const partSet = new Set(partIds);
@@ -4374,6 +4396,191 @@ async function handleAdminResolveTakedown(request, env) {
 	return json({ ok: true, status: action === "approve" ? "approved" : "denied" });
 }
 
+// ---------------- splitting a wrongly merged mapart ----------------
+// The scanner stitches any rectangle of adjacent item frames into ONE piece,
+// so separate 1x1 maps hung next to each other end up as a single "5x1". An
+// admin can split such a piece back into its individual maps:
+//   POST /admin/mapart/split  ("manageMapart") body: {id, ownedIndexes?, dryRun?}
+// Tiles are numbered 0.. row-major (left-to-right, top-to-bottom) — exactly the
+// order partMapIds/mapartParts were stored in, and allNames holds the lead
+// map's name first, then every other tile's name in that same grid order (both
+// checked against real pieces' images). ownedIndexes are the tiles that belong
+// to the piece's claimant (default: all of them) — those inherit the claim and
+// the owner's edits (category / where-to-buy / price...); the rest come out
+// unclaimed with their own name-derived artist. dryRun just lists the tiles.
+// Any pending takedown request for the piece is resolved as "split".
+
+const CRC32_TABLE = (() => {
+	const t = new Uint32Array(256);
+	for (let n = 0; n < 256; n++) {
+		let c = n;
+		for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+		t[n] = c >>> 0;
+	}
+	return t;
+})();
+function crc32(bytes) {
+	let c = 0xFFFFFFFF;
+	for (let i = 0; i < bytes.length; i++) c = CRC32_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+	return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function pngChunk(type, data) {
+	const out = new Uint8Array(12 + data.length);
+	const dv = new DataView(out.buffer);
+	dv.setUint32(0, data.length);
+	for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
+	out.set(data, 8);
+	dv.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
+	return out;
+}
+// 8-bit RGBA, no filtering — the pieces are small (128x128 per tile).
+async function encodePngRgba(w, h, rgba) {
+	const stride = w * 4;
+	const raw = new Uint8Array(h * (stride + 1));
+	for (let y = 0; y < h; y++) raw.set(rgba.subarray(y * stride, (y + 1) * stride), y * (stride + 1) + 1);
+	const idat = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate"))).arrayBuffer());
+	const ihdr = new Uint8Array(13);
+	const dv = new DataView(ihdr.buffer);
+	dv.setUint32(0, w); dv.setUint32(4, h);
+	ihdr[8] = 8; ihdr[9] = 6;
+	const chunks = [Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk("IHDR", ihdr), pngChunk("IDAT", idat), pngChunk("IEND", new Uint8Array(0))];
+	const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+	let off = 0;
+	for (const c of chunks) { out.set(c, off); off += c.length; }
+	return out;
+}
+
+// True if the rectangle contains two or more map ids that an admin split apart.
+async function mapartSplitConflict(env, world, partIds) {
+	const perSplit = new Map();
+	for (const chunk of chunkArray(partIds, MAX_QUERY_PARAMS_PER_CHUNK - 1)) {
+		const placeholders = chunk.map(() => "?").join(",");
+		const { results } = await env.DB.prepare(`SELECT splitId FROM mapartSplitParts WHERE world = ? AND mapId IN (${placeholders})`).bind(world, ...chunk).all();
+		for (const r of results) {
+			const n = (perSplit.get(r.splitId) || 0) + 1;
+			if (n > 1) return true;
+			perSplit.set(r.splitId, n);
+		}
+	}
+	return false;
+}
+
+async function handleAdminSplitMapart(request, env) {
+	const auth = await requireAdminAuth(request, env, "manageMapart");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const m = await env.DB.prepare("SELECT * FROM maparts WHERE id = ?").bind(String(body.id || "")).first();
+	if (!m) return json({ error: "Mapart not found" }, 404);
+	const tileCount = m.width * m.height;
+	if (tileCount < 2) return json({ error: "That piece is already a single map." }, 400);
+	const { results: parts } = await env.DB.prepare("SELECT mapId FROM mapartParts WHERE mapartId = ? ORDER BY rowid").bind(m.id).all();
+	if (parts.length !== tileCount) return json({ error: "This piece's stored map ids don't cover its grid, so it can't be split safely." }, 409);
+
+	let allNames = [];
+	try { allNames = JSON.parse(m.allNames || "[]"); } catch (e) { /* fall back to generic names */ }
+	const leadIdx = parts.findIndex((p) => p.mapId === m.leadMapId);
+	const names = new Array(tileCount).fill(null);
+	if (leadIdx >= 0 && allNames.length === tileCount) {
+		let next = 1;
+		for (let i = 0; i < tileCount; i++) names[i] = i === leadIdx ? allNames[0] : allNames[next++];
+	}
+	const tiles = parts.map((p, i) => ({ index: i, mapId: p.mapId, x: i % m.width, y: Math.floor(i / m.width), name: names[i] }));
+	if (body.dryRun) return json({ ok: true, title: m.title, width: m.width, height: m.height, claimed: !!m.claimedByAccountId, tiles });
+
+	let owned = tiles.map((t) => t.index);
+	if (Array.isArray(body.ownedIndexes) && body.ownedIndexes.length) {
+		owned = [...new Set(body.ownedIndexes.map(Number))];
+		if (owned.some((i) => !Number.isInteger(i) || i < 0 || i >= tileCount)) return json({ error: "ownedIndexes out of range" }, 400);
+	}
+	const ownedSet = new Set(owned);
+
+	// Cut + encode every tile BEFORE touching the database, so a bad image can't leave a half-split piece.
+	const obj = await env.SNAPSHOTS.get(`mapart/${m.id}.png`);
+	if (!obj) return json({ error: "The piece's image is missing from storage." }, 409);
+	const img = await decodePngRgba(new Uint8Array(await obj.arrayBuffer()));
+	if (!img || img.w !== m.width * 128 || img.h !== m.height * 128) return json({ error: "The piece's image doesn't match its grid size." }, 409);
+	const knownNames = await getMapartKnownNames(env);
+	const now = new Date().toISOString();
+	const kids = [];
+	for (const t of tiles) {
+		const rgba = new Uint8Array(128 * 128 * 4);
+		for (let row = 0; row < 128; row++) {
+			const src = ((t.y * 128 + row) * img.w + t.x * 128) * 4;
+			rgba.set(img.rgba.subarray(src, src + 128 * 4), row * 128 * 4);
+		}
+		const png = await encodePngRgba(128, 128, rgba);
+		const isOwned = ownedSet.has(t.index);
+		let title, artist, rawName;
+		if (t.name) {
+			const f = deriveMapartFields([t.name], knownNames);
+			artist = f.artist || (isOwned ? m.artist : null) || null;
+			rawName = t.name;
+			// A name that's only a shop credit ("/shop Someone") has no title of its
+			// own — call it after the piece it came from instead of "Untitled mapart".
+			title = f.title && f.title !== "Untitled mapart" ? f.title : `${m.title} (${artist || t.index + 1})`;
+		} else {
+			title = `${m.title} (${t.index + 1})`;
+			artist = isOwned ? m.artist || null : null;
+			rawName = title;
+		}
+		let phash = null;
+		try { phash = await phashOfPng(png, PHASH_MAX_INLINE_PIXELS); } catch (e) { /* optional */ }
+		kids.push({ t, id: crypto.randomUUID(), png, isOwned, title, artist, rawName, phash, imageHash: await sha256Hex16(png) });
+	}
+	for (const k of kids) k.slug = await assignMapartSlug(env, k.id, k.title);
+	for (const k of kids) await env.SNAPSHOTS.put(`mapart/${k.id}.png`, k.png, { httpMetadata: { contentType: "image/png" } });
+
+	const { results: oldSlugs } = await env.DB.prepare("SELECT slug FROM mapartSlugs WHERE mapartId = ?").bind(m.id).all();
+	const redirectTo = (kids.find((k) => k.isOwned && k.t.index === leadIdx) || kids.find((k) => k.isOwned) || kids[0]).id;
+	const splitId = crypto.randomUUID();
+	const stmts = [
+		env.DB.prepare("DELETE FROM mapartParts WHERE mapartId = ?").bind(m.id),
+		env.DB.prepare("DELETE FROM mapartSlugs WHERE mapartId = ?").bind(m.id),
+		env.DB.prepare("DELETE FROM maparts WHERE id = ?").bind(m.id),
+	];
+	for (const k of kids) {
+		const claim = k.isOwned && m.claimedByAccountId;
+		stmts.push(env.DB.prepare(
+			`INSERT INTO maparts (id, slug, world, leadMapId, rawName, allNames, title, artist, whereToBuy, notForSale, price, commissioned, commissionedBy, category, width, height, imageHash, phash,
+			   claimedByAccountId, claimedAt, autoClaimBlocked, claimedManually, ownerEdited, createdAt, updatedAt, lastSeen)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		).bind(k.id, k.slug, m.world, k.t.mapId, k.rawName, JSON.stringify([k.rawName]), k.title, k.artist,
+			k.isOwned ? m.whereToBuy : null, k.isOwned ? m.notForSale : 0, k.isOwned ? m.price : null,
+			k.isOwned ? m.commissioned : 0, k.isOwned ? m.commissionedBy : null, k.isOwned ? m.category : null, k.imageHash, k.phash,
+			claim ? m.claimedByAccountId : null, claim ? m.claimedAt : null, claim ? m.autoClaimBlocked : 0,
+			claim ? m.claimedManually : 0, claim ? m.ownerEdited : 0, now, now, now));
+		stmts.push(env.DB.prepare("INSERT INTO mapartParts (world, mapId, mapartId) VALUES (?, ?, ?)").bind(m.world, k.t.mapId, k.id));
+		stmts.push(env.DB.prepare("INSERT OR REPLACE INTO mapartSplitParts (world, mapId, splitId) VALUES (?, ?, ?)").bind(m.world, k.t.mapId, splitId));
+	}
+	for (const s of oldSlugs) stmts.push(env.DB.prepare("INSERT OR REPLACE INTO mapartSlugs (slug, mapartId) VALUES (?, ?)").bind(s.slug, redirectTo));
+	// Collections that held the merged piece keep pointing at something real.
+	stmts.push(env.DB.prepare("UPDATE OR IGNORE collectionItems SET itemId = ? WHERE kind = 'mapart' AND itemId = ?").bind(redirectTo, m.id));
+	stmts.push(env.DB.prepare("DELETE FROM collectionItems WHERE kind = 'mapart' AND itemId = ?").bind(m.id));
+	for (const chunk of chunkArray(stmts, 90)) await env.DB.batch(chunk);
+	try { await env.SNAPSHOTS.delete(`mapart/${m.id}.png`); } catch (e) { /* already gone */ }
+
+	// Same auto-claim a normal scan gets: a verified account whose MC name is a tile's artist.
+	for (const k of kids) {
+		if (k.isOwned && m.claimedByAccountId) continue;
+		if (!k.artist) continue;
+		for (const name of splitMapartArtists(k.artist)) {
+			const acct = await env.DB.prepare("SELECT id FROM admins WHERE mcVerified = 1 AND lower(ltrim(mcUsername, '.')) = lower(?)").bind(name).first();
+			if (acct) { await env.DB.prepare("UPDATE maparts SET claimedByAccountId = ?, claimedAt = ? WHERE id = ?").bind(acct.id, now, k.id).run(); break; }
+		}
+	}
+
+	// Any takedown request still waiting on the merged piece is settled by this.
+	const who = auth.admin ? auth.admin.username : "master";
+	const { results: waiting } = await env.DB.prepare("SELECT id, accountId, title FROM mapartTakedowns WHERE mapartId = ? AND status = 'pending'").bind(m.id).all();
+	for (const t of waiting) {
+		await env.DB.prepare("UPDATE mapartTakedowns SET status = 'split', resolvedAt = ?, resolvedBy = ? WHERE id = ?").bind(now, who, t.id).run();
+		await notifyAccount(env, t.accountId, "mapartTakedown",
+			`Your report about "${t.title}" was resolved — it was split into ${kids.length} separate pieces, so each map now has its own page.`, null);
+	}
+	return json({ ok: true, split: kids.length, resolvedRequests: waiting.length, pieces: kids.map((k) => ({ id: k.id, slug: k.slug, title: k.title, artist: k.artist, index: k.t.index, claimed: !!(k.isOwned && m.claimedByAccountId) })) });
+}
+
 // ---------------- hand-uploaded mapart (verified accounts) ----------------
 const MAPART_UPLOAD_MAX_GRID = 10;
 const MAPART_MAX_UPLOADS_PER_ACCOUNT = 100;
@@ -4742,15 +4949,23 @@ async function handleGetProfile(request, env, ctx) {
 
 // ---------------- mapart of the day ----------------
 // One random piece per UTC day, picked lazily by the first visitor. Head
-// admins / mapart managers can re-roll it from the admin panel.
+// admins / mapart managers can re-roll it from the admin panel. Only ever
+// picked from VERIFIED pieces (see mapartPublic's `verified` — claimed by a
+// real, engaged owner, not just an anonymous/unclaimed scan) — reuses that
+// exact function rather than re-deriving the same condition in SQL, so this
+// can never quietly drift out of sync with what "verified" means everywhere
+// else on the site.
 //   GET  /mapart/of-the-day                (public)
-//   POST /admin/mapart/otd/reroll          ("manageMapart") body: {id?} -> picks a different random piece (or the given one)
+//   POST /admin/mapart/otd/reroll          ("manageMapart") body: {id?} -> picks a different random verified piece (or the given one, even if unverified — an explicit admin override)
 const MOTD_KEY = "mapartOfTheDay";
 
 async function pickRandomMapart(env, excludeId) {
-	const { results } = await env.DB.prepare("SELECT id FROM maparts WHERE id != ?").bind(excludeId || "").all();
-	if (!results.length) return null;
-	return results[Math.floor(Math.random() * results.length)].id;
+	const { results } = await env.DB.prepare(
+		"SELECT m.*, a.mcVerified AS claimantVerified FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId WHERE m.id != ?"
+	).bind(excludeId || "").all();
+	const verified = results.filter((m) => mapartPublic(m).verified);
+	if (!verified.length) return null;
+	return verified[Math.floor(Math.random() * verified.length)].id;
 }
 
 async function getOrPickMapartOfTheDay(env) {
@@ -4758,7 +4973,15 @@ async function getOrPickMapartOfTheDay(env) {
 	const row = await env.DB.prepare("SELECT value FROM siteSettings WHERE key = ?").bind(MOTD_KEY).first();
 	let cur = null;
 	try { cur = row ? JSON.parse(row.value) : null; } catch (e) { cur = null; }
-	if (cur && cur.date === today && await env.DB.prepare("SELECT 1 AS x FROM maparts WHERE id = ?").bind(cur.id).first()) return cur;
+	if (cur && cur.date === today) {
+		const existing = await env.DB.prepare(
+			"SELECT m.*, a.mcVerified AS claimantVerified FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId WHERE m.id = ?"
+		).bind(cur.id).first();
+		// Re-checked (not just "does it still exist") so a piece picked before
+		// this restriction existed, or one that's lost its verified status since,
+		// gets swapped out for a verified one rather than staying up all day.
+		if (existing && mapartPublic(existing).verified) return cur;
+	}
 	const id = await pickRandomMapart(env, cur ? cur.id : "");
 	if (!id) return null;
 	cur = { date: today, id };
@@ -6331,6 +6554,7 @@ const ROUTES = [
 	["POST", "/mapart/takedown/cancel", handleCancelMapartTakedown],
 	["GET", "/admin/mapart/takedowns", handleAdminListTakedowns],
 	["POST", "/admin/mapart/takedowns/resolve", handleAdminResolveTakedown],
+	["POST", "/admin/mapart/split", handleAdminSplitMapart],
 	["GET", "/store/listings", handleStoreListings],
 	["POST", "/store/listings/add", handleStoreAddListings],
 	["POST", "/store/listings/update", handleStoreUpdateListing],
@@ -6403,6 +6627,7 @@ const ROUTES = [
 	["POST", "/marketplace/notifications/mark-read", handleMarkNotificationsRead],
 	["GET", "/marketplace/notifications/for-mc", handleGetNotificationsForMc],
 	["GET", "/admin/mod-user-stats", handleAdminModUserStats],
+	["GET", "/seller/primary-world", handleGetSellerPrimaryWorld],
 	["GET", "/admin/marketplace/listings", handleAdminListMarketplaceListings],
 	["POST", "/admin/marketplace/listings/remove", handleAdminRemoveMarketplaceListing],
 ];

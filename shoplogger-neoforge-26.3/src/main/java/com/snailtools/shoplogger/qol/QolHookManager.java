@@ -1,5 +1,6 @@
 package com.snailtools.shoplogger.qol;
 
+import com.snailtools.shoplogger.TempScanWaitOverlay;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -31,6 +32,7 @@ public class QolHookManager {
     public static void onHudRender(GuiGraphicsExtractor guiGraphics, DeltaTracker tickDelta){
         if(butterflyGarden != null) butterflyGarden.onHUDRender(guiGraphics);
         if(questHelper != null) questHelper.onHUDRender(guiGraphics);
+        TempScanWaitOverlay.onHudRender(guiGraphics); // TEMPORARY — see CHANGELOG 2.2
 
     }
 

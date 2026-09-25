@@ -437,7 +437,7 @@
 	function renderLb(){
 		if(!lb) return;
 		var me = session() ? String(session().username).toLowerCase() : "";
-		function row(r, cells){ return '<tr' + (String(r.username).toLowerCase() === me ? ' class="me"' : "") + '><td class="rk">' + r.rank + '</td><td><a href="/s/ff/' + encodeURIComponent(r.username) + '">' + esc(r.username) + '</a></td>' + cells + '</tr>'; }
+		function row(r, cells){ return '<tr' + (String(r.username).toLowerCase() === me ? ' class="me"' : "") + '><td class="rk">' + r.rank + '</td><td><a href="/s/' + encodeURIComponent(r.username) + '">' + esc(r.username) + '</a></td>' + cells + '</tr>'; }
 		var html;
 		if(lbTab === "daily"){
 			html = lb.daily.length

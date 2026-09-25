@@ -5,6 +5,7 @@ import com.snailtools.shoplogger.ScanChatLogger;
 import com.snailtools.shoplogger.SearchPreferences;
 import com.snailtools.shoplogger.ShopAutoScanner;
 import com.snailtools.shoplogger.ShopVisitAlert;
+import com.snailtools.shoplogger.TempScanWaitOverlay;
 import com.snailtools.shoplogger.TeleportHighlight;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -21,7 +22,7 @@ import net.minecraft.network.chat.Component;
  */
 public class AdvancedSettingsScreen extends Screen {
 
-	private static final int ROW_COUNT = 7; // chat log format, cooldown field, beam style, /search opens, shop info on visit, rare highlights in shulkers, Back
+	private static final int ROW_COUNT = 8; // chat log format, cooldown field, beam style, /search opens, shop info on visit, rare highlights in shulkers, scan wait overlay (TEMP, see CHANGELOG 2.2), Back
 	private static final int NATURAL_GAP = 24;
 	private static final int MIN_GAP = 16; // never shrink spacing below this — rows start overlapping past this point
 	private static final int TOP_Y = 50;
@@ -45,9 +46,9 @@ public class AdvancedSettingsScreen extends Screen {
 			// Extra room after rows 0 and 1 (the cooldown field's own label is
 			// drawn 10px above it, so both it and the row before it need a
 			// bigger gap than usual to avoid overlapping that label) and after
-			// row 5, before Back, for the same visual grouping the screen had
+			// row 6, before Back, for the same visual grouping the screen had
 			// before this became data-driven.
-			y += (i == 0 || i == 1 || i == 5) ? gap + 12 : gap;
+			y += (i == 0 || i == 1 || i == 6) ? gap + 12 : gap;
 		}
 		return rowY;
 	}
@@ -95,8 +96,14 @@ public class AdvancedSettingsScreen extends Screen {
 				.create(x, rowY[5], COL_W, 20, Component.literal("Rare highlights in shulkers"),
 						(btn, value) -> RareRentalHighlighter.setInShulkersEnabled(value)));
 
+		// TEMPORARY (see CHANGELOG 2.2) — remove this row along with TempScanWaitOverlay
+		// once 2.2's accuracy check is done.
+		addRenderableWidget(CycleButton.onOffBuilder(TempScanWaitOverlay.isEnabled())
+				.create(x, rowY[6], COL_W, 20, Component.literal("Show scan wait (temp)"),
+						(btn, value) -> TempScanWaitOverlay.setEnabled(value)));
+
 		addRenderableWidget(Button.builder(Component.literal("Back"), btn -> onClose())
-				.bounds(x, rowY[6], COL_W, 20).build());
+				.bounds(x, rowY[7], COL_W, 20).build());
 	}
 
 	@Override
