@@ -738,13 +738,16 @@
 								(m.category ? '<span class="mapart-pill cat">' + esc(m.category) + '</span>' : '<span class="mapart-pill">no category</span>') +
 								'<span class="mapart-pill">' + esc(m.world) + '</span>' +
 								(m.width * m.height > 1 ? '<span class="mapart-pill">' + m.width + '&times;' + m.height + ' maps</span>' : '') +
+								(m.mapType ? '<span class="mapart-pill">' + (m.mapType === "staircased" ? "staircased" : "flat") + '</span>' : '') +
 								(m.verified ? '<span class="mapart-pill ok">&#10003; verified by artist</span>' : '') +
 							'</div>' +
+							((m.keywords || []).length ? '<div class="mapart-pills">' + m.keywords.map(function(k){ return '<a class="mapart-pill" style="text-decoration:none;color:var(--accent-dim);" href="/mapart/?q=' + encodeURIComponent(k) + '" title="Find more mapart tagged &quot;' + esc(k) + '&quot;">#' + esc(k) + '</a>'; }).join("") + '</div>' : '') +
 							'<dl class="mapart-facts">' +
 								'<dt>Where to buy</dt><dd>' + (buy ? esc(buy) : '<span style="color:var(--muted);">Unknown</span>') + '</dd>' +
 								(m.price ? '<dt>Price</dt><dd>' + esc(m.price) + '</dd>' : '') +
 								'<dt>World</dt><dd>' + esc(m.world) + '</dd>' +
 								'<dt>Size</dt><dd>' + m.width + ' &times; ' + m.height + (m.width * m.height > 1 ? ' maps' : ' map') + '</dd>' +
+								(m.mapType ? '<dt>Type</dt><dd>' + (m.mapType === "staircased" ? "Staircased" : "Flat") + '</dd>' : '') +
 							'</dl>' +
 							'<button type="button" class="share-item-btn" style="margin-left:0;" data-share-url="' + esc(location.origin + "/mapart/" + encodeURIComponent(m.slug)) + '">Share</button> ' +
 							'<span id="mapartCollectHost"></span> ' +

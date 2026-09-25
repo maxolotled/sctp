@@ -83,7 +83,7 @@
 //   POST /mapart/upload                      (API_KEY) body: {world, maps:[{leadMapId, rawName, width, height, partMapIds, png(base64)}]}
 //   GET  /mapart/mine                        (verified account) -> its claimed maparts
 //   POST /mapart/claim | /mapart/abandon     (verified account) body: {id}
-//   POST /mapart/update                      (owner, head admin, or "manageMapart") body: {id, title?, artist?, whereToBuy?, notForSale?, category?, world?} — "manageMapart" holders may only touch artist/world/category
+//   POST /mapart/update                      (owner, head admin, or "manageMapart") body: {id, title?, artist?, whereToBuy?, notForSale?, category?, keywords? (array or comma string, max 5), mapType? ("flat"|"staircased"|""), world?} — "manageMapart" holders may only touch artist/world/category
 //   POST /mapart/report                      (API_KEY, like POST /reports) body: {id, reason: "wrong_artist"|"wrong_world"|"wrong_category"|"inappropriate_image", details?} -> lands in the `reports` queue as listingKey "mapart:<id>", handled by "manageMapart"
 //   GET  /collection/mine, POST /collection/set {kind: "rare"|"mapart", world, ids[], owned}, POST /collection/privacy {private}   (any account) — personal collections, per world
 //   GET  /collection/public?username=        (public) -> {username, private, items?}
@@ -93,7 +93,7 @@
 //   GET  /mapart/of-the-day                  (public) one random piece per UTC day; POST /admin/mapart/otd/reroll ("manageMapart") body: {id?} picks another
 //   POST /mapart/search-image                (public) body: {hash} 64-hex difference hash from mapart-search.js -> closest pieces; POST /admin/mapart/build-index ("manageMapart") indexes not-yet-hashed pieces in small batches
 //   GET  /stats/mine now also returns hints: {restock[], reprice[], undercut[]}
-//   POST /mapart/submit                      (verified account) body: {title, world, width, height, png(base64, exactly width*128 x height*128), artist?, category?, whereToBuy?, notForSale?}
+//   POST /mapart/submit                      (verified account) body: {title, world, width, height, png(base64, exactly width*128 x height*128), artist?, category?, keywords?, mapType?, whereToBuy?, notForSale?}
 //   POST /mapart/delete-own                  (verified account) body: {id} — only pieces the account uploaded itself
 //   POST /mapart/takedown | /mapart/takedown/cancel   (verified owner) body: {id, reason?} — asks a head admin to delete the piece for good and block re-uploads
 //   GET  /admin/mapart/takedowns, POST /admin/mapart/takedowns/resolve {id, action: approve|deny}   (head admin only)
@@ -3274,7 +3274,13 @@ async function handleAdminSnapshots(request, env) {
 
 // ---------------- mapart ----------------
 
-const MAPART_CATEGORIES = ["Pets", "Anime", "TV/Animation", "Art", "Memes", "Nature", "Photography", "Letters", "Seasonal", "Advertisement", "Misc", "Flags"];
+const MAPART_CATEGORIES = ["Pets", "Anime", "TV/Animation", "Games", "Art", "Memes", "Nature", "Photography", "Letters", "Seasonal", "Advertisement", "Misc", "Flags"];
+// Type of a mapart: built flat, or staircased (stepped up/down in height).
+// NULL = the artist hasn't said.
+const MAPART_TYPES = ["flat", "staircased"];
+// Artists can tag a piece with up to 5 search keywords.
+const MAPART_MAX_KEYWORDS = 5;
+const MAPART_MAX_KEYWORD_LEN = 24;
 const MAPART_WORLDS = ["Firefly", "Honeybee"];
 const MAPART_MAX_PNG_BYTES = 4 * 1024 * 1024;
 const MAPART_MAX_GROUPS_PER_UPLOAD = 40;
@@ -3500,7 +3506,7 @@ function splitMapartArtists(artist) {
 // (the first one is the head artist — the one shown on the catalog until the
 // list is expanded). Accepts that string or an array of names; returns
 // {value} (null when empty) or {error}.
-const MAPART_MAX_COLLAB_ARTISTS = 8;
+const MAPART_MAX_COLLAB_ARTISTS = 16;
 const MAPART_MAX_ARTIST_NAME = 40;
 function cleanMapartArtist(input) {
 	const raw = Array.isArray(input) ? input : String(input == null ? "" : input).split("&");
@@ -3515,6 +3521,33 @@ function cleanMapartArtist(input) {
 	}
 	if (names.length > MAPART_MAX_COLLAB_ARTISTS) return { error: `A piece can list at most ${MAPART_MAX_COLLAB_ARTISTS} artists` };
 	return { value: names.length ? names.join(" & ") : null };
+}
+
+// Keywords: accepts an array or a comma-separated string; each one is trimmed,
+// lowercased, stripped of anything but letters/digits/space/-/'/+ , de-duplicated
+// and length-capped. Returns {value} (JSON array text, null when empty) or {error}.
+function cleanMapartKeywords(input) {
+	const raw = Array.isArray(input) ? input : String(input == null ? "" : input).split(",");
+	const list = [], seen = new Set();
+	for (const r of raw) {
+		const k = String(r == null ? "" : r).toLowerCase().replace(/^#+/, "").replace(/[^\p{L}\p{N} '+-]/gu, " ").replace(/\s+/g, " ").trim();
+		if (!k) continue;
+		if (k.length > MAPART_MAX_KEYWORD_LEN) return { error: `Each keyword must be at most ${MAPART_MAX_KEYWORD_LEN} characters` };
+		if (seen.has(k)) continue;
+		seen.add(k);
+		list.push(k);
+	}
+	if (list.length > MAPART_MAX_KEYWORDS) return { error: `A piece can have at most ${MAPART_MAX_KEYWORDS} keywords` };
+	return { value: list.length ? JSON.stringify(list) : null };
+}
+function parseMapartKeywords(stored) {
+	try { const a = JSON.parse(stored || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
+function cleanMapartType(input) {
+	const v = input == null ? "" : String(input).trim().toLowerCase();
+	if (!v) return { value: null };
+	if (!MAPART_TYPES.includes(v)) return { error: "type must be flat or staircased" };
+	return { value: v };
 }
 
 // "Was this a commission?": when on, artist = built by, commissionedBy = who it was built for.
@@ -3584,7 +3617,8 @@ function mapartPublic(m) {
 	return {
 		id: m.id, slug: m.slug, title: m.title, artist: m.artist || null,
 		whereToBuy: resolveMapartWhereToBuy(m), notForSale: !!m.notForSale, price: m.price || null, commissioned: !!m.commissioned, commissionedBy: m.commissionedBy || null,
-		category: m.category || null, world: m.world, width: m.width, height: m.height,
+		category: m.category || null, keywords: parseMapartKeywords(m.keywords), mapType: m.mapType || null,
+		world: m.world, width: m.width, height: m.height,
 		imageHash: m.imageHash || null, claimed: !!m.claimedByAccountId,
 		// "Verified by artist" shows when the piece's owner is a currently
 		// verified account (claimantVerified, joined in by the list queries), or
@@ -3790,8 +3824,8 @@ async function processMapartGroup(env, world, g, knownNames) {
 		const cur = await env.DB.prepare("SELECT * FROM maparts WHERE id = ?").bind(id).first();
 		if (!cur.claimedByAccountId && other.claimedByAccountId) {
 			await env.DB.prepare(
-				"UPDATE maparts SET claimedByAccountId = ?, claimedAt = ?, category = COALESCE(category, ?), whereToBuy = COALESCE(whereToBuy, ?), notForSale = MAX(notForSale, ?), autoClaimBlocked = ? WHERE id = ?"
-			).bind(other.claimedByAccountId, other.claimedAt, other.category, other.whereToBuy, other.notForSale, other.autoClaimBlocked, id).run();
+				"UPDATE maparts SET claimedByAccountId = ?, claimedAt = ?, category = COALESCE(category, ?), whereToBuy = COALESCE(whereToBuy, ?), notForSale = MAX(notForSale, ?), autoClaimBlocked = ?, keywords = COALESCE(keywords, ?), mapType = COALESCE(mapType, ?) WHERE id = ?"
+			).bind(other.claimedByAccountId, other.claimedAt, other.category, other.whereToBuy, other.notForSale, other.autoClaimBlocked, other.keywords, other.mapType, id).run();
 			if (other.locked) {
 				const slug = other.title !== cur.title ? await assignMapartSlug(env, id, other.title) : cur.slug;
 				await env.DB.prepare("UPDATE maparts SET title = ?, artist = ?, slug = ?, locked = 1 WHERE id = ?").bind(other.title, other.artist, slug, id).run();
@@ -3907,7 +3941,7 @@ async function handleUpdateMapart(request, env) {
 	// category) directly, without going through the report queue.
 	const canManage = isHead || adminHasPermission(base.admin, "manageMapart");
 	if (!isHead && !owns && !canManage) return json({ error: "Claim this mapart first to edit it." }, 403);
-	if (!isHead && !owns && (body.title !== undefined || body.whereToBuy !== undefined || body.notForSale !== undefined || body.price !== undefined || body.commissioned !== undefined || body.commissionedBy !== undefined)) {
+	if (!isHead && !owns && (body.title !== undefined || body.whereToBuy !== undefined || body.notForSale !== undefined || body.price !== undefined || body.commissioned !== undefined || body.commissionedBy !== undefined || body.keywords !== undefined || body.mapType !== undefined)) {
 		return json({ error: "Mapart managers can only change the artist, world and category." }, 403);
 	}
 	if (body.world !== undefined && !canManage) return json({ error: "Only mapart managers can move a mapart to another world." }, 403);
@@ -3953,6 +3987,16 @@ async function handleUpdateMapart(request, env) {
 		const c = body.category ? String(body.category) : null;
 		if (c !== null && !MAPART_CATEGORIES.includes(c)) return json({ error: "Unknown category" }, 400);
 		sets.push("category = ?"); vals.push(c);
+	}
+	if (body.keywords !== undefined) {
+		const k = cleanMapartKeywords(body.keywords);
+		if (k.error) return json({ error: k.error }, 400);
+		sets.push("keywords = ?"); vals.push(k.value);
+	}
+	if (body.mapType !== undefined) {
+		const l = cleanMapartType(body.mapType);
+		if (l.error) return json({ error: l.error }, 400);
+		sets.push("mapType = ?"); vals.push(l.value);
 	}
 	if (sets.length === 0) return json({ error: "Nothing to update" }, 400);
 	if (body.title !== undefined || body.artist !== undefined) sets.push("locked = 1");
@@ -4543,13 +4587,14 @@ async function handleAdminSplitMapart(request, env) {
 		const claim = k.isOwned && m.claimedByAccountId;
 		stmts.push(env.DB.prepare(
 			`INSERT INTO maparts (id, slug, world, leadMapId, rawName, allNames, title, artist, whereToBuy, notForSale, price, commissioned, commissionedBy, category, width, height, imageHash, phash,
-			   claimedByAccountId, claimedAt, autoClaimBlocked, claimedManually, ownerEdited, createdAt, updatedAt, lastSeen)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			   claimedByAccountId, claimedAt, autoClaimBlocked, claimedManually, ownerEdited, createdAt, updatedAt, lastSeen, keywords, mapType)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 		).bind(k.id, k.slug, m.world, k.t.mapId, k.rawName, JSON.stringify([k.rawName]), k.title, k.artist,
 			k.isOwned ? m.whereToBuy : null, k.isOwned ? m.notForSale : 0, k.isOwned ? m.price : null,
 			k.isOwned ? m.commissioned : 0, k.isOwned ? m.commissionedBy : null, k.isOwned ? m.category : null, k.imageHash, k.phash,
 			claim ? m.claimedByAccountId : null, claim ? m.claimedAt : null, claim ? m.autoClaimBlocked : 0,
-			claim ? m.claimedManually : 0, claim ? m.ownerEdited : 0, now, now, now));
+			claim ? m.claimedManually : 0, claim ? m.ownerEdited : 0, now, now, now,
+			k.isOwned ? m.keywords : null, k.isOwned ? m.mapType : null));
 		stmts.push(env.DB.prepare("INSERT INTO mapartParts (world, mapId, mapartId) VALUES (?, ?, ?)").bind(m.world, k.t.mapId, k.id));
 		stmts.push(env.DB.prepare("INSERT OR REPLACE INTO mapartSplitParts (world, mapId, splitId) VALUES (?, ?, ?)").bind(m.world, k.t.mapId, splitId));
 	}
@@ -4617,6 +4662,10 @@ async function handleSubmitMapart(request, env) {
 	if (whereToBuy.length > 200) return json({ error: "whereToBuy must be at most 200 characters" }, 400);
 	const category = body.category ? String(body.category) : null;
 	if (category !== null && !MAPART_CATEGORIES.includes(category)) return json({ error: "Unknown category" }, 400);
+	const cleanedKeywords = cleanMapartKeywords(body.keywords);
+	if (cleanedKeywords.error) return json({ error: cleanedKeywords.error }, 400);
+	const cleanedType = cleanMapartType(body.mapType);
+	if (cleanedType.error) return json({ error: cleanedType.error }, 400);
 
 	let pngBytes;
 	try { pngBytes = Uint8Array.from(atob(String(body.png || "")), (c) => c.charCodeAt(0)); } catch (e) {
@@ -4658,10 +4707,10 @@ async function handleSubmitMapart(request, env) {
 	const now = new Date().toISOString();
 	await env.DB.prepare(
 		`INSERT INTO maparts (id, slug, world, leadMapId, rawName, allNames, title, artist, whereToBuy, notForSale, price, commissioned, commissionedBy, phash, category, width, height, imageHash,
-			claimedByAccountId, claimedAt, autoClaimBlocked, locked, claimedManually, ownerEdited, uploadedByAccountId, createdAt, updatedAt, lastSeen)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 1, 1, ?, ?, ?, ?)`
+			claimedByAccountId, claimedAt, autoClaimBlocked, locked, claimedManually, ownerEdited, uploadedByAccountId, createdAt, updatedAt, lastSeen, keywords, mapType)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 1, 1, ?, ?, ?, ?, ?, ?)`
 	).bind(id, slug, world, leadMapId, title, JSON.stringify([title]), title, artist, whereToBuy || null, body.notForSale ? 1 : 0, cleanedPrice.value, cleanedCommission.commissioned, cleanedCommission.commissionedBy, uploadHash || null, category, width, height, imageHash,
-		auth.admin.id, now, auth.admin.id, now, now, now).run();
+		auth.admin.id, now, auth.admin.id, now, now, now, cleanedKeywords.value, cleanedType.value).run();
 	try {
 		await env.SNAPSHOTS.put(`mapart/${id}.png`, pngBytes, { httpMetadata: { contentType: "image/png" } });
 	} catch (e) {

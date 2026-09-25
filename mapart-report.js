@@ -13,7 +13,7 @@
 	"use strict";
 	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
 	var API_KEY = "JjabYIfRtghvBJNoy6857TFVHbjknlMOi6754E5dcfvhgBHNI6b564"; // same public site key index.html uses for listing reports
-	var CATEGORIES = ["Pets", "Anime", "Art", "Memes", "Photography", "Letters", "Seasonal", "Advertisement", "Misc", "Flags"];
+	var CATEGORIES = ["Pets", "Anime", "TV/Animation", "Games", "Art", "Memes", "Nature", "Photography", "Letters", "Seasonal", "Advertisement", "Misc", "Flags"];
 	var REASONS = [
 		["wrong_artist", "Wrong artist"],
 		["wrong_world", "Wrong world"],

@@ -1139,7 +1139,7 @@
 			  '</div>'+
 			  '<div class="edit-form" id="edit-'+r.id+'">'+
 				'<select id="field-'+r.id+'">'+fieldOptions+'</select>'+
-				'<input type="text" id="value-'+r.id+'" placeholder="new value (category: Pets, Anime, TV/Animation, Art, Memes, Nature, Photography, Letters, Seasonal, Advertisement, Misc, Flags)">'+
+				'<input type="text" id="value-'+r.id+'" placeholder="new value (category: Pets, Anime, TV/Animation, Games, Art, Memes, Nature, Photography, Letters, Seasonal, Advertisement, Misc, Flags)">'+
 				'<button class="change report-change-submit" data-id="'+r.id+'" type="button">Apply</button>'+
 			  '</div>'
 			: '<span class="badge '+r.status+'">'+r.status+'</span>';
@@ -1574,7 +1574,7 @@
 	// ---------------- mapart (admin) ----------------
 
 	var adminMapart = [];
-	var MAPART_CATEGORIES = ["Pets","Anime","TV/Animation","Art","Memes","Nature","Photography","Letters","Seasonal","Advertisement","Misc","Flags"];
+	var MAPART_CATEGORIES = ["Pets","Anime","TV/Animation","Games","Art","Memes","Nature","Photography","Letters","Seasonal","Advertisement","Misc","Flags"];
 
 	function mapartImg(m){ return API_BASE + "/mapart/image?id=" + encodeURIComponent(m.id) + "&v=" + encodeURIComponent(m.imageHash || ""); }
 
@@ -1596,9 +1596,11 @@
 					'<div class="meta">' + esc(m.world) + ' &middot; ' + m.width + '&times;' + m.height + ' &middot; lead map #' + m.leadMapId + ' &middot; raw name: ' + esc(m.rawName || '—') + '</div>' +
 					'<div class="meta">' + (m.claimedByUsername ? 'claimed by <strong>' + esc(m.claimedByUsername) + '</strong>' : 'unclaimed') + ' &middot; <a href="/mapart/' + encodeURIComponent(m.slug) + '" target="_blank" rel="noopener">view page</a></div>' +
 					'<label>Title</label><input type="text" data-f="title" maxlength="100" value="' + esc(m.title) + '" ' + f + '>' +
-					'<label>Artist(s) / seller (collab: "Head & Second & Third" — first is the head artist)</label><input type="text" data-f="artist" maxlength="200" value="' + esc(m.artist || '') + '" ' + f + '>' +
+					'<label>Artist(s) / seller (collab: "Head & Second & Third" — first is the head artist)</label><input type="text" data-f="artist" maxlength="700" value="' + esc(m.artist || '') + '" ' + f + '>' +
 					'<label>Category</label><select data-f="category" ' + f + '><option value="">No category</option>' + MAPART_CATEGORIES.map(function(c){ return '<option value="' + c + '"' + (m.category === c ? ' selected' : '') + '>' + c + '</option>'; }).join("") + '</select>' +
-					'<label>Where to buy (blank = default /shop artist)</label><input type="text" data-f="whereToBuy" maxlength="200" value="' + esc(m.whereToBuyCustom || '') + '" ' + f + '>' +
+					'<label>Type</label><select data-f="mapType" ' + f + '><option value="">Not specified</option><option value="flat"' + (m.mapType === "flat" ? ' selected' : '') + '>Flat</option><option value="staircased"' + (m.mapType === "staircased" ? ' selected' : '') + '>Staircased</option></select>' +
+						'<label>Keywords (up to 5, comma-separated)</label><input type="text" data-f="keywords" maxlength="160" value="' + esc((m.keywords || []).join(", ")) + '" ' + f + '>' +
+						'<label>Where to buy (blank = default /shop artist)</label><input type="text" data-f="whereToBuy" maxlength="200" value="' + esc(m.whereToBuyCustom || '') + '" ' + f + '>' +
 					'<label>Price (optional)</label><input type="text" data-f="price" maxlength="60" value="' + esc(m.price || '') + '" ' + f + '>' +
 					'<label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" data-f="notForSale"' + (m.notForSale ? ' checked' : '') + '> Not for sale</label>' +
 					'<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
@@ -1740,7 +1742,7 @@
 		try {
 			if(t.classList.contains("mp-save")){
 				status.textContent = "Saving…";
-				await api("/mapart/update", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id:id, title: val("title"), artist: val("artist"), price: val("price"), category: val("category") || null, whereToBuy: val("whereToBuy"), notForSale: val("notForSale") }) });
+				await api("/mapart/update", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id:id, title: val("title"), artist: val("artist"), price: val("price"), category: val("category") || null, mapType: val("mapType") || null, keywords: val("keywords"), whereToBuy: val("whereToBuy"), notForSale: val("notForSale") }) });
 				await refreshMapartAdmin();
 			} else if(t.classList.contains("mp-assign")){
 				var u = val("assign").trim();

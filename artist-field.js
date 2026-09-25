@@ -9,7 +9,7 @@
 // visitor expands the artist list. The API stores artists as "A & B & C".
 (function () {
 	"use strict";
-	var MAX = 8, NAME_MAX = 40;
+	var MAX = 16, NAME_MAX = 40;
 
 	var style = document.createElement("style");
 	style.textContent =

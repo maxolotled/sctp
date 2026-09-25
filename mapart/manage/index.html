@@ -121,7 +121,7 @@
 			<a class="btn-ghost" href="/store/manage/">Manage my store &rarr;</a>
 		</div>
 		<h2 class="section" style="margin-top:0;">Your mapart</h2>
-		<input type="text" class="mine-search" id="mineSearch" placeholder="Search your mapart by title, artist or category…" hidden>
+		<input type="text" class="mine-search" id="mineSearch" placeholder="Search your mapart by title, artist, category or keyword…" hidden>
 			<p class="mine-count" id="mineCount" hidden></p>
 			<div id="mineList"></div>
 
@@ -146,6 +146,8 @@
 						<div class="field full"><label>Artist(s) &mdash; use the arrow for collabs</label><div id="upArtistHost"></div></div>
 						<div class="field"><label>World</label><select id="upWorld"><option value="Firefly">Firefly</option><option value="Honeybee">Honeybee</option></select></div>
 						<div class="field"><label>Category</label><select id="upCategory"></select></div>
+						<div class="field"><label>Type</label><select id="upType"><option value="">Not specified</option><option value="flat">Flat</option><option value="staircased">Staircased</option></select></div>
+						<div class="field full"><label>Keywords <span style="color:var(--muted);font-weight:400;">(up to 5, separated by commas &mdash; people can search for these)</span></label><input type="text" id="upKeywords" maxlength="160" placeholder="e.g. zelda, link, landscape"></div>
 						<div class="field"><label>Where to buy</label><input type="text" id="upWhere" maxlength="200" placeholder="Blank = /shop artist"></div>
 						<div class="field"><label>Price (optional)</label><input type="text" id="upPrice" maxlength="60" placeholder="e.g. 5 diamonds"></div>
 						<div class="field full"><label class="check"><input type="checkbox" id="upCommissioned"> This was a commission (artist = who built it)</label></div>
@@ -195,7 +197,7 @@
 	"use strict";
 
 	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
-	var CATEGORIES = ["Pets","Anime","TV/Animation","Art","Memes","Nature","Photography","Letters","Seasonal","Advertisement","Misc","Flags"];
+	var CATEGORIES = ["Pets","Anime","TV/Animation","Games","Art","Memes","Nature","Photography","Letters","Seasonal","Advertisement","Misc","Flags"];
 	var VERIFY_DISCLAIMER = "If you would like to verify your account, please dm maxolotled on discord! (@ectf)";
 	var catalog = [];
 	var mine = [];
@@ -223,7 +225,7 @@
 	}
 
 	function mineSearchText(m){
-		return [m.title, m.artist, m.category, m.world].join(" ").toLowerCase();
+		return [m.title, m.artist, m.category, m.world, (m.keywords || []).join(" "), m.mapType].join(" ").toLowerCase();
 	}
 	// Filters by toggling cards (not re-rendering) so unsaved edits in other cards survive typing.
 	function filterMine(){
@@ -263,6 +265,8 @@
 						'<div class="field full" data-comm-by' + (m.commissioned ? '' : ' hidden') + '><label>Commissioned by</label><input type="text" data-f="commissionedBy" maxlength="40" value="' + esc(m.commissionedBy || '') + '" placeholder="Who it was built for"></div>' +
 						'<div class="field"><label>Category</label><select data-f="category"><option value="">No category</option>' +
 							CATEGORIES.map(function(c){ return '<option value="' + c + '"' + (m.category === c ? ' selected' : '') + '>' + c + '</option>'; }).join("") + '</select></div>' +
+						'<div class="field"><label>Type</label><select data-f="mapType"><option value="">Not specified</option><option value="flat"' + (m.mapType === "flat" ? ' selected' : '') + '>Flat</option><option value="staircased"' + (m.mapType === "staircased" ? ' selected' : '') + '>Staircased</option></select></div>' +
+						'<div class="field full"><label>Keywords <span style="color:var(--muted);font-weight:400;">(up to 5, separated by commas &mdash; people can search for these)</span></label><input type="text" data-f="keywords" maxlength="160" value="' + esc((m.keywords || []).join(", ")) + '" placeholder="e.g. zelda, link, landscape"></div>' +
 						'<div class="field"><label>Where to buy</label><input type="text" data-f="whereToBuy" maxlength="200" value="' + esc(m.whereToBuyCustom || "") + '" placeholder="' + esc(m.artist ? "/shop " + m.artist : "e.g. /shop Steve") + '"></div>' +
 						'<div class="field"><label>Price (optional)</label><input type="text" data-f="price" maxlength="60" value="' + esc(m.price || "") + '" placeholder="e.g. 5 diamonds"></div>' +
 						'<div class="field full"><label class="check"><input type="checkbox" data-f="notForSale"' + (m.notForSale ? ' checked' : '') + '> Not for sale (hides where-to-buy)</label></div>' +
@@ -304,6 +308,8 @@
 					commissioned: commBox.checked,
 					commissionedBy: card.querySelector('[data-f="commissionedBy"]').value,
 					category: card.querySelector('[data-f="category"]').value || null,
+					mapType: card.querySelector('[data-f="mapType"]').value || null,
+					keywords: card.querySelector('[data-f="keywords"]').value,
 					whereToBuy: card.querySelector('[data-f="whereToBuy"]').value,
 					notForSale: card.querySelector('[data-f="notForSale"]').checked
 				};
@@ -590,6 +596,8 @@
 					commissionedBy: document.getElementById("upCommBy").value.trim(),
 					world: document.getElementById("upWorld").value,
 					category: upCatSel.value || null,
+					mapType: document.getElementById("upType").value || null,
+					keywords: document.getElementById("upKeywords").value,
 					whereToBuy: document.getElementById("upWhere").value.trim(),
 					notForSale: document.getElementById("upNotForSale").checked,
 					width: g.w, height: g.h, png: b64
@@ -602,7 +610,8 @@
 					document.getElementById("upFile").value = "";
 					document.getElementById("upCommissioned").checked = false; document.getElementById("upCommByRow").hidden = true; document.getElementById("upCommBy").value = "";
 					var dw = document.getElementById("dupWarn"); if(dw) dw.remove();
-					["upTitle", "upWhere", "upPrice"].forEach(function(id){ document.getElementById(id).value = ""; });
+					["upTitle", "upWhere", "upPrice", "upKeywords"].forEach(function(id){ document.getElementById(id).value = ""; });
+					document.getElementById("upType").value = "";
 					upArtistField = window.sctpArtistField.create(document.getElementById("upArtistHost"), { placeholder: "Head artist — blank = you" });
 					document.getElementById("upNotForSale").checked = false;
 					btn.disabled = true;

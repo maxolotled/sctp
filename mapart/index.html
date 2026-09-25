@@ -77,6 +77,9 @@
 	.pill.cat{color:var(--info);border-color:rgba(140,147,232,0.4);}
 	.pill.nocat{font-style:italic;}
 	.pill.ok{color:var(--accent);border-color:rgba(183,226,61,0.45);}
+	.pill.maptype{color:var(--shell);border-color:rgba(217,200,154,0.4);}
+	.pill.kw{cursor:pointer;color:var(--accent-dim);border-color:rgba(135,174,41,0.35);}
+	.pill.kw:hover{color:var(--accent);border-color:var(--accent-dim);}
 	.artist-toggle{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 4px;font-family:inherit;line-height:1;vertical-align:baseline;}
 	.artist-toggle:hover{color:var(--accent);}
 	.artist-toggle .arr{display:inline-block;transition:transform .12s;}
@@ -117,8 +120,13 @@
 	</div>
 
 	<div class="filters">
-		<input type="text" id="search" placeholder="Search by title or artist…">
+		<input type="text" id="search" placeholder="Search by title, artist or keyword…">
 		<select id="fCategory"></select>
+		<select id="fType">
+			<option value="">Flat &amp; staircased maps</option>
+			<option value="flat">Flat only</option>
+			<option value="staircased">Staircased only</option>
+		</select>
 		<button type="button" id="imgSearchBtn" class="img-search-btn" title="Find a mapart by uploading a picture">&#128444; Search by image</button>
 		<select id="fWorld">
 			<option value="">Both worlds</option>
@@ -145,7 +153,7 @@
 	"use strict";
 
 	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
-	var CATEGORIES = ["Pets","Anime","TV/Animation","Art","Memes","Nature","Photography","Letters","Seasonal","Advertisement","Misc","Flags"];
+	var CATEGORIES = ["Pets","Anime","TV/Animation","Games","Art","Memes","Nature","Photography","Letters","Seasonal","Advertisement","Misc","Flags"];
 	var all = [];
 
 	function esc(s){
@@ -177,11 +185,13 @@
 		var q = document.getElementById("search").value.trim().toLowerCase();
 		var cat = catSel.value;
 		var world = document.getElementById("fWorld").value;
+		var mapType = document.getElementById("fType").value;
 		var rows = all.filter(function(m){
 			if(world && m.world !== world) return false;
+			if(mapType && m.mapType !== mapType) return false;
 			if(cat === "__none"){ if(m.category) return false; }
 			else if(cat && m.category !== cat) return false;
-			if(q && (m.title || "").toLowerCase().indexOf(q) === -1 && (m.artist || "").toLowerCase().indexOf(q) === -1) return false;
+			if(q && (m.title || "").toLowerCase().indexOf(q) === -1 && (m.artist || "").toLowerCase().indexOf(q) === -1 && (m.keywords || []).join(" ").toLowerCase().indexOf(q) === -1) return false;
 			return true;
 		});
 		document.getElementById("count").textContent = rows.length + " mapart" + (rows.length === 1 ? "" : "s");
@@ -198,9 +208,11 @@
 					'<div class="mapart-meta">' +
 						(m.category ? '<span class="pill cat">' + esc(m.category) + '</span>' : '<span class="pill nocat">no category</span>') +
 						'<span class="pill">' + esc(m.world) + '</span>' +
+						(m.mapType ? '<span class="pill maptype">' + (m.mapType === "staircased" ? "staircased" : "flat") + '</span>' : '') +
 						(m.width * m.height > 1 ? '<span class="pill">' + m.width + '&times;' + m.height + '</span>' : '') +
 						(m.verified ? '<span class="pill ok">&#10003; verified by artist</span>' : '') +
 					'</div>' +
+					((m.keywords || []).length ? '<div class="mapart-meta">' + m.keywords.map(function(k){ return '<span class="pill kw" data-kw="' + esc(k) + '" title="Search for this keyword">#' + esc(k) + '</span>'; }).join("") + '</div>' : '') +
 					(buy ? '<div class="mapart-buy">' + esc(buy) + '</div>' : '') +
 				'</div>' +
 			'</a>';
@@ -216,6 +228,15 @@
 			list.hidden = !list.hidden;
 			tg.classList.toggle("open", !list.hidden);
 			tg.setAttribute("aria-expanded", String(!list.hidden));
+			return;
+		}
+		var kw = e.target.closest ? e.target.closest("[data-kw]") : null;
+		if(kw){
+			e.preventDefault(); e.stopPropagation();
+			var box = document.getElementById("search");
+			box.value = kw.getAttribute("data-kw");
+			render();
+			box.scrollIntoView({ behavior: "smooth", block: "center" });
 			return;
 		}
 		var b = e.target.closest ? e.target.closest("[data-flag]") : null;
@@ -239,6 +260,10 @@
 	["search"].forEach(function(id){ document.getElementById(id).addEventListener("input", render); });
 	catSel.addEventListener("change", render);
 	document.getElementById("fWorld").addEventListener("change", render);
+	document.getElementById("fType").addEventListener("change", render);
+	// /mapart/?q=<keyword> (keyword chips on mapart pages link here)
+	var initialQ = new URLSearchParams(location.search).get("q");
+	if(initialQ) document.getElementById("search").value = initialQ;
 
 	fetch(API_BASE + "/mapart").then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }).then(function(rows){
 		all = rows;
