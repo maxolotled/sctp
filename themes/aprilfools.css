@@ -12,7 +12,13 @@
  * Make it live by copying this file over /theme.css and aprilfools.js over
  * /theme.js. See themes/README.md.
  */
-@import url("https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap");
+
+/* Prank #1: the whole site in a comic font (code-style text stays monospace). */
+:root{
+	--font-body:"Comic Neue", "Comic Sans MS", system-ui, sans-serif;
+	--font-display:"Comic Neue", "Comic Sans MS", system-ui, sans-serif;
+}
 
 :root{
 	--bg:#14101E; --bg-rgb:20,16,30;
@@ -87,6 +93,40 @@ html body::after{
 }
 
 ::selection{background:rgba(255,225,77,0.45);color:#14101E;}
+
+/* ---- the pranks (added by aprilfools.js) ---- */
+
+/* Fake "SCTP NEWS" ticker across the top of the page. */
+.af-ticker{position:relative;z-index:80;display:flex;align-items:center;height:30px;background:#FFE14D;color:#14101E;font:700 13px/1 var(--font-body);overflow:hidden;}
+.af-ticker-label{flex:0 0 auto;display:flex;align-items:center;height:100%;padding:0 12px;background:#FF4DA6;color:#FFFFFF;letter-spacing:.08em;}
+.af-ticker-track{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;}
+.af-ticker-run{display:inline-block;animation:afTicker 60s linear infinite;}
+.af-ticker-run span{margin:0 26px;}
+.af-ticker-run span::before{content:"★  ";color:#FF4DA6;}
+.af-ticker:hover .af-ticker-run{animation-play-state:paused;}
+.af-ticker-x{flex:0 0 auto;width:34px;height:100%;background:none;border:none;color:#14101E;font:800 14px/1 system-ui,sans-serif;cursor:pointer;}
+.af-ticker-x:hover{background:rgba(0,0,0,.08);}
+@keyframes afTicker{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+/* The "SCTP Premium™" upsell. */
+.af-modal-bg{position:fixed;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,6,20,0.72);}
+.af-modal{width:100%;max-width:400px;background:var(--panel);color:var(--text);border:2px solid #FFE14D;border-radius:16px;padding:22px 24px;box-shadow:0 20px 50px rgba(0,0,0,.55),0 0 0 6px rgba(255,77,166,.25);transform:rotate(-1.2deg);font-family:var(--font-body);}
+.af-modal h2{margin:0 0 10px;font-size:22px;color:#FFE14D;}
+.af-modal p{margin:0 0 10px;font-size:14.5px;}
+.af-modal ul{margin:0 0 12px;padding-left:20px;font-size:14.5px;}
+.af-modal li{margin:4px 0;}
+.af-price b{color:#FF4DA6;}
+.af-modal-btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;}
+.af-btn{flex:1 1 auto;border-radius:10px;padding:10px 14px;font:700 14px/1.2 var(--font-body);cursor:pointer;border:2px solid transparent;}
+.af-btn.yes{background:var(--accent);color:var(--accent-ink);}
+.af-btn.no{background:transparent;color:var(--text);border-color:var(--line);}
+.af-btn:hover{filter:brightness(1.08);}
+.af-btn:focus-visible{outline:2px solid #FFE14D;outline-offset:2px;}
+
+/* A random card having a little moment. */
+.af-shake{animation:afShake .7s ease-in-out;}
+@keyframes afShake{0%,100%{transform:none;}20%{transform:rotate(-1.4deg) translateX(-3px);}40%{transform:rotate(1.4deg) translateX(3px);}60%{transform:rotate(-.8deg);}80%{transform:rotate(.8deg);}}
+@media (prefers-reduced-motion: reduce){ .af-ticker-run{animation:none;} .af-shake{animation:none;} }
 
 /* ---- restyled bits of existing components ---- */
 html #siteNavMount a.site-nav-new-link,

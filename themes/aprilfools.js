@@ -1,10 +1,13 @@
 /*
  * SCTP — April Fools' theme (pairs with themes/aprilfools.css).
- * Question marks and googly eyes raining down, confetti pops, a rubber chicken
- * flying past, the snail speedrunning along the bottom, clown bunting, a
- * whoopee cushion, jack-in-the-box and rubber chicken on the header, googly
- * eyes on the (upside-down) snail, and deliberately wrong icons.
- * Nothing actually breaks: it's all decoration.
+ * The pranks (see pranks() below): a fake "SCTP NEWS" ticker, a one-time
+ * "SCTP Premium™" upsell that turns out to be a joke, silly nav names, a
+ * "Download more RAM" button, a "come back!" tab title, and cards that
+ * randomly shake. Plus the decoration: question marks and googly eyes raining
+ * down, confetti pops, a rubber chicken flying past, the snail speedrunning
+ * along the bottom, clown bunting, a whoopee cushion and jack-in-the-box,
+ * googly eyes on the (upside-down) snail, and deliberately wrong icons.
+ * Nothing actually breaks: every link and button still does its normal job.
  * The effects themselves live in themes/fx.js. See themes/README.md.
  */
 (function () {
@@ -84,8 +87,129 @@
 			{ path: "fly", svg: chicken(44).replace(/ width="44" height="22"/, ""), width: 60, height: 30, every: [30000, 60000], first: [6000, 12000], dur: 8 },
 			{ path: "hop", svg: SPEEDY_SNAIL, width: 58, height: 29, every: [25000, 50000], first: [12000, 20000], dur: 3.2 }
 		],
-		toggle: { icon: "🤡", noun: "silliness" }
+		toggle: { icon: "🤡", noun: "silliness" },
+		extra: pranks
 	};
+
+	function pranks(h) {
+		// 1. A fake breaking-news ticker across the very top of the page.
+		var closedKey = "sctp_af_ticker_closed";
+		var closed = false;
+		try { closed = sessionStorage.getItem(closedKey) === "1"; } catch (e) {}
+		if (!closed) {
+			var headlines = [
+				"BREAKING: diamonds now officially worth 3 dirt",
+				"The snail has been promoted to CEO of SCTP",
+				"Today's Rare-dle answer: yes",
+				"All shops will now close at 5pm for the snail's nap",
+				"New currency just dropped: carrots",
+				"Scientists confirm the Pride Ducks are, in fact, ducks",
+				"The Marketplace now accepts payment in compliments",
+				"Honeybee and Firefly announce merger into Honeyfly",
+				"Happy April Fools' from SCTP 🤡"
+			];
+			var run = headlines.map(function (t) { return "<span>" + t + "</span>"; }).join("");
+			var bar = document.createElement("div");
+			bar.className = "af-ticker";
+			bar.innerHTML = '<span class="af-ticker-label">SCTP NEWS</span>' +
+				'<div class="af-ticker-track"><div class="af-ticker-run">' + run + run + "</div></div>" +
+				'<button type="button" class="af-ticker-x" aria-label="Hide the fake news">✕</button>';
+			bar.querySelector(".af-ticker-x").addEventListener("click", function () {
+				bar.remove();
+				try { sessionStorage.setItem(closedKey, "1"); } catch (e) {}
+			});
+			document.body.insertBefore(bar, document.body.firstChild);
+		}
+
+		// 2. "SCTP Premium™", once per visitor, a few seconds in.
+		var seenKey = "sctp_af_premium_seen";
+		var seen = false;
+		try { seen = localStorage.getItem(seenKey) === "1"; } catch (e) {}
+		if (!seen) setTimeout(premium, 5000);
+		function premium() {
+			try { localStorage.setItem(seenKey, "1"); } catch (e) {}
+			var bg = document.createElement("div");
+			bg.className = "af-modal-bg";
+			bg.innerHTML = '<div class="af-modal" role="dialog" aria-modal="true" aria-labelledby="afPremiumTitle">' +
+				'<h2 id="afPremiumTitle">✨ Introducing SCTP Premium™</h2>' +
+				"<p>Upgrade today and get:</p><ul>" +
+				"<li>Shops load 0.2 seconds faster (we think)</li><li>A second snail</li>" +
+				"<li>Exclusive access to the Log out button</li><li>Rare-dle hints from the snail's cousin</li></ul>" +
+				'<p class="af-price">Just <b>64 diamonds a month</b> (or 1 carrot)</p>' +
+				'<div class="af-modal-btns"><button type="button" class="af-btn yes">Subscribe now</button>' +
+				'<button type="button" class="af-btn no">No thanks, I like being poor</button></div></div>';
+			function close() { bg.remove(); document.removeEventListener("keydown", onKey); }
+			function onKey(e) { if (e.key === "Escape") close(); }
+			function reveal() {
+				bg.querySelector(".af-modal").innerHTML = '<h2 id="afPremiumTitle">🤡 April Fools!</h2>' +
+					"<p>SCTP is free and always will be. No premium, no carrots. Carry on!</p>" +
+					'<div class="af-modal-btns"><button type="button" class="af-btn yes">Fine 🙄</button></div>';
+				bg.querySelector(".af-btn").addEventListener("click", close);
+				bg.querySelector(".af-btn").focus();
+			}
+			bg.querySelector(".af-btn.yes").addEventListener("click", reveal);
+			bg.querySelector(".af-btn.no").addEventListener("click", reveal);
+			bg.addEventListener("click", function (e) { if (e.target === bg) close(); });
+			document.addEventListener("keydown", onKey);
+			document.body.appendChild(bg);
+			bg.querySelector(".af-btn.yes").focus();
+		}
+
+		// 3. Silly nav names (the links themselves still go where they always did).
+		var NAV = { "Home": "Hoem", "Items": "Stuff", "Marketplace": "Flea Market", "More": "Moar", "Info": "Lore", "Rare-dle": "Rare-dle 2" };
+		function renameNav() {
+			var mount = document.getElementById("siteNavMount");
+			if (!mount) return;
+			var changed = false;
+			var walker = document.createTreeWalker(mount, NodeFilter.SHOW_TEXT, null);
+			var t;
+			while ((t = walker.nextNode())) {
+				if (t.parentNode.closest(".site-nav-dd-panel, .site-nav-new-popup, #accountWidgetMount")) continue;
+				var key = t.nodeValue.trim();
+				if (NAV[key]) { t.nodeValue = t.nodeValue.replace(key, NAV[key]); changed = true; }
+			}
+			if (changed) window.dispatchEvent(new Event("resize")); // lets the nav re-check whether it still fits
+		}
+		renameNav();
+		setTimeout(renameNav, 600);
+		setTimeout(renameNav, 1600);
+
+		// 4. The home page's Download button.
+		var dl = document.getElementById("downloadMod");
+		if (dl) {
+			for (var i = 0; i < dl.childNodes.length; i++) {
+				var n = dl.childNodes[i];
+				if (n.nodeType === 3 && /Download mod/.test(n.nodeValue)) { n.nodeValue = n.nodeValue.replace("Download mod", "Download more RAM"); break; }
+			}
+		}
+
+		// 5. Switch tabs and the page begs you to come back.
+		var realTitle = document.title;
+		document.addEventListener("visibilitychange", function () {
+			if (document.hidden) { realTitle = document.title; document.title = "🤡 hey, come back!"; }
+			else document.title = realTitle;
+		});
+
+		// 6. Every so often, a random card on screen does a little shake.
+		if (!h.reduceMotion) {
+			(function shake() {
+				setTimeout(function () {
+					if (!document.hidden) {
+						var cards = Array.prototype.filter.call(document.querySelectorAll('[class*="card"]'), function (c) {
+							var r = c.getBoundingClientRect();
+							return r.width > 120 && r.height > 50 && r.top > 0 && r.bottom < window.innerHeight && !c.closest(".af-modal-bg");
+						});
+						if (cards.length) {
+							var c = h.pick(cards);
+							c.classList.add("af-shake");
+							setTimeout(function () { c.classList.remove("af-shake"); }, 800);
+						}
+					}
+					shake();
+				}, h.rand(12000, 25000));
+			})();
+		}
+	}
 
 	// ---- which theme to show: the live one, or a preview (?theme=<name>; ?theme=live stops it) ----
 	var want = null;

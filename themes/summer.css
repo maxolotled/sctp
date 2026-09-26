@@ -1,11 +1,13 @@
 /*
- * SCTP — summer festival theme (pairs with themes/summer.js).
+ * SCTP — summer theme: a tropical beach (pairs with themes/summer.js).
  *
- * A warm festival night: sunset coral for buttons and links, turquoise as the
- * second accent, lantern gold for secondary text, breezy script titles, a lit-up
- * Ferris wheel and a wind chime in the corners. The moving parts (fireflies,
- * sky lanterns, fireworks, paper lanterns across the top, watermelon, goldfish
- * and a fan on the header, the straw hat, icons) come from summer.js + fx.js.
+ * A warm tropical evening by the sea: lagoon turquoise for buttons and links,
+ * sunset coral as the second accent, sand gold for secondary text, breezy
+ * script titles, a sun setting over the sea behind a palm tree and palm fronds
+ * hanging in from the corner. The moving parts (bubbles and hibiscus flowers,
+ * a flower lei across the top, seagulls, a crab scuttling past, a beach
+ * umbrella, beach ball, sandcastle and coconut drink, sunglasses on the snail,
+ * beach icons) come from summer.js + fx.js.
  *
  * Make it live by copying this file over /theme.css and summer.js over
  * /theme.js. See themes/README.md.
@@ -13,18 +15,18 @@
 @import url("https://fonts.googleapis.com/css2?family=Pacifico&display=swap");
 
 :root{
-	--bg:#0E1322; --bg-rgb:14,19,34;
-	--panel:#171F33; --panel-alt:#1E2840; --line:#2E3A57;
-	--muted:#A5B0C6; --text:#F7F3EA; --shell:#FFD27A;
-	--accent:#FF7A4D; --accent-rgb:255,122,77; --accent-dim:#E05A2E; --accent-ink:#2A0C05;
-	--accent-2:#3ED6C8;
-	--img-bg:#0B0F1B;
+	--bg:#0B1C24; --bg-rgb:11,28,36;
+	--panel:#102A33; --panel-alt:#14343F; --line:#22505C;
+	--muted:#9FC3C8; --text:#F4FBF8; --shell:#FFD88A;
+	--accent:#34E0C4; --accent-rgb:52,224,196; --accent-dim:#1FB89F; --accent-ink:#04241F;
+	--accent-2:#FF8A5B;
+	--img-bg:#08161C;
 }
 
 html body{
 	background:
-		radial-gradient(900px 460px at 88% -6%, rgba(255,160,90,0.13), transparent 60%),
-		radial-gradient(1000px 600px at 0% 105%, rgba(62,214,200,0.10), transparent 60%),
+		radial-gradient(900px 460px at 88% -6%, rgba(255,160,100,0.16), transparent 60%),
+		radial-gradient(1000px 600px at 0% 105%, rgba(52,224,196,0.12), transparent 60%),
 		var(--bg);
 	background-attachment:fixed;
 	background-repeat:no-repeat;
@@ -34,51 +36,51 @@ html header.site h1{
 	font-family:"Pacifico", var(--font-display, serif);
 	font-weight:400;
 	letter-spacing:0.01em;
-	color:#FFE1B8;
-	text-shadow:0 0 14px rgba(255,122,77,0.5);
+	color:#FFE9C2;
+	text-shadow:0 0 14px rgba(255,138,91,0.5);
 }
 @media (max-width:560px){
-	html header.site h1{font-size:23px;line-height:1.3;white-space:normal;overflow-wrap:anywhere;}
+	html header.site h1, html header.site .brand h1{font-size:23px;line-height:1.3;white-space:normal;overflow-wrap:anywhere;}
 }
 
-/* A Ferris wheel with its lights on in the top-right corner… */
+/* The sun setting over the sea behind a palm tree, in the top-right corner… */
 html body::before{
 	content:"";
 	position:fixed;
 	top:0;
 	right:0;
-	width:250px;
-	height:240px;
+	width:270px;
+	height:230px;
 	z-index:-1;
 	pointer-events:none;
-	opacity:0.8;
-	background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 250 240'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='0' stop-color='%23FFB36B' stop-opacity='0.3'/%3E%3Cstop offset='1' stop-color='%23FFB36B' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='170' cy='100' r='100' fill='url(%23g)'/%3E%3Cg stroke='%23394766' stroke-width='3' fill='none'%3E%3Ccircle cx='170' cy='100' r='66'/%3E%3Ccircle cx='170' cy='100' r='56'/%3E%3Cpath d='M170 34v132M104 100h132M123 53l94 94M217 53l-94 94'/%3E%3Cpath d='M170 100l-30 130M170 100l30 130M132 230h76'/%3E%3C/g%3E%3Cg fill='%23FFD27A'%3E%3Ccircle cx='170' cy='34' r='4'/%3E%3Ccircle cx='217' cy='53' r='4'/%3E%3Ccircle cx='236' cy='100' r='4'/%3E%3Ccircle cx='217' cy='147' r='4'/%3E%3Ccircle cx='170' cy='166' r='4'/%3E%3Ccircle cx='123' cy='147' r='4'/%3E%3Ccircle cx='104' cy='100' r='4'/%3E%3Ccircle cx='123' cy='53' r='4'/%3E%3C/g%3E%3Cg fill='%23FF7A4D'%3E%3Ccircle cx='195' cy='39' r='3'/%3E%3Ccircle cx='231' cy='75' r='3'/%3E%3Ccircle cx='231' cy='125' r='3'/%3E%3Ccircle cx='195' cy='161' r='3'/%3E%3Ccircle cx='145' cy='161' r='3'/%3E%3Ccircle cx='109' cy='125' r='3'/%3E%3Ccircle cx='109' cy='75' r='3'/%3E%3Ccircle cx='145' cy='39' r='3'/%3E%3C/g%3E%3Ccircle cx='170' cy='100' r='7' fill='%233ED6C8'/%3E%3C/svg%3E");
+	opacity:0.9;
+	background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 270 230'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='0' stop-color='%23FFB36B' stop-opacity='0.55'/%3E%3Cstop offset='1' stop-color='%23FFB36B' stop-opacity='0'/%3E%3C/radialGradient%3E%3ClinearGradient id='s' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23FFD27A'/%3E%3Cstop offset='1' stop-color='%23FF7A5B'/%3E%3C/linearGradient%3E%3CclipPath id='c'%3E%3Crect x='0' y='0' width='270' height='132'/%3E%3C/clipPath%3E%3C/defs%3E%3Ccircle cx='190' cy='118' r='96' fill='url(%23g)'/%3E%3Ccircle cx='190' cy='118' r='44' fill='url(%23s)' clip-path='url(%23c)'/%3E%3Cg stroke='%23FF9A6B' stroke-width='3' stroke-linecap='round' opacity='.8'%3E%3Cpath d='M150 142h80M160 152h60M172 162h36M182 171h16'/%3E%3C/g%3E%3Cpath d='M112 230c4-50 14-96 34-130' stroke='%23123038' stroke-width='7' fill='none' stroke-linecap='round'/%3E%3Cg fill='%23123038'%3E%3Cpath d='M146 100c-20-20-50-20-66-6 22-4 42 2 66 6z'/%3E%3Cpath d='M146 100c-6-26-28-44-50-44 20 12 34 26 50 44z'/%3E%3Cpath d='M146 100c14-24 40-32 60-24-22 4-40 12-60 24z'/%3E%3Cpath d='M146 100c24-8 48 0 58 16-20-10-38-12-58-16z'/%3E%3Cpath d='M146 100c-26 0-44 16-50 34 16-16 30-24 50-34z'/%3E%3C/g%3E%3Ccircle cx='142' cy='104' r='5' fill='%23123038'/%3E%3Ccircle cx='150' cy='106' r='5' fill='%23123038'/%3E%3C/svg%3E");
 }
-/* …and a glass wind chime in the top-left one. */
+/* …and palm fronds hanging in from the top-left one. */
 html body::after{
 	content:"";
 	position:fixed;
 	top:0;
 	left:0;
-	width:110px;
-	height:150px;
+	width:150px;
+	height:130px;
 	z-index:-1;
 	pointer-events:none;
-	opacity:0.8;
-	background:no-repeat top left/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 110 150'%3E%3Cpath d='M60 0v30' stroke='%23C9D3E6' stroke-width='1.5'/%3E%3Cpath d='M42 56c0-16 8-26 18-26s18 10 18 26z' fill='%23BDEFF0' opacity='.75'/%3E%3Cpath d='M48 44c3-5 8-8 12-8' stroke='%23FFFFFF' stroke-width='2' fill='none' opacity='.8'/%3E%3Cpath d='M47 50c4 2 9-3 13 0s9-2 13 0' stroke='%23FF7A4D' stroke-width='2.4' fill='none'/%3E%3Cpath d='M60 56v26' stroke='%23C9D3E6' stroke-width='1.2'/%3E%3Crect x='55' y='82' width='10' height='44' rx='1.5' fill='%23FFE08A'/%3E%3Cpath d='M57 92h6M57 100h6' stroke='%23E05A2E' stroke-width='1.4'/%3E%3C/svg%3E");
+	opacity:0.85;
+	background:no-repeat top left/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 130'%3E%3Cg fill='%232E9E6A'%3E%3Cpath d='M0 0c30 10 60 30 76 70-20-24-44-40-76-48z'/%3E%3Cpath d='M0 0c40 0 80 10 110 36-30-12-64-18-110-14z'/%3E%3C/g%3E%3Cg fill='%2323845A'%3E%3Cpath d='M0 0c14 22 24 54 22 94-8-30-18-56-22-72z'/%3E%3Cpath d='M0 0c50-6 100 4 140 26-40-6-90-8-140-4z'/%3E%3C/g%3E%3Cg stroke='%23174F37' stroke-width='1.5' fill='none'%3E%3Cpath d='M0 0l74 68M0 0l108 34M0 0l20 90M0 0l138 24'/%3E%3C/g%3E%3C/svg%3E");
 }
 @media (max-width:700px){
-	html body::before{width:140px;height:134px;opacity:0.6;}
-	html body::after{width:70px;height:95px;}
+	html body::before{width:150px;height:128px;opacity:0.7;}
+	html body::after{width:90px;height:78px;}
 }
 
-::selection{background:rgba(255,122,77,0.35);color:#fff;}
+::selection{background:rgba(52,224,196,0.35);color:#fff;}
 
 /* ---- restyled bits of existing components ---- */
 html #siteNavMount a.site-nav-new-link,
 html #siteNavMount a.site-nav-new-link:hover,
 html #siteNavMount a.site-nav-new-link.active{
-	background-image:linear-gradient(90deg,#FF7A4D,#FFD27A,#3ED6C8,#FF7A4D);
+	background-image:linear-gradient(90deg,#34E0C4,#FFD88A,#FF8A5B,#34E0C4);
 }
-html .site-nav-new-badge{background:linear-gradient(135deg,#FF7A4D,#3ED6C8);}
-html #downloadMod{background-image:linear-gradient(90deg,#FF6A3D,#FF5FA2,#3ED6C8,#FF6A3D);}
+html .site-nav-new-badge{background:linear-gradient(135deg,#34E0C4,#FF8A5B);}
+html #downloadMod{background-image:linear-gradient(90deg,#1FB8C4,#34E0C4,#FF8A5B,#1FB8C4);}

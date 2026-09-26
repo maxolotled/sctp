@@ -1,6 +1,6 @@
 /*
- * SCTP — birthday theme (pairs with themes/birthday.css), for SCTP's own birthday.
- * Confetti, balloons floating up, confetti pops, HAPPY BIRTHDAY bunting across
+ * SCTP — birthday theme (pairs with themes/birthday.css), for Snailcraft's birthday.
+ * Confetti, balloons floating up, confetti pops, HAPPY BIRTHDAY SNAILCRAFT bunting across
  * the top, a cake with flickering candles and presents on the header, a party
  * hat on the snail, party icons.
  * The effects themselves live in themes/fx.js. See themes/README.md.
@@ -59,7 +59,7 @@
 			spacing: 38, sag: 7, itemWidth: 20, wire: "rgba(255,220,240,0.45)", anim: "lamp",
 			colors: CONFETTI_COLORS,
 			item: function (c, i, n) {
-				var text = n >= 21 ? "HAPPY BIRTHDAY SCTP" : n >= 16 ? "HAPPY BIRTHDAY" : n >= 9 ? "YAY SCTP" : "";
+				var text = n >= 28 ? "HAPPY BIRTHDAY SNAILCRAFT" : n >= 16 ? "HAPPY BIRTHDAY" : n >= 12 ? "SNAILCRAFT" : "";
 				var start = Math.floor((n - text.length) / 2);
 				var ch = i >= start && i < start + text.length ? text.charAt(i - start) : "";
 				if (ch === " ") return ""; // a gap between words
@@ -68,7 +68,7 @@
 					"</svg>";
 			}
 		},
-		footer: { left: cake(24), text: "Happy birthday, SCTP! Thanks for being part of it", right: balloon(14, "#FF5FA2"), font: '"Fredoka", system-ui, sans-serif' },
+		footer: { left: cake(24), text: "Happy birthday, Snailcraft! Love from all of us at SCTP", right: balloon(14, "#FF5FA2"), font: '"Fredoka", system-ui, sans-serif' },
 		particles: [
 			{ type: "fall", count: 18, mobileCount: 8, size: [8, 14], dur: [8, 15], sway: [20, 70], spin: 180, opacity: 0.9, colors: CONFETTI_COLORS,
 				shapes: ['<rect x="8" y="3" width="8" height="18" rx="1.5"/>', '<circle cx="12" cy="12" r="6"/>', '<path d="M4 12c3-6 5 6 8 0s5 6 8 0" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>'] },

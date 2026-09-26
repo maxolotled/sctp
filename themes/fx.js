@@ -22,6 +22,8 @@
  *   bursts        { every: [min,max] ms, colors, sparks, shape: "dot"|"rect", first }
  *   flyers        [{ svg, width, height, path: "fly"|"hop"|"streak", every: [min,max] ms, first, dur, flap }]
  *   toggle        { icon, noun }  the corner button that switches particles + bursts on/off
+ *   extra         function(helpers) run once after everything else, for theme-specific tricks
+ *                 (helpers: { reduceMotion, el, rand, pick })
  */
 (function () {
 	"use strict";
@@ -372,6 +374,9 @@
 			applyProps(cfg);
 			effectsToggle(cfg);
 			flyers(cfg);
+			if (typeof cfg.extra === "function") {
+				try { cfg.extra({ reduceMotion: reduceMotion, el: el, rand: rand, pick: pick }); } catch (e) {}
+			}
 		}
 		if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
 		else init();
