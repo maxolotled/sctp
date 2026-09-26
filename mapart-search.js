@@ -24,11 +24,11 @@
 		".ms-res{margin-top:14px;display:flex;flex-direction:column;gap:8px;}" +
 		".ms-hit{display:flex;gap:12px;align-items:center;background:var(--panel-alt,#22332A);border:1px solid var(--line,#33453A);border-radius:10px;padding:8px;text-decoration:none;color:inherit;}" +
 		".ms-hit:hover{border-color:var(--accent-dim,#87AE29);}" +
-		".ms-hit img{width:64px;height:64px;object-fit:contain;image-rendering:pixelated;background:#0C140F;border-radius:6px;flex:0 0 auto;}" +
+		".ms-hit img{width:64px;height:64px;object-fit:contain;image-rendering:pixelated;background:var(--img-bg,#0C140F);border-radius:6px;flex:0 0 auto;}" +
 		".ms-hit .t{font-weight:600;}" +
 		".ms-hit .a{font-size:12.5px;color:var(--muted,#8FA593);}" +
 		".ms-badge{margin-left:auto;font-size:12px;font-family:var(--font-mono,monospace);padding:2px 9px;border-radius:999px;border:1px solid var(--line,#33453A);white-space:nowrap;}" +
-		".ms-badge.hi{color:var(--accent,#B7E23D);border-color:rgba(183,226,61,0.5);}" +
+		".ms-badge.hi{color:var(--accent,#B7E23D);border-color:rgba(var(--accent-rgb,183,226,61),0.5);}" +
 		".ms-msg{color:var(--muted,#8FA593);font-size:13.5px;padding:8px 0;}" +
 		".ms-actions{display:flex;justify-content:flex-end;margin-top:14px;}" +
 		".ms-actions button{background:transparent;border:1px solid var(--line,#33453A);color:var(--text,#EAEFE7);border-radius:9px;padding:9px 16px;cursor:pointer;font-family:inherit;}";

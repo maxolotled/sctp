@@ -10,14 +10,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 	:root{
-		--bg:#101B14; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
 		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
-		--accent:#B7E23D; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
 		--warn:#E2A33D; --bad:#E2643D;
 		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
 	}
 	*{box-sizing:border-box;}
-	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(183,226,61,0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.6;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.6;}
 	a{color:var(--accent);}
 	a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px;}
 	.wrap{max-width:780px;margin:0 auto;padding:0 24px;}
@@ -65,7 +65,7 @@
 	tr:last-child td{border-bottom:none;}
 	td:first-child{font-weight:600;white-space:nowrap;}
 	.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:0.03em;border-radius:999px;padding:1px 8px;margin-right:4px;}
-	.pill.pub{background:rgba(183,226,61,0.14);color:var(--accent);}
+	.pill.pub{background:rgba(var(--accent-rgb),0.14);color:var(--accent);}
 	.pill.priv{background:rgba(217,200,154,0.14);color:var(--shell);}
 
 	.contact{background:var(--panel);border:1px solid var(--accent-dim);border-radius:14px;padding:20px 24px;}
@@ -80,6 +80,8 @@
 		.summary, .contact{padding:18px;}
 	}
 </style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
 </head>
 <body>
 

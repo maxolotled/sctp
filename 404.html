@@ -25,16 +25,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
 <style>
 	:root{
-		--bg:#101B14; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
 		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A; --shell-dim:#A99A73;
-		--accent:#B7E23D; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
 		--warn:#E2A33D; --info:#8C93E8; --radius:10px;
 		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
 	}
 	*{box-sizing:border-box;}
 	body{
 		margin:0;
-		background:radial-gradient(1200px 500px at 15% -10%, rgba(183,226,61,0.07), transparent 60%), var(--bg);
+		background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);
 		color:var(--text);font-family:var(--font-body);line-height:1.5;
 	}
 	a{color:var(--accent);}
@@ -67,7 +67,7 @@
 	.profile-name{font-family:var(--font-display);font-weight:600;font-size:30px;margin:0;color:var(--text);}
 	.world-badge{
 		display:inline-block;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;
-		padding:3px 10px;border-radius:999px;background:rgba(183,226,61,0.12);color:var(--accent);border:1px solid var(--accent-dim);
+		padding:3px 10px;border-radius:999px;background:rgba(var(--accent-rgb),0.12);color:var(--accent);border:1px solid var(--accent-dim);
 	}
 	.other-world-link{font-size:13px;color:var(--muted);}
 	.other-world-link a{color:var(--info);}
@@ -153,7 +153,7 @@
 	.price-sub{color:var(--muted);font-size:11.5px;}
 	.badge{display:inline-block;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;}
 	.badge.bulk{background:rgba(140,147,232,0.16);color:var(--info);}
-	.badge.bundled{background:rgba(183,226,61,0.16);color:var(--accent);}
+	.badge.bundled{background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
 	.badge.mixed{background:rgba(226,163,61,0.16);color:var(--warn);margin-left:4px;}
 	.badge.marketplace{background:transparent;border:1px solid var(--shell);color:var(--shell);}
 	.badge.single{background:rgba(143,165,147,0.16);color:var(--muted);}
@@ -222,9 +222,9 @@
 	/* ---------- mapart page ---------- */
 	.mapart-page{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:32px;align-items:start;margin-top:8px;}
 	@media (max-width:820px){.mapart-page{grid-template-columns:1fr;}}
-	.mapart-frame{position:relative;background:#0C140F;border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;align-items:center;justify-content:center;cursor:zoom-in;}
+	.mapart-frame{position:relative;background:var(--img-bg,#0C140F);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;align-items:center;justify-content:center;cursor:zoom-in;}
 	.mapart-frame img{max-width:100%;max-height:70vh;image-rendering:pixelated;display:block;border-radius:4px;box-shadow:0 10px 34px rgba(0,0,0,0.55);}
-	.mapart-spy{position:absolute;right:12px;bottom:12px;background:rgba(16,27,20,0.85);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13px;color:var(--muted);}
+	.mapart-spy{position:absolute;right:12px;bottom:12px;background:rgba(var(--bg-rgb),0.85);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13px;color:var(--muted);}
 	.mapart-detail h1{font-family:var(--font-display);font-weight:600;font-size:34px;margin:0 0 6px;line-height:1.15;}
 	.mapart-detail .by{color:var(--shell);font-size:16px;margin:0 0 14px;}
 	.mapart-detail .by a{color:var(--shell);}
@@ -238,16 +238,16 @@
 	.comm-box .ch{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
 	.comm-box .ch b{font-family:var(--font-display);font-size:17px;}
 	.comm-pill{font-size:11.5px;border-radius:999px;padding:2px 10px;border:1px solid var(--line);}
-	.comm-pill.open{color:var(--accent);border-color:rgba(183,226,61,0.5);}
+	.comm-pill.open{color:var(--accent);border-color:rgba(var(--accent-rgb),0.5);}
 	.comm-pill.closed{color:var(--muted);}
-	.seller-rating{font-size:11.5px;border-radius:999px;padding:2px 10px;border:1px solid rgba(183,226,61,0.5);color:var(--accent);font-weight:600;}
+	.seller-rating{font-size:11.5px;border-radius:999px;padding:2px 10px;border:1px solid rgba(var(--accent-rgb),0.5);color:var(--accent);font-weight:600;}
 	.seller-rating .n{color:var(--muted);font-weight:400;}
 	.comm-box .info{white-space:pre-wrap;font-size:14px;color:var(--text);margin:6px 0;}
 	.comm-box .disc{font-size:13.5px;color:var(--shell);}
 	.pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;}
 	.pm-card{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;text-decoration:none;color:var(--text);}
 	.pm-card:hover{border-color:var(--accent-dim);}
-	.pm-card .im{height:170px;background:#0C140F;display:flex;align-items:center;justify-content:center;padding:8px;}
+	.pm-card .im{height:170px;background:var(--img-bg,#0C140F);display:flex;align-items:center;justify-content:center;padding:8px;}
 	.pm-card .im img{max-width:100%;max-height:100%;image-rendering:pixelated;}
 	.pm-card .in{padding:9px 12px 11px;font-size:13px;}
 	.pm-card .t{font-weight:600;font-size:14.5px;}
@@ -275,7 +275,7 @@
 	.mapart-pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;}
 	.mapart-pill{display:inline-block;font-size:12px;font-family:var(--font-mono);color:var(--muted);background:var(--panel-alt);border:1px solid var(--line);border-radius:999px;padding:3px 10px;}
 	.mapart-pill.cat{color:var(--info);border-color:rgba(140,147,232,0.4);}
-	.mapart-pill.ok{color:var(--accent);border-color:rgba(183,226,61,0.45);}
+	.mapart-pill.ok{color:var(--accent);border-color:rgba(var(--accent-rgb),0.45);}
 	.mapart-facts{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px;}
 	.mapart-facts dt{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 2px;}
 	.mapart-facts dt:first-child{margin-top:0;}
@@ -288,6 +288,8 @@
 	.notfound h1{font-family:var(--font-display);font-size:40px;margin:0 0 10px;}
 	.notfound p{color:var(--muted);font-size:14.5px;}
 </style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
 </head>
 <body>
 

@@ -14,7 +14,7 @@
 <script src="/mapart-report.js" defer></script>
 <style>
 	:root{
-		--bg:#101B14;
+		--bg:#101B14; --bg-rgb:16,27,20;
 		--panel:#1B2A20;
 		--panel-alt:#22332A;
 		--line:#33453A;
@@ -22,7 +22,7 @@
 		--text:#EAEFE7;
 		--shell:#D9C89A;
 		--shell-dim:#A99A73;
-		--accent:#B7E23D;
+		--accent:#B7E23D; --accent-rgb:183,226,61;
 		--accent-dim:#87AE29;
 		--accent-ink:#16210F;
 		--warn:#E2A33D;
@@ -36,7 +36,7 @@
 	body{
 		margin:0;
 		background:
-			radial-gradient(1200px 500px at 15% -10%, rgba(183,226,61,0.07), transparent 60%),
+			radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%),
 			var(--bg);
 		color:var(--text);
 		font-family:var(--font-body);
@@ -73,7 +73,7 @@
 	}
 	.brand .tag em{color:var(--shell);font-style:normal;}
 	.brand-row{display:flex;align-items:center;gap:14px;}
-	.brand-mark{flex:0 0 auto;width:44px;height:44px;filter:drop-shadow(0 4px 10px rgba(183,226,61,0.18));}
+	.brand-mark{flex:0 0 auto;width:44px;height:44px;filter:drop-shadow(0 4px 10px rgba(var(--accent-rgb),0.18));}
 	.brand-mark path{fill:var(--accent);}
 	.upload-cta{
 		display:inline-block;
@@ -89,9 +89,9 @@
 		white-space:nowrap;
 		text-decoration:none;
 		transition:transform .12s ease, box-shadow .12s ease;
-		box-shadow:0 0 0 rgba(183,226,61,0);
+		box-shadow:0 0 0 rgba(var(--accent-rgb),0);
 	}
-	.upload-cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(183,226,61,0.18);}
+	.upload-cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(var(--accent-rgb),0.18);}
 	.upload-cta:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
 	/* Flashy treatment for the download CTA — same thin pill family as the nav's
 	   Rare-dle button (site-nav.js: moving gradient, soft glow, a light shine
@@ -212,7 +212,7 @@
 	.saved-menu .saved-empty{font-size:13px;color:var(--muted);padding:6px 4px;white-space:normal;}
 	.saved-row{display:flex;align-items:center;gap:2px;}
 	.search-box .saved-menu button{background:transparent;border:none;border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--font-body);font-size:13.5px;font-weight:500;cursor:pointer;}
-	.search-box .saved-menu button:hover{background:rgba(183,226,61,0.10);border:none;}
+	.search-box .saved-menu button:hover{background:rgba(var(--accent-rgb),0.10);border:none;}
 	.search-box .saved-menu .saved-q{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 	.search-box .saved-menu .saved-pin,.search-box .saved-menu .saved-x{flex:0 0 auto;padding:6px 7px;color:var(--muted);}
 	.search-box .saved-menu .saved-pin.on{color:var(--accent);}
@@ -220,7 +220,7 @@
 
 	.rare-notice{
 		margin-top:10px;padding:9px 14px;border-radius:10px;
-		background:rgba(183,226,61,0.08);border:1px solid var(--accent-dim);
+		background:rgba(var(--accent-rgb),0.08);border:1px solid var(--accent-dim);
 		color:var(--accent);font-size:13.5px;font-weight:600;
 	}
 	.rare-notice[hidden]{display:none;}
@@ -336,7 +336,7 @@
 	thead th:hover{color:var(--accent);}
 	thead th .sort-arrow{color:var(--accent);font-size:10px;}
 	tbody tr{border-bottom:1px solid var(--line);}
-	tbody tr:hover{background:rgba(183,226,61,0.045);}
+	tbody tr:hover{background:rgba(var(--accent-rgb),0.045);}
 	tbody td{padding:10px 12px;vertical-align:top;white-space:nowrap;}
 	td.item-name{font-weight:600;color:var(--text);white-space:normal;}
 	td.item-icon{padding-right:0;}
@@ -345,8 +345,8 @@
 	   click to zoom (see openMapartZoom). */
 	td.item-icon.mapart-icon{padding-right:8px;}
 	.mapart-thumb{position:relative;display:inline-block;cursor:zoom-in;line-height:0;}
-	td.item-icon .mapart-thumb img{width:auto;height:auto;max-width:110px;max-height:76px;border-radius:4px;border:1px solid var(--line);background:#0C140F;}
-	.mapart-thumb .spy{position:absolute;right:2px;bottom:2px;font-size:11px;line-height:1;background:rgba(16,27,20,0.85);border:1px solid var(--line);border-radius:999px;padding:2px 4px;}
+	td.item-icon .mapart-thumb img{width:auto;height:auto;max-width:110px;max-height:76px;border-radius:4px;border:1px solid var(--line);background:var(--img-bg,#0C140F);}
+	.mapart-thumb .spy{position:absolute;right:2px;bottom:2px;font-size:11px;line-height:1;background:rgba(var(--bg-rgb),0.85);border:1px solid var(--line);border-radius:999px;padding:2px 4px;}
 	.mapart-zoom{position:fixed;inset:0;background:rgba(6,10,7,0.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;}
 	.mapart-zoom img{max-width:96vw;max-height:94vh;image-rendering:pixelated;display:block;}
 	td.base-item, td.position{font-family:var(--font-mono);color:var(--muted);font-size:12.5px;}
@@ -354,7 +354,7 @@
 	.badge{
 		display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;
 	}
-	.badge.bulk{background:rgba(183,226,61,0.16);color:var(--accent);}
+	.badge.bulk{background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
 	.badge.bundled{background:rgba(217,200,154,0.18);color:var(--shell);}
 	.badge.single{background:rgba(140,147,232,0.18);color:var(--info);}
 	.badge.mixed{background:rgba(226,163,61,0.18);color:var(--warn);}
@@ -392,8 +392,8 @@
 	.promo-btn.primary:hover{background:var(--accent-dim);color:var(--accent-ink);}
 	.promo-loading{color:var(--muted);font-size:13.5px;margin:auto;}
 	/* mapart of the day */
-	.promo-motd{flex-direction:row;gap:20px;background:linear-gradient(135deg,rgba(183,226,61,0.09),transparent 55%),var(--panel);}
-	.promo-motd .motd-img{flex:0 0 46%;max-width:46%;display:flex;align-items:center;justify-content:center;background:#0C140F;border:1px solid var(--line);border-radius:12px;padding:10px;text-decoration:none;}
+	.promo-motd{flex-direction:row;gap:20px;background:linear-gradient(135deg,rgba(var(--accent-rgb),0.09),transparent 55%),var(--panel);}
+	.promo-motd .motd-img{flex:0 0 46%;max-width:46%;display:flex;align-items:center;justify-content:center;background:var(--img-bg,#0C140F);border:1px solid var(--line);border-radius:12px;padding:10px;text-decoration:none;}
 	.promo-motd .motd-img img{max-width:100%;max-height:230px;image-rendering:pixelated;border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,0.5);display:block;}
 	.promo-motd .motd-body{display:flex;flex-direction:column;min-width:0;flex:1;}
 	.promo-motd .promo-title a{color:inherit;text-decoration:none;}
@@ -407,9 +407,9 @@
 	.promo-raredle .promo-btn.primary:hover{filter:brightness(1.08);}
 	/* marketplace ad */
 	.promo-market{background:linear-gradient(160deg,rgba(79,195,247,0.13),rgba(111,227,200,0.05) 55%,transparent),var(--panel);border-color:rgba(79,195,247,0.35);}
-	.promo-market .promo-kicker{color:#6FE3C8;}
+	.promo-market .promo-kicker{color:var(--accent-2,#6FE3C8);}
 	.promo-stat{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);background:var(--panel-alt);border:1px solid var(--line);border-radius:999px;padding:4px 12px;margin:0 0 12px;align-self:flex-start;}
-	.promo-stat b{color:#6FE3C8;font-family:var(--font-mono);}
+	.promo-stat b{color:var(--accent-2,#6FE3C8);font-family:var(--font-mono);}
 	@media (max-width:1100px){.promo-strip{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}.promo-motd{grid-column:1 / -1;}}
 	@media (max-width:640px){.promo-strip{grid-template-columns:1fr;}.promo-motd{flex-direction:column;}.promo-motd .motd-img{max-width:100%;flex:none;}}
 	.dym{color:var(--muted);font-size:13.5px;margin:6px 0 0;}
@@ -461,7 +461,7 @@
 		border:1.5px dashed var(--line);border-radius:12px;padding:32px 18px;text-align:center;
 		color:var(--muted);cursor:pointer;transition:border-color .15s ease, background .15s ease;
 	}
-	.dropzone.drag{border-color:var(--accent);background:rgba(183,226,61,0.06);color:var(--text);}
+	.dropzone.drag{border-color:var(--accent);background:rgba(var(--accent-rgb),0.06);color:var(--text);}
 	.dropzone strong{color:var(--shell);}
 	.modal .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
 	.modal .modal-actions button{
@@ -592,7 +592,7 @@
 	}
 	.download-warning a{color:var(--warn);font-weight:700;text-decoration:underline;white-space:nowrap;}
 	.download-option-cta{margin:4px 0 18px;text-align:center;border-color:var(--accent);}
-	.download-option-cta:hover{border-color:var(--accent);background:rgba(183,226,61,0.08);}
+	.download-option-cta:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),0.08);}
 	.download-option-cta strong{color:var(--accent);font-size:15px;}
 
 	.shared-shop-cta{text-align:center;padding:8px 0 28px;}
@@ -612,6 +612,8 @@
 
 	footer.site{padding:20px 0 40px;color:var(--muted);font-size:12.5px;text-align:center;}
 </style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
 </head>
 <body>
 

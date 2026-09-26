@@ -9,14 +9,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 	:root{
-		--bg:#101B14;
+		--bg:#101B14; --bg-rgb:16,27,20;
 		--panel:#1B2A20;
 		--panel-alt:#22332A;
 		--line:#33453A;
 		--muted:#8FA593;
 		--text:#EAEFE7;
 		--shell:#D9C89A;
-		--accent:#B7E23D;
+		--accent:#B7E23D; --accent-rgb:183,226,61;
 		--accent-dim:#87AE29;
 		--accent-ink:#16210F;
 		--info:#8C93E8;
@@ -29,7 +29,7 @@
 	body{
 		margin:0;
 		background:
-			radial-gradient(1200px 500px at 15% -10%, rgba(183,226,61,0.07), transparent 60%),
+			radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%),
 			var(--bg);
 		color:var(--text);
 		font-family:var(--font-body);
@@ -71,7 +71,7 @@
 	.swatch{width:16px;height:16px;border-radius:4px;border:1px solid var(--line);display:inline-block;}
 	.swatch.unclaimed{background:rgba(255,255,255,0.12);}
 	.swatch.claimed{background:rgba(140,147,232,0.45);}
-	.swatch.done{background:rgba(183,226,61,0.45);}
+	.swatch.done{background:rgba(var(--accent-rgb),0.45);}
 
 	#progressLine{color:var(--muted);font-size:13px;margin:0 0 18px;}
 
@@ -115,11 +115,11 @@
 	.square.leaf.unclaimed:hover{background:rgba(255,255,255,0.22);}
 	.square.leaf.claimed{background:rgba(140,147,232,0.45);}
 	.square.leaf.claimed:hover{background:rgba(140,147,232,0.6);}
-	.square.leaf.done{background:rgba(183,226,61,0.45);cursor:default;}
-	.square.leaf.done:hover{background:rgba(183,226,61,0.45);}
+	.square.leaf.done{background:rgba(var(--accent-rgb),0.45);cursor:default;}
+	.square.leaf.done:hover{background:rgba(var(--accent-rgb),0.45);}
 	.square.leaf.highlighted{
 		outline:3px solid var(--accent);outline-offset:-3px;
-		box-shadow:0 0 0 4px rgba(183,226,61,0.25);
+		box-shadow:0 0 0 4px rgba(var(--accent-rgb),0.25);
 	}
 	.sq-coords{font-family:var(--font-mono);font-size:11px;line-height:1.5;color:var(--text);opacity:0.85;pointer-events:none;white-space:nowrap;}
 	.square.top .sq-coords{font-size:10.5px;opacity:0.7;}
@@ -193,6 +193,8 @@
 		.sq-user{font-size:10px;margin-top:2px;}
 	}
 </style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
 </head>
 <body>
 

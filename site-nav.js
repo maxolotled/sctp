@@ -82,11 +82,11 @@
 			"background:linear-gradient(90deg,#B7E23D,#6FE3C8,#4FC3F7,#B7E23D);background-size:300% auto;" +
 			"-webkit-background-clip:text;background-clip:text;color:transparent;animation:siteNavGradientShift 3s linear infinite;}" +
 		"@keyframes siteNavGradientShift{0%{background-position:0% center;}100%{background-position:300% center;}}" +
-		".site-nav-new-badge{display:inline-block;margin-left:6px;padding:2px 6px;border-radius:999px;background:linear-gradient(135deg,var(--accent,#B7E23D),#6FE3C8);color:var(--accent-ink,#16210F);font-size:10px;font-weight:800;letter-spacing:0.04em;line-height:1.3;vertical-align:2px;box-shadow:0 0 0 rgba(183,226,61,0.6);animation:siteNavNewPulse 1.8s ease-in-out infinite;}" +
+		".site-nav-new-badge{display:inline-block;margin-left:6px;padding:2px 6px;border-radius:999px;background:linear-gradient(135deg,var(--accent,#B7E23D),#6FE3C8);color:var(--accent-ink,#16210F);font-size:10px;font-weight:800;letter-spacing:0.04em;line-height:1.3;vertical-align:2px;box-shadow:0 0 0 rgba(var(--accent-rgb,183,226,61),0.6);animation:siteNavNewPulse 1.8s ease-in-out infinite;}" +
 		"@keyframes siteNavNewPulse{" +
-			"0%{transform:scale(1);box-shadow:0 0 0 0 rgba(183,226,61,0.55);}" +
-			"50%{transform:scale(1.12);box-shadow:0 0 8px 3px rgba(183,226,61,0.35);}" +
-			"100%{transform:scale(1);box-shadow:0 0 0 0 rgba(183,226,61,0);}" +
+			"0%{transform:scale(1);box-shadow:0 0 0 0 rgba(var(--accent-rgb,183,226,61),0.55);}" +
+			"50%{transform:scale(1.12);box-shadow:0 0 8px 3px rgba(var(--accent-rgb,183,226,61),0.35);}" +
+			"100%{transform:scale(1);box-shadow:0 0 0 0 rgba(var(--accent-rgb,183,226,61),0);}" +
 		"}" +
 		// The outer .site-nav-new-popup sits flush against the wrap (top:100%,
 		// zero gap) and reaches the visible card only via padding-top — that
@@ -97,7 +97,7 @@
 		// in that gap before the pointer ever reached the card).
 		".site-nav-new-popup{position:absolute;top:100%;right:0;padding-top:10px;width:250px;max-width:calc(100vw - 40px);opacity:0;visibility:hidden;transition:opacity .18s ease,visibility .18s;z-index:100;pointer-events:none;}" +
 		".site-nav-new-wrap:hover .site-nav-new-popup{opacity:1;visibility:visible;pointer-events:auto;}" +
-		".site-nav-new-popup-card{background:var(--panel,#1B2A20);border:1px solid var(--accent,#B7E23D);border-radius:12px;padding:14px;font-size:12.5px;line-height:1.5;color:var(--text,#EAEFE7);box-shadow:0 10px 30px rgba(0,0,0,0.45),0 0 22px rgba(183,226,61,0.25);text-align:left;white-space:normal;transform:translateY(-6px);transition:transform .18s ease;}" +
+		".site-nav-new-popup-card{background:var(--panel,#1B2A20);border:1px solid var(--accent,#B7E23D);border-radius:12px;padding:14px;font-size:12.5px;line-height:1.5;color:var(--text,#EAEFE7);box-shadow:0 10px 30px rgba(0,0,0,0.45),0 0 22px rgba(var(--accent-rgb,183,226,61),0.25);text-align:left;white-space:normal;transform:translateY(-6px);transition:transform .18s ease;}" +
 		".site-nav-new-wrap:hover .site-nav-new-popup-card{transform:translateY(0);}" +
 		".site-nav-new-popup strong{display:block;margin-bottom:6px;color:var(--accent,#B7E23D);font-size:13.5px;}" +
 		".site-nav-new-cta-row{display:block;margin-top:10px;}" +

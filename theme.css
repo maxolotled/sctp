@@ -1,0 +1,228 @@
+/*
+ * SCTP — Halloween / fall theme (pairs with themes/halloween.js).
+ *
+ * Pumpkin orange on a dark plum night, candlelight gold for secondary text,
+ * a witchy purple as the second accent. Decorations: a moon with bats and a
+ * cobweb in the corners, jack-o-lanterns on the header and footer, falling
+ * leaves (with an on/off button), the odd bat flying past, a witch hat on the
+ * snail and Halloween page icons; the moving parts come from halloween.js.
+ *
+ * Only the shared colour tokens are overridden, so every page's own layout is
+ * untouched. --warn / --bad / --info are left alone on purpose: they're status
+ * colours, and Rare-dle gives them its own meanings.
+ *
+ * Active while copied to /theme.css. To revert, copy themes/original.css over
+ * /theme.css (and themes/original.js over /theme.js). See themes/README.md.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Creepster&display=swap");
+
+:root{
+	--bg:#140E12; --bg-rgb:20,14,18;
+	--panel:#221820; --panel-alt:#2C2029; --line:#443240;
+	--muted:#A8949F; --text:#F3EBE4; --shell:#E9B872;
+	--accent:#FF8C2B; --accent-rgb:255,140,43; --accent-dim:#D96F12; --accent-ink:#231003;
+	--accent-2:#B57BFF;
+	--img-bg:#0E090D;
+}
+
+/* Night sky: a warm moonlit glow top-right, purple mist bottom-left. `html body`
+   so it beats each page's own body{background:…} regardless of order. */
+html body{
+	background:
+		radial-gradient(900px 460px at 88% -6%, rgba(255,176,90,0.12), transparent 60%),
+		radial-gradient(1000px 600px at 0% 105%, rgba(140,70,190,0.14), transparent 60%),
+		var(--bg);
+	/* pinned to the screen, so the glow lines up with the moon and never tiles on short pages */
+	background-attachment:fixed;
+	background-repeat:no-repeat;
+}
+
+/* Page titles in a spooky display face (short titles only, so it stays readable). */
+html header.site h1{
+	font-family:"Creepster", var(--font-display, serif);
+	font-weight:400;
+	letter-spacing:0.04em;
+	color:#FFB067;
+	text-shadow:0 0 18px rgba(255,140,43,0.35);
+}
+/* Creepster runs wider than the normal title font: let long titles wrap on phones. */
+@media (max-width:560px){
+	html header.site h1{font-size:24px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;}
+}
+
+/* Moon (with one bat crossing it) in the top-right corner… */
+html body::before{
+	content:"";
+	position:fixed;
+	top:0;
+	right:0;
+	width:280px;
+	height:230px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.9;
+	background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 280 230'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='0.45' stop-color='%23FFD9A0' stop-opacity='0.35'/%3E%3Cstop offset='1' stop-color='%23FFD9A0' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='205' cy='70' r='78' fill='url(%23g)'/%3E%3Ccircle cx='205' cy='70' r='38' fill='%23FBEBC8'/%3E%3Ccircle cx='191' cy='58' r='7' fill='%23EED7A8'/%3E%3Ccircle cx='216' cy='84' r='9' fill='%23EED7A8'/%3E%3Ccircle cx='221' cy='55' r='4.5' fill='%23EED7A8'/%3E%3Ccircle cx='195' cy='88' r='3.5' fill='%23EED7A8'/%3E%3Cpath transform='translate(180 60) scale(1.7)' fill='%23140E12' d='M0 6C3 2 6 2 8 5C9 3 10 3 11 5C13 2 16 2 19 6C16 5 14 7 13 9C12 7 10.5 7.5 9.5 9C8.5 7.5 7 7 6 9C5 7 3 5 0 6Z'/%3E%3Cg fill='%235A3A6B'%3E%3Cpath transform='translate(104 120) scale(1.4)' d='M0 6C3 2 6 2 8 5C9 3 10 3 11 5C13 2 16 2 19 6C16 5 14 7 13 9C12 7 10.5 7.5 9.5 9C8.5 7.5 7 7 6 9C5 7 3 5 0 6Z'/%3E%3Cpath transform='translate(146 158) scale(1.05)' d='M0 6C3 2 6 2 8 5C9 3 10 3 11 5C13 2 16 2 19 6C16 5 14 7 13 9C12 7 10.5 7.5 9.5 9C8.5 7.5 7 7 6 9C5 7 3 5 0 6Z'/%3E%3C/g%3E%3C/svg%3E");
+}
+/* …and a cobweb in the top-left one. */
+html body::after{
+	content:"";
+	position:fixed;
+	top:0;
+	left:0;
+	width:150px;
+	height:150px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.28;
+	background:no-repeat top left/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 150' fill='none' stroke='%23E9DCCB' stroke-width='1'%3E%3Cpath d='M0 0L150 38M0 0L128 92M0 0L92 128M0 0L38 150'/%3E%3Cpath d='M0 26Q14 24 22 20Q24 12 26 0M0 56Q30 52 48 44Q54 26 56 0M0 88Q46 82 74 68Q84 40 88 0M0 122Q62 112 100 92Q114 54 120 0'/%3E%3Cpath d='M92 64l3 16M95 80c-2 3-6 3-7 0s2-6 5-5' stroke-width='1.2'/%3E%3C/svg%3E");
+}
+@media (max-width:700px){
+	html body::before{width:150px;height:124px;opacity:0.6;}
+	html body::after{width:90px;height:90px;}
+}
+
+::selection{background:rgba(255,140,43,0.35);color:#fff;}
+
+/* ---- jack-o-lanterns (added by halloween.js) ---- */
+html header.site{position:relative;}
+.hw-porch{
+	position:absolute;
+	left:clamp(8px, calc(50% - 690px), 60px);
+	bottom:-3px;
+	display:flex;
+	align-items:flex-end;
+	gap:2px;
+	pointer-events:none;
+}
+.hw-porch svg{display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,0.5));}
+.hw-face{animation:hwFlicker 3.2s infinite;}
+.hw-porch svg:nth-child(2) .hw-face{animation-duration:2.6s;animation-delay:-1.1s;}
+.hw-porch svg:nth-child(3) .hw-face{animation-duration:3.8s;animation-delay:-2s;}
+@keyframes hwFlicker{
+	0%,100%{opacity:1;filter:drop-shadow(0 0 3px #FFB347);}
+	42%{opacity:0.82;filter:drop-shadow(0 0 1px #FFB347);}
+	46%{opacity:1;filter:drop-shadow(0 0 5px #FFC66B);}
+	71%{opacity:0.9;}
+	74%{opacity:0.7;filter:drop-shadow(0 0 1px #FFB347);}
+	77%{opacity:1;}
+}
+/* The porch sits in the side margin on wide screens; on narrow ones there's no room. */
+@media (max-width:1100px){ .hw-porch{display:none;} }
+
+.hw-footer-porch{
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	gap:10px;
+	margin:0 0 10px;
+	color:var(--shell);
+	font-family:"Creepster", var(--font-display, serif);
+	font-size:17px;
+	letter-spacing:0.05em;
+}
+.hw-footer-porch svg{display:block;}
+
+/* ---- witch hat on the snail logo ---- */
+.hw-hat-wrap{position:relative;display:inline-flex;flex:0 0 auto;}
+.hw-hat{
+	position:absolute;
+	width:78%;
+	aspect-ratio:32/28;
+	top:-50%;
+	right:-22%;
+	transform:rotate(18deg);
+	pointer-events:none;
+	filter:drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+}
+.hw-hat svg{display:block;}
+
+/* ---- falling leaves ---- */
+.hw-leaves{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:60;}
+.hw-leaf{
+	position:absolute;
+	top:-40px;
+	animation-name:hwFall;
+	animation-timing-function:linear;
+	animation-iteration-count:infinite;
+	will-change:transform;
+}
+.hw-leaf-sway{
+	animation-name:hwSway;
+	animation-timing-function:ease-in-out;
+	animation-iteration-count:infinite;
+	animation-direction:alternate;
+	opacity:0.85;
+}
+.hw-leaf-sway svg{display:block;filter:drop-shadow(0 2px 2px rgba(0,0,0,0.35));}
+@keyframes hwFall{
+	from{transform:translateY(0);}
+	to{transform:translateY(calc(100vh + 80px));}
+}
+@keyframes hwSway{
+	from{transform:translateX(calc(var(--hw-drift, 50px) * -0.5)) rotate(-35deg);}
+	to{transform:translateX(calc(var(--hw-drift, 50px) * 0.5)) rotate(35deg);}
+}
+
+.hw-leaf-toggle{
+	position:fixed;
+	left:14px;
+	bottom:calc(14px + env(safe-area-inset-bottom, 0px));
+	z-index:70;
+	width:38px;
+	height:38px;
+	border-radius:50%;
+	border:1px solid var(--line);
+	background:var(--panel);
+	font-size:18px;
+	line-height:1;
+	cursor:pointer;
+	box-shadow:0 4px 14px rgba(0,0,0,0.4);
+	transition:transform .15s ease, opacity .15s ease;
+}
+.hw-leaf-toggle:hover{transform:scale(1.08);border-color:var(--accent-dim);}
+.hw-leaf-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.hw-leaf-toggle.off{opacity:0.55;filter:grayscale(0.7);}
+
+/* ---- the occasional bat ---- */
+.hw-bat{
+	position:fixed;
+	left:0;
+	z-index:60;
+	pointer-events:none;
+	animation:hwBatFly 9s linear forwards;
+}
+.hw-bat.rtl{animation-name:hwBatFlyBack;}
+.hw-bat svg{display:block;animation:hwFlap .22s ease-in-out infinite alternate;transform-origin:50% 60%;}
+@keyframes hwFlap{from{transform:scaleY(1);}to{transform:scaleY(0.35);}}
+@keyframes hwBatFly{
+	0%{transform:translate(-60px,0);}
+	25%{transform:translate(25vw,-4vh);}
+	50%{transform:translate(50vw,3vh);}
+	75%{transform:translate(75vw,-3vh);}
+	100%{transform:translate(calc(100vw + 60px),1vh);}
+}
+@keyframes hwBatFlyBack{
+	0%{transform:translate(calc(100vw + 60px),0) scaleX(-1);}
+	25%{transform:translate(75vw,4vh) scaleX(-1);}
+	50%{transform:translate(50vw,-3vh) scaleX(-1);}
+	75%{transform:translate(25vw,3vh) scaleX(-1);}
+	100%{transform:translate(-60px,-1vh) scaleX(-1);}
+}
+
+@media (prefers-reduced-motion: reduce){
+	.hw-face, .hw-bat, .hw-bat svg{animation:none;}
+}
+
+/* ---- restyled bits of existing components ---- */
+
+/* The nav's "new feature" link: site-nav.js injects its own green-teal
+   gradient at runtime (after this file), hence the extra `html` for specificity. */
+html #siteNavMount a.site-nav-new-link,
+html #siteNavMount a.site-nav-new-link:hover,
+html #siteNavMount a.site-nav-new-link.active{
+	background-image:linear-gradient(90deg,#FF8C2B,#FFC857,#B57BFF,#FF8C2B);
+}
+html .site-nav-new-badge{background:linear-gradient(135deg,#FF8C2B,#B57BFF);}
+
+/* Home page download button: blue-purple becomes pumpkin-to-purple. */
+html #downloadMod{background-image:linear-gradient(90deg,#FF7A1A,#B57BFF,#FF4F6D,#FF7A1A);}
