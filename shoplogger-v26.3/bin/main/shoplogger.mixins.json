@@ -6,6 +6,7 @@
   "client": [
     "ClientPlayNetworkHandlerMixin",
     "GuiScreenMixin",
+    "InteractionMixin",
     "MouseHandlerMixin",
     "ScreenMixin"
   ],

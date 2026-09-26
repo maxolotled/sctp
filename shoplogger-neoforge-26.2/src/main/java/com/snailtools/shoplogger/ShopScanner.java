@@ -43,7 +43,7 @@ public class ShopScanner {
 		if (client.level == null) return;
 
 		BlockState state = client.level.getBlockState(containerPos);
-		ShopSign found = SignFinder.find(client.level, containerPos, state);
+		ShopSign found = ShopContainers.isDoubleChest(state) ? null : SignFinder.find(client.level, containerPos, state);
 
 		this.pendingContainerPos = found != null ? containerPos : null;
 		this.pendingSign = found;

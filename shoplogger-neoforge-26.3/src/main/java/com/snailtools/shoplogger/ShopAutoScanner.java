@@ -7,6 +7,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
@@ -81,6 +82,10 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 	private BlockPos armedContainerPos = null;
 	private ShopSign armedSign = null;
 	private int armedSyncId = -1;
+	/** True while onInventorySynced() is handling a result, so commands it sends itself (shop info) aren't mistaken for the player's. */
+	private boolean resolving = false;
+	/** No new silent open before this time — see holdOff(). */
+	private long holdOffUntil = 0L;
 	private long lastOpenAttempt = 0L;
 	private int tickCounter = 0;
 
@@ -121,6 +126,37 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 	public void onManualContainerInteract() {
 		SilentScreenCoordinator.yieldToManualOpen();
 		lastOpenAttempt = System.currentTimeMillis();
+		holdOff();
+	}
+
+	/**
+	 * Call whenever the player does something that might open a container
+	 * screen of its own: right-clicking any block with a menu or block entity
+	 * (their own storage chest, a crafting table, a sign with a plugin GUI),
+	 * right-clicking an entity (villager, NPC, donkey), using a custom-named
+	 * item, or running a command (/ah, /menu...). See InteractionMixin.
+	 *
+	 * Silent opens are matched to screens purely by arrival order, so that
+	 * screen landing while a silent open is in flight would otherwise be
+	 * taken as the shop's and its contents logged at the wrong chest.
+	 * Releases any in-flight silent open and holds off starting a new one
+	 * until the player's screen has had time to arrive.
+	 */
+	public void onPlayerMayOpenScreen() {
+		if (selfInteracting || resolving) return;
+		if (armed) SilentScreenCoordinator.yieldToManualOpen();
+		holdOff();
+	}
+
+	/**
+	 * Pause silent opens long enough for any screen still on its way to
+	 * arrive while nothing is armed. That screen could be the player's own, or
+	 * a late reply to a silent open that was just released or timed out. Scales
+	 * with recent round trips so it stretches during lag.
+	 */
+	private void holdOff() {
+		long ms = roundTripSampleCount == 0 ? 2000L : Math.max(1500L, Math.min(5000L, worstRoundTripMs() * 4));
+		holdOffUntil = Math.max(holdOffUntil, System.currentTimeMillis() + ms);
 	}
 
 	/** Records that a container was just scanned — called by both the silent and manual scan paths. */
@@ -173,9 +209,13 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 	 */
 	private long getAdaptiveCooldownMs() {
 		if (roundTripSampleCount == 0) return DEFAULT_COOLDOWN_MS;
+		return Math.max(MIN_COOLDOWN_MS, Math.min(MAX_COOLDOWN_MS, worstRoundTripMs() * COOLDOWN_SAFETY_MULTIPLIER));
+	}
+
+	private long worstRoundTripMs() {
 		long worst = 0;
 		for (int i = 0; i < roundTripSampleCount; i++) worst = Math.max(worst, roundTripSamplesMs[i]);
-		return Math.max(MIN_COOLDOWN_MS, Math.min(MAX_COOLDOWN_MS, worst * COOLDOWN_SAFETY_MULTIPLIER));
+		return worst;
 	}
 
 	/** TEMPORARY (see CHANGELOG 2.2) — exposes the adaptive cooldown for TempScanWaitOverlay. */
@@ -199,6 +239,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 		if (client.player.containerMenu != client.player.inventoryMenu) return; // player has a container open themselves — don't compete for it
 		if (isHoldingPausingItem(client)) return; // see isHoldingPausingItem() — don't silently right-click while holding one of these
 		long now = System.currentTimeMillis();
+		if (now < holdOffUntil) return;
 		if (now - lastOpenAttempt < getAdaptiveCooldownMs()) return;
 
 		findNextTarget(client).ifPresent(target -> {
@@ -251,6 +292,12 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 	private void openSilently(Minecraft client, BlockPos containerPos, ShopSign sign) {
 		if (client.gameMode == null || client.player == null) return;
+		// Became a double chest since discovery (a second chest placed next to
+		// it): never scan it. forgetGoneShops() drops it on its next pass.
+		if (ShopContainers.isDoubleChest(client.level.getBlockState(containerPos))) {
+			markScanned(containerPos);
+			return;
+		}
 		if (!SilentScreenCoordinator.arm(this)) return; // something else is mid-silent-open; try again later
 
 		Vec3 center = Vec3.atCenterOf(containerPos);
@@ -272,6 +319,13 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 	// ---- SilentScreenCoordinator.Listener ----
 
+	/** A shop (single chest or barrel — double chests are never scanned) opens as a plain 3-row chest menu; anything else isn't ours. */
+	@Override
+	public boolean accepts(AbstractContainerMenu handler) {
+		if (!armed) return true;
+		return handler instanceof ChestMenu chest && chest.getRowCount() == 3;
+	}
+
 	@Override
 	public void onScreenSuppressed(AbstractContainerMenu handler) {
 		if (!armed) return;
@@ -289,8 +343,18 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 			return;
 		}
 
+		resolving = true;
+		try {
+			resolve(client, syncId, netHandler);
+		} finally {
+			resolving = false;
+		}
+		disarm();
+	}
+
+	private void resolve(Minecraft client, int syncId, ClientPacketListener netHandler) {
 		AbstractContainerMenu handler = client.player.containerMenu;
-		if (handler != null && handler.containerId == syncId) {
+		if (handler != null && handler.containerId == syncId && accepts(handler)) {
 			List<ShopEntry> entries = ShopEntryFactory.build(handler, armedSign, armedContainerPos);
 			ShopWorld world = WorldSelection.get();
 			if (world != null) {
@@ -311,13 +375,13 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 		// screen handler, matching what a normal close does.
 		netHandler.send(new ServerboundContainerClosePacket(syncId));
 		client.player.containerMenu = client.player.inventoryMenu;
-
-		disarm();
 	}
 
+	/** Also reached via yieldToManualOpen() — either way our screen may still be on its way, so hold off before the next silent open can be armed to receive it. */
 	@Override
 	public void onWatchdogTimeout() {
 		disarm();
+		holdOff();
 	}
 
 	private void disarm() {
@@ -359,6 +423,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 					if (knownShops.containsKey(pos)) continue;
 
 					BlockState state = world.getBlockState(pos);
+					if (ShopContainers.isDoubleChest(state)) continue;
 					ShopSign sign = SignFinder.find(world, pos, state);
 					if (sign != null) {
 						knownShops.put(pos.immutable(), sign);
@@ -389,6 +454,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 			BlockEntity be = world.getBlockEntity(pos);
 			BlockState state = world.getBlockState(pos);
 			boolean stillValid = ShopContainers.isShopContainer(be)
+					&& !ShopContainers.isDoubleChest(state)
 					&& SignFinder.find(world, pos, state) != null;
 
 			if (stillValid) {

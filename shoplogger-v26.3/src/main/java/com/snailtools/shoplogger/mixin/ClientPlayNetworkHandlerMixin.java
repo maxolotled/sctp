@@ -1,6 +1,8 @@
 package com.snailtools.shoplogger.mixin;
 
+import com.snailtools.shoplogger.ShopAutoScanner;
 import com.snailtools.shoplogger.SilentScreenCoordinator;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import org.spongepowered.asm.mixin.Mixin;
@@ -31,5 +33,19 @@ public abstract class ClientPlayNetworkHandlerMixin {
 		if (SilentScreenCoordinator.isArmed()) {
 			SilentScreenCoordinator.onInventorySynced(packet.containerId(), (ClientPacketListener) (Object) this);
 		}
+	}
+
+	// Commands open server GUIs all the time (/ah, /menu, /shop...) — let the
+	// auto-scanner step aside first, same as InteractionMixin. Harmless for
+	// the mod's own commands: onPlayerMayOpenScreen() only acts when the
+	// scanner itself is armed and isn't mid-result.
+	@Inject(method = "sendCommand", at = @At("HEAD"))
+	private void shoplogger$onSendCommand(String command, CallbackInfo ci) {
+		ShopAutoScanner.getInstance().onPlayerMayOpenScreen();
+	}
+
+	@Inject(method = "sendUnattendedCommand", at = @At("HEAD"))
+	private void shoplogger$onSendUnattendedCommand(String command, Screen screen, CallbackInfo ci) {
+		ShopAutoScanner.getInstance().onPlayerMayOpenScreen();
 	}
 }

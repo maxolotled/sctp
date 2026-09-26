@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.1 (mod 2.2.1, September 2026)
+
+### Mod
+- **Fixed shop items sometimes being logged at the wrong chest.** The auto-scanner matched each silently opened chest to "whatever container screen arrives next", so if something else opened at the same moment, its contents could be recorded as that shop's stock. That could be your own chest, a crafting table, a villager, an NPC or a command menu (/ah, /menu...), or a late reply to an earlier scan. Now:
+  - A screen is only accepted if it looks like a shop chest (a plain 3-row chest menu). Anything else is shown to you normally and never logged.
+  - Right-clicking a block with a menu, an entity, or a custom-named item, or running a command, pauses the scanner until your own screen has had time to open.
+  - After a scan gets interrupted or times out, the scanner waits before trying again, so a late reply can't land on the next chest.
+- **Double chests are never scanned** (automatically or when you open one yourself). Shops can't be double chests, so anything in one was never a real listing. Anything previously logged for a double chest gets cleared.
+
 ## 2.2 (mod 2.2, September 2026)
 
 ### Mod

@@ -12,6 +12,17 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 public final class SilentScreenCoordinator {
 
 	public interface Listener {
+		/**
+		 * Whether a container screen arriving right now could plausibly be the
+		 * one this listener's own silent interaction asked for. Screens are
+		 * matched purely by arrival order, so without this ANY container that
+		 * happens to open while armed (the player's own chest, an NPC/command
+		 * GUI, a late screen from an earlier timed-out open) would get handed
+		 * over and its contents logged as the wrong thing. A rejected screen is
+		 * shown to the player normally and this listener is released.
+		 */
+		default boolean accepts(AbstractContainerMenu handler) { return true; }
+
 		void onScreenSuppressed(AbstractContainerMenu handler);
 		void onInventorySynced(int syncId, ClientPacketListener netHandler);
 
@@ -55,6 +66,10 @@ public final class SilentScreenCoordinator {
 		if (current == listener) {
 			current = null;
 		}
+	}
+
+	public static boolean accepts(AbstractContainerMenu handler) {
+		return current == null || current.accepts(handler);
 	}
 
 	public static void onScreenSuppressed(AbstractContainerMenu handler) {

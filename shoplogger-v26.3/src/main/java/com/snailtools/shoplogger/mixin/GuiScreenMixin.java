@@ -51,6 +51,16 @@ public abstract class GuiScreenMixin {
 			return;
 		}
 
+		// Same idea for every other container: if its shape doesn't match what
+		// the armed silent open should produce (e.g. a 3-row chest when a double
+		// chest was clicked, a crafting table, a villager, a server GUI), it
+		// isn't ours — let the player see it and release the silent open,
+		// rather than logging someone else's items as that shop's stock.
+		if (!SilentScreenCoordinator.accepts(containerScreen.getMenu())) {
+			SilentScreenCoordinator.yieldToManualOpen();
+			return;
+		}
+
 		SilentScreenCoordinator.onScreenSuppressed(containerScreen.getMenu());
 		ci.cancel();
 	}
