@@ -1,0 +1,84 @@
+/*
+ * SCTP — birthday theme (pairs with themes/birthday.js), for SCTP's own birthday.
+ *
+ * A party-purple night: hot pink for buttons and links, cyan as the second
+ * accent, candle gold for secondary text, round friendly titles, a bunch of
+ * balloons and curly streamers in the corners. The moving parts (confetti,
+ * rising balloons, confetti pops, the HAPPY BIRTHDAY bunting, cake and presents,
+ * the party hat, icons) come from birthday.js + fx.js.
+ *
+ * Make it live by copying this file over /theme.css and birthday.js over
+ * /theme.js. See themes/README.md.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&display=swap");
+
+:root{
+	--bg:#140E1E; --bg-rgb:20,14,30;
+	--panel:#1F172D; --panel-alt:#271E38; --line:#3A2F52;
+	--muted:#AFA2C8; --text:#F8F2FF; --shell:#FFD86B;
+	--accent:#FF5FA2; --accent-rgb:255,95,162; --accent-dim:#E03E84; --accent-ink:#2B0716;
+	--accent-2:#5CE1E6;
+	--img-bg:#0F0A17;
+}
+
+html body{
+	background:
+		radial-gradient(900px 460px at 88% -6%, rgba(255,95,162,0.12), transparent 60%),
+		radial-gradient(1000px 600px at 0% 105%, rgba(92,225,230,0.10), transparent 60%),
+		var(--bg);
+	background-attachment:fixed;
+	background-repeat:no-repeat;
+}
+
+html header.site h1{
+	font-family:"Fredoka", var(--font-display, serif);
+	font-weight:700;
+	letter-spacing:0.01em;
+	color:#FFE3F0;
+	text-shadow:0 0 14px rgba(255,95,162,0.5);
+}
+@media (max-width:560px){
+	html header.site h1{font-size:25px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;}
+}
+
+/* A bunch of balloons in the top-right corner… */
+html body::before{
+	content:"";
+	position:fixed;
+	top:0;
+	right:0;
+	width:230px;
+	height:240px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.9;
+	background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 230 240'%3E%3Cg fill='none' stroke='%23E8DDF5' stroke-width='1.2' opacity='.7'%3E%3Cpath d='M150 96c-4 30 6 60 20 90M186 84c-4 30-8 64-16 102M216 104c-10 30-26 56-46 82'/%3E%3C/g%3E%3Cpath d='M150 30c18 0 28 16 28 32 0 20-15 34-28 36-13-2-28-16-28-36 0-16 10-32 28-32z' fill='%23FF5FA2'/%3E%3Cpath d='M186 16c18 0 28 16 28 32 0 20-15 34-28 36-13-2-28-16-28-36 0-16 10-32 28-32z' fill='%235CE1E6'/%3E%3Cpath d='M214 44c14 0 22 13 22 26 0 16-12 28-22 30-10-2-22-14-22-30 0-13 8-26 22-26z' fill='%23FFD34D'/%3E%3Cg fill='%23FFFFFF' opacity='.4'%3E%3Cellipse cx='140' cy='48' rx='5' ry='9'/%3E%3Cellipse cx='176' cy='34' rx='5' ry='9'/%3E%3Cellipse cx='206' cy='60' rx='4' ry='7'/%3E%3C/g%3E%3Cpath d='M170 186l-6 10h12z' fill='%23FF5FA2'/%3E%3C/svg%3E");
+}
+/* …and curly streamers with sparkles in the top-left one. */
+html body::after{
+	content:"";
+	position:fixed;
+	top:0;
+	left:0;
+	width:150px;
+	height:140px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.75;
+	background:no-repeat top left/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 140' fill='none' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M10 0c10 20-14 30 0 46s-16 30 0 50' stroke='%23FF5FA2'/%3E%3Cpath d='M44 0c-8 18 14 26 2 42s12 26 0 42' stroke='%235CE1E6'/%3E%3Cpath d='M78 0c10 14-10 22 0 34s-8 20 0 30' stroke='%23FFD34D'/%3E%3Cg fill='%23FFF1C2' stroke='none'%3E%3Cpath d='M112 40l2 6 6 2-6 2-2 6-2-6-6-2 6-2z'/%3E%3Cpath d='M60 104l1.5 5 5 1.5-5 1.5-1.5 5-1.5-5-5-1.5 5-1.5z'/%3E%3Cpath d='M130 96l1.2 4 4 1.2-4 1.2-1.2 4-1.2-4-4-1.2 4-1.2z'/%3E%3C/g%3E%3C/svg%3E");
+}
+@media (max-width:700px){
+	html body::before{width:130px;height:136px;opacity:0.7;}
+	html body::after{width:90px;height:84px;}
+}
+
+::selection{background:rgba(255,95,162,0.35);color:#fff;}
+
+/* ---- restyled bits of existing components ---- */
+html #siteNavMount a.site-nav-new-link,
+html #siteNavMount a.site-nav-new-link:hover,
+html #siteNavMount a.site-nav-new-link.active{
+	background-image:linear-gradient(90deg,#FF5FA2,#FFD34D,#5CE1E6,#FF5FA2);
+}
+html .site-nav-new-badge{background:linear-gradient(135deg,#FF5FA2,#5CE1E6);}
+html #downloadMod{background-image:linear-gradient(90deg,#FF5FA2,#A57BFF,#5CE1E6,#FF5FA2);}

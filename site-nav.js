@@ -43,6 +43,15 @@
 	];
 	var MOBILE_BREAKPOINT = 760;
 
+	// Each compact-layout rule, once inside the narrow-screen media query and
+	// once scoped under #siteNavMount.compact (see updateCompact()).
+	function compactRules(rules) {
+		var scoped = rules.map(function (r) {
+			return r.indexOf("#siteNavMount ") === 0 ? r.replace("#siteNavMount ", "#siteNavMount.compact ") : "#siteNavMount.compact " + r;
+		});
+		return "@media (max-width:" + MOBILE_BREAKPOINT + "px){" + rules.join("") + "}" + scoped.join("");
+	}
+
 	var style = document.createElement("style");
 	style.textContent =
 		// flex-shrink:0 keeps the nav cluster itself always full-size — the
@@ -57,17 +66,22 @@
 		".site-nav-links{display:flex;align-items:center;gap:16px;}" +
 		".site-nav-row{display:flex;align-items:center;gap:12px;}" +
 		".site-nav-toggle{display:none;background:var(--panel-alt,#22332A);border:1px solid var(--line,#33453A);color:var(--text,#EAEFE7);border-radius:8px;width:38px;height:38px;font-size:17px;line-height:1;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;}" +
-		"@media (max-width:" + MOBILE_BREAKPOINT + "px){" +
-			".site-nav-toggle{display:inline-flex;}" +
+		// The compact (hamburger) layout below applies both on narrow screens
+		// (the media query) and whenever this page's own header row is too
+		// narrow for its title + the full link list, e.g. account settings'
+		// 640px column on a desktop screen (#siteNavMount.compact, set by
+		// updateCompact() further down). compactRules() emits each rule twice.
+		compactRules([
+			".site-nav-toggle{display:inline-flex;}",
 			// A floating dropdown (same treatment as account-widget.js's own
 			// .acct-menu) rather than an in-flow block — this is what keeps the
 			// header row itself always on one line, nav staying to the right of
 			// the title instead of ever pushing below it.
-			".site-nav-links{display:none;position:absolute;top:calc(100% + 8px);right:0;flex-direction:column;align-items:stretch;min-width:200px;background:var(--panel,#1B2A20);border:1px solid var(--line,#33453A);border-radius:10px;padding:6px;z-index:90;box-shadow:0 8px 24px rgba(0,0,0,.35);}" +
-			".site-nav-links.open{display:flex;}" +
-			".site-nav-links a{padding:10px 12px;border-radius:6px;font-size:14px;}" +
-			".site-nav-links a:hover{background:var(--panel-alt,#22332A);}" +
-		"}" +
+			".site-nav-links{display:none;position:absolute;top:calc(100% + 8px);right:0;flex-direction:column;align-items:stretch;min-width:200px;background:var(--panel,#1B2A20);border:1px solid var(--line,#33453A);border-radius:10px;padding:6px;z-index:90;box-shadow:0 8px 24px rgba(0,0,0,.35);}",
+			".site-nav-links.open{display:flex;}",
+			".site-nav-links a{padding:10px 12px;border-radius:6px;font-size:14px;}",
+			".site-nav-links a:hover{background:var(--panel-alt,#22332A);}"
+		]) +
 		// "New feature" highlight — a pulsing badge that's always animating (not
 		// just on hover) so it actually catches the eye while scanning the nav,
 		// plus a rich hover popup explaining what's new and nudging toward
@@ -105,10 +119,10 @@
 		".site-nav-new-cta-row a:hover{background:var(--accent-dim,#87AE29);}" +
 		// Mobile dropdown: the wrap needs to behave as a full-width row like
 		// every other link there, and the popup anchors below it the same way.
-		"@media (max-width:" + MOBILE_BREAKPOINT + "px){" +
-			".site-nav-new-wrap{display:flex;width:100%;}" +
-			".site-nav-new-popup{right:6px;}" +
-		"}" +
+		compactRules([
+			".site-nav-new-wrap{display:flex;width:100%;}",
+			".site-nav-new-popup{right:6px;}"
+		]) +
 		// ---- dropdown menus (More, Info) ----
 		".site-nav-dd{position:relative;display:inline-flex;align-items:center;}" +
 		".site-nav-dd-btn{background:none;border:none;color:var(--shell,#D9C89A);font:inherit;font-size:14px;font-weight:600;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:5px;font-family:inherit;}" +
@@ -119,14 +133,14 @@
 		".site-nav-dd.open .site-nav-dd-panel{display:block;}" +
 		".site-nav-dd-panel a{display:block;padding:9px 12px;border-radius:8px;white-space:nowrap;}" +
 		".site-nav-dd-panel a:hover{background:var(--panel-alt,#22332A);}" +
-		"@media (max-width:" + MOBILE_BREAKPOINT + "px){" +
-			".site-nav-dd{display:block;width:100%;}" +
-			".site-nav-dd-btn{width:100%;padding:10px 12px 2px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#8FA593);cursor:default;pointer-events:none;}" +
-			".site-nav-dd-btn .caret{display:none;}" +
-			".site-nav-dd-panel{position:static;transform:none;display:block;min-width:0;border:none;box-shadow:none;background:transparent;padding:0 0 4px 8px;}" +
-			".site-nav-dd-panel a{white-space:normal;}" +
-			".site-nav-links{max-width:calc(100vw - 24px);}" +
-		"}" +
+		compactRules([
+			".site-nav-dd{display:block;width:100%;}",
+			".site-nav-dd-btn{width:100%;padding:10px 12px 2px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#8FA593);cursor:default;pointer-events:none;}",
+			".site-nav-dd-btn .caret{display:none;}",
+			".site-nav-dd-panel{position:static;transform:none;display:block;min-width:0;border:none;box-shadow:none;background:transparent;padding:0 0 4px 8px;}",
+			".site-nav-dd-panel a{white-space:normal;}",
+			".site-nav-links{max-width:calc(100vw - 24px);}"
+		]) +
 		// ---- Rare-dle call-to-action: same "flashy pill" family as the home page's
 		// Download button (site-cta-pill, in index.html) — moving gradient, soft
 		// glow, a light sweep — but thin, fit tightly to its text, in warm colours.
@@ -137,7 +151,7 @@
 		"@keyframes siteNavCtaShift{0%{background-position:0% center;}100%{background-position:300% center;}}" +
 		"@keyframes siteNavCtaGlow{0%{box-shadow:0 0 0 0 rgba(255,122,89,0.40);}50%{box-shadow:0 0 12px 3px rgba(255,122,89,0.28);}100%{box-shadow:0 0 0 0 rgba(255,122,89,0);}}" +
 		"@keyframes siteNavCtaShine{0%{left:-60%;}55%{left:130%;}100%{left:130%;}}" +
-		"@media (max-width:" + MOBILE_BREAKPOINT + "px){#siteNavMount a.site-nav-cta{display:inline-block;margin:6px 4px 2px;}}";
+		compactRules(["#siteNavMount a.site-nav-cta{display:inline-block;margin:6px 4px 2px;}"]);
 	document.head.appendChild(style);
 
 	// "/foo", "/foo/", and "/foo/index.html" are all the same page for
@@ -224,11 +238,49 @@
 		document.addEventListener("click", function (e) { if (!mount.contains(e.target)) closeMenus(); });
 		document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenus(); });
 
+		// Collapse into the hamburger whenever the header row can't fit the
+		// page title (on one line) next to the full link list — not just on
+		// narrow screens. Pages with a narrow content column (account settings,
+		// bug/suggest/report) would otherwise squeeze the title under the nav on
+		// desktop, and seasonal themes swap in wider title fonts.
+		function updateCompact() {
+			var row = mount.parentElement;
+			while (row && row !== document.body && !row.querySelector("h1")) row = row.parentElement;
+			var h1 = row && row !== document.body ? row.querySelector("h1") : null;
+			var wasCompact = mount.classList.contains("compact");
+			mount.classList.remove("compact");
+			var compact = false;
+			if (h1 && window.innerWidth > MOBILE_BREAKPOINT) {
+				var cs = getComputedStyle(row);
+				var rowBox = row.getBoundingClientRect();
+				var rowLeft = rowBox.left + parseFloat(cs.paddingLeft || 0);
+				var rowWidth = rowBox.width - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+				var ws = h1.style.whiteSpace;
+				h1.style.whiteSpace = "nowrap";
+				var range = document.createRange();
+				range.selectNodeContents(h1);
+				var titleRight = range.getBoundingClientRect().right;
+				h1.style.whiteSpace = ws;
+				var need = (titleRight - rowLeft) + 16 + mount.getBoundingClientRect().width;
+				compact = need > rowWidth;
+			}
+			mount.classList.toggle("compact", compact);
+			if (wasCompact && !compact) setOpen(false);
+		}
+		var pending = null;
+		function scheduleCompact() { cancelAnimationFrame(pending); pending = requestAnimationFrame(updateCompact); }
+		scheduleCompact();
+		// the account button, web fonts and theme fonts all arrive a little later
+		setTimeout(scheduleCompact, 400);
+		setTimeout(scheduleCompact, 1500);
+		window.addEventListener("load", scheduleCompact);
+		if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleCompact);
 		// Resizing past the breakpoint (rotating a tablet, restoring a
 		// dev-tools panel) shouldn't leave the drawer stuck open once it's
 		// no longer collapsed.
 		window.addEventListener("resize", function () {
-			if (window.innerWidth > MOBILE_BREAKPOINT) setOpen(false);
+			if (window.innerWidth > MOBILE_BREAKPOINT && !mount.classList.contains("compact")) setOpen(false);
+			scheduleCompact();
 		});
 	}
 

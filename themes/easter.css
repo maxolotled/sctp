@@ -1,0 +1,84 @@
+/*
+ * SCTP — Easter / spring theme (pairs with themes/easter.js).
+ *
+ * A soft spring twilight: blossom pink for buttons and links, mint as the
+ * second accent, peach for secondary text, bouncy rounded titles, a pastel
+ * sun and a cherry-blossom branch in the corners. The moving parts (petals,
+ * bunting, a hopping bunny, butterflies, eggs and a chick on the header,
+ * bunny ears on the snail, icons) come from easter.js + fx.js.
+ *
+ * Make it live by copying this file over /theme.css and easter.js over
+ * /theme.js. See themes/README.md.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Chewy&display=swap");
+
+:root{
+	--bg:#14161F; --bg-rgb:20,22,31;
+	--panel:#1E2130; --panel-alt:#252939; --line:#363B52;
+	--muted:#AAB0C8; --text:#F6F3FA; --shell:#FFD3A8;
+	--accent:#FF9FCF; --accent-rgb:255,159,207; --accent-dim:#E27AB0; --accent-ink:#2A0F1E;
+	--accent-2:#86EEC4;
+	--img-bg:#10121A;
+}
+
+html body{
+	background:
+		radial-gradient(900px 460px at 88% -6%, rgba(255,214,160,0.12), transparent 60%),
+		radial-gradient(1000px 600px at 0% 105%, rgba(134,238,196,0.10), transparent 60%),
+		var(--bg);
+	background-attachment:fixed;
+	background-repeat:no-repeat;
+}
+
+html header.site h1{
+	font-family:"Chewy", var(--font-display, serif);
+	font-weight:400;
+	letter-spacing:0.03em;
+	color:#FFE3F1;
+	text-shadow:0 0 14px rgba(255,159,207,0.45);
+}
+@media (max-width:560px){
+	html header.site h1{font-size:26px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;}
+}
+
+/* A pastel spring sun with a little cloud in the top-right corner… */
+html body::before{
+	content:"";
+	position:fixed;
+	top:0;
+	right:0;
+	width:250px;
+	height:210px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.85;
+	background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 250 210'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='0' stop-color='%23FFE3A8' stop-opacity='0.5'/%3E%3Cstop offset='1' stop-color='%23FFE3A8' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='185' cy='70' r='80' fill='url(%23g)'/%3E%3Cg stroke='%23FFE0A0' stroke-width='5' stroke-linecap='round' opacity='.8'%3E%3Cpath d='M185 8v14M185 118v14M123 70h14M233 70h14M141 26l10 10M219 104l10 10M229 26l-10 10M151 104l-10 10'/%3E%3C/g%3E%3Ccircle cx='185' cy='70' r='34' fill='%23FFE7A8'/%3E%3Ccircle cx='173' cy='66' r='3' fill='%23B8866A'/%3E%3Ccircle cx='197' cy='66' r='3' fill='%23B8866A'/%3E%3Cpath d='M175 78q10 8 20 0' stroke='%23B8866A' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='168' cy='76' r='4' fill='%23FFB7C9' opacity='.7'/%3E%3Ccircle cx='202' cy='76' r='4' fill='%23FFB7C9' opacity='.7'/%3E%3Cpath d='M92 150c0-10 8-16 16-14 3-9 16-11 22-3 9-2 16 5 14 13 7 1 10 9 4 13H96c-5-1-7-6-4-9z' fill='%23F4F1FA' opacity='.85'/%3E%3C/svg%3E");
+}
+/* …and a cherry-blossom branch in the top-left one. */
+html body::after{
+	content:"";
+	position:fixed;
+	top:0;
+	left:0;
+	width:170px;
+	height:130px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.8;
+	background:no-repeat top left/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 170 130'%3E%3Cpath d='M0 18c30 6 58 14 88 34 18 12 34 20 60 24M52 30c6-10 16-16 26-18M96 58c2 14 10 24 20 30' stroke='%236B4A3A' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3Cg fill='%23FFC1DA'%3E%3Ccircle cx='40' cy='26' r='7'/%3E%3Ccircle cx='76' cy='12' r='6'/%3E%3Ccircle cx='92' cy='50' r='8'/%3E%3Ccircle cx='118' cy='86' r='7'/%3E%3Ccircle cx='146' cy='76' r='6'/%3E%3Ccircle cx='66' cy='40' r='5'/%3E%3C/g%3E%3Cg fill='%23FFE2EE'%3E%3Ccircle cx='52' cy='20' r='5'/%3E%3Ccircle cx='104' cy='62' r='5.5'/%3E%3Ccircle cx='130' cy='78' r='4.5'/%3E%3Ccircle cx='24' cy='22' r='4.5'/%3E%3C/g%3E%3Cg fill='%23FFD35A'%3E%3Ccircle cx='40' cy='26' r='2'/%3E%3Ccircle cx='92' cy='50' r='2.2'/%3E%3Ccircle cx='118' cy='86' r='2'/%3E%3C/g%3E%3C/svg%3E");
+}
+@media (max-width:700px){
+	html body::before{width:140px;height:118px;opacity:0.65;}
+	html body::after{width:100px;height:76px;}
+}
+
+::selection{background:rgba(255,159,207,0.35);color:#fff;}
+
+/* ---- restyled bits of existing components ---- */
+html #siteNavMount a.site-nav-new-link,
+html #siteNavMount a.site-nav-new-link:hover,
+html #siteNavMount a.site-nav-new-link.active{
+	background-image:linear-gradient(90deg,#FF9FCF,#FFE08A,#86EEC4,#FF9FCF);
+}
+html .site-nav-new-badge{background:linear-gradient(135deg,#FF9FCF,#86EEC4);}
+html #downloadMod{background-image:linear-gradient(90deg,#FF8CC6,#B9A6FF,#6FE3B8,#FF8CC6);}

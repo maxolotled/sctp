@@ -1,0 +1,87 @@
+/*
+ * SCTP — Lunar New Year theme (pairs with themes/lunarnewyear.js).
+ *
+ * Lucky red and gold: gold for buttons and links on a deep red-black night,
+ * bright red as the second accent, warm gold for secondary text, brush-style
+ * titles, a full moon with plum blossoms and a string of firecrackers in the
+ * corners. The moving parts (gold coins and plum petals, firecracker bursts,
+ * a dragon flying past, red lanterns across the top, red envelopes, gold
+ * ingots and mandarins, the plum-blossom sprig on the snail, icons) come
+ * from lunarnewyear.js + fx.js.
+ *
+ * Make it live by copying this file over /theme.css and lunarnewyear.js over
+ * /theme.js. See themes/README.md.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap");
+
+:root{
+	--bg:#1A0A0A; --bg-rgb:26,10,10;
+	--panel:#26100F; --panel-alt:#301513; --line:#4E2420;
+	--muted:#CBA79B; --text:#FFF3E3; --shell:#F5C35B;
+	--accent:#FFC247; --accent-rgb:255,194,71; --accent-dim:#D9A02A; --accent-ink:#3A0A06;
+	--accent-2:#FF4D3D;
+	--img-bg:#140707;
+}
+
+html body{
+	background:
+		radial-gradient(900px 460px at 88% -6%, rgba(255,194,71,0.12), transparent 60%),
+		radial-gradient(1000px 600px at 0% 105%, rgba(255,77,61,0.12), transparent 60%),
+		var(--bg);
+	background-attachment:fixed;
+	background-repeat:no-repeat;
+}
+
+html header.site h1{
+	font-family:"Ma Shan Zheng", var(--font-display, serif);
+	font-weight:400;
+	letter-spacing:0.02em;
+	color:#FFD27A;
+	text-shadow:0 0 16px rgba(255,77,61,0.55);
+}
+html header.site .brand h1{font-size:36px;}
+@media (max-width:560px){
+	html header.site h1, html header.site .brand h1{font-size:27px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;}
+}
+
+/* A full moon with lucky clouds and plum blossoms in the top-right corner… */
+html body::before{
+	content:"";
+	position:fixed;
+	top:0;
+	right:0;
+	width:260px;
+	height:220px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.9;
+	background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 220'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='0' stop-color='%23FFD27A' stop-opacity='0.45'/%3E%3Cstop offset='1' stop-color='%23FFD27A' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='186' cy='76' r='84' fill='url(%23g)'/%3E%3Ccircle cx='186' cy='76' r='40' fill='%23FFE4A8'/%3E%3Cg fill='none' stroke='%23F5C35B' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M126 128c8-10 22-10 28-2 6-8 20-8 26 2M180 128h40c6 0 10-4 10-9s-4-8-8-8'/%3E%3Cpath d='M106 150c6-7 16-7 20-1 4-6 14-6 18 1M140 150h30'/%3E%3C/g%3E%3Cpath d='M40 30c20 14 40 40 52 70' stroke='%236B3A2A' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3Cg fill='%23FFB7C9'%3E%3Ccircle cx='52' cy='40' r='6'/%3E%3Ccircle cx='70' cy='60' r='7'/%3E%3Ccircle cx='84' cy='84' r='6'/%3E%3C/g%3E%3Cg fill='%23FF4D3D'%3E%3Ccircle cx='52' cy='40' r='2'/%3E%3Ccircle cx='70' cy='60' r='2.2'/%3E%3Ccircle cx='84' cy='84' r='2'/%3E%3C/g%3E%3C/svg%3E");
+}
+/* …and a string of firecrackers in the top-left one. */
+html body::after{
+	content:"";
+	position:fixed;
+	top:0;
+	left:0;
+	width:90px;
+	height:160px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.85;
+	background:no-repeat top left/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 160'%3E%3Cpath d='M40 0v150' stroke='%23F5C35B' stroke-width='2'/%3E%3Cg fill='%23E0332E' stroke='%23F5C35B' stroke-width='1.5'%3E%3Crect x='24' y='20' width='12' height='22' rx='2' transform='rotate(-28 30 31)'/%3E%3Crect x='44' y='36' width='12' height='22' rx='2' transform='rotate(28 50 47)'/%3E%3Crect x='24' y='60' width='12' height='22' rx='2' transform='rotate(-28 30 71)'/%3E%3Crect x='44' y='76' width='12' height='22' rx='2' transform='rotate(28 50 87)'/%3E%3Crect x='24' y='100' width='12' height='22' rx='2' transform='rotate(-28 30 111)'/%3E%3C/g%3E%3Cpath d='M40 140l-8 16h16z' fill='%23F5C35B'/%3E%3C/svg%3E");
+}
+@media (max-width:700px){
+	html body::before{width:150px;height:127px;opacity:0.7;}
+	html body::after{width:56px;height:100px;}
+}
+
+::selection{background:rgba(255,194,71,0.4);color:#fff;}
+
+/* ---- restyled bits of existing components ---- */
+html #siteNavMount a.site-nav-new-link,
+html #siteNavMount a.site-nav-new-link:hover,
+html #siteNavMount a.site-nav-new-link.active{
+	background-image:linear-gradient(90deg,#FFC247,#FF4D3D,#FFE4A8,#FFC247);
+}
+html .site-nav-new-badge{background:linear-gradient(135deg,#FFC247,#FF4D3D);}
+html #downloadMod{background-image:linear-gradient(90deg,#E0332E,#FFB02E,#C2261F,#E0332E);}

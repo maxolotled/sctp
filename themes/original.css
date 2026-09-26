@@ -2,7 +2,9 @@
  * SCTP — original theme (the normal green look).
  *
  * This is a copy of the colours every page already defines in its own :root,
- * so using it as /theme.css changes nothing: it's the "revert" target.
+ * so using it as /theme.css doesn't change the look: it's the "revert" target.
+ * The one addition is pinning the page's background glow to the screen, which
+ * stops it tiling into visible bands on short pages.
  * To switch back from a seasonal theme, copy this file over /theme.css.
  * See themes/README.md.
  */
@@ -13,3 +15,5 @@
 	--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
 	--accent-2:#6FE3C8;
 }
+
+html body{background-attachment:fixed;background-repeat:no-repeat;}

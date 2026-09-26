@@ -1,0 +1,86 @@
+/*
+ * SCTP — cosy autumn theme (pairs with themes/autumn.js), for November:
+ * the spooky-cute follow-up to Halloween.
+ *
+ * Warm cocoa browns, burnt orange for buttons and links, sage as the second
+ * accent, mustard for secondary text, hand-written titles, a friendly little
+ * ghost and an acorn branch in the corners. The moving parts (falling leaves,
+ * soft rain, a ghost drifting past, the leaf garland, mushrooms, cocoa and a
+ * cute pumpkin, the knitted beanie, icons) come from autumn.js + fx.js.
+ *
+ * Make it live by copying this file over /theme.css and autumn.js over
+ * /theme.js. See themes/README.md.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap");
+
+:root{
+	--bg:#17120E; --bg-rgb:23,18,14;
+	--panel:#221A14; --panel-alt:#2B211A; --line:#45362A;
+	--muted:#B4A08C; --text:#F5EBDD; --shell:#E8C27A;
+	--accent:#E07B39; --accent-rgb:224,123,57; --accent-dim:#B85F24; --accent-ink:#231104;
+	--accent-2:#9DB77A;
+	--img-bg:#120D0A;
+}
+
+html body{
+	background:
+		radial-gradient(900px 460px at 88% -6%, rgba(232,194,122,0.10), transparent 60%),
+		radial-gradient(1000px 600px at 0% 105%, rgba(157,183,122,0.10), transparent 60%),
+		var(--bg);
+	background-attachment:fixed;
+	background-repeat:no-repeat;
+}
+
+html header.site h1{
+	font-family:"Caveat", var(--font-display, serif);
+	font-weight:700;
+	letter-spacing:0.01em;
+	color:#FBE3C0;
+	text-shadow:0 0 14px rgba(224,123,57,0.4);
+}
+html header.site .brand h1{font-size:38px;}
+@media (max-width:560px){
+	html header.site h1, html header.site .brand h1{font-size:28px;line-height:1.1;white-space:normal;overflow-wrap:anywhere;}
+}
+
+/* A friendly little ghost with a mug of cocoa in the top-right corner… */
+html body::before{
+	content:"";
+	position:fixed;
+	top:0;
+	right:0;
+	width:230px;
+	height:220px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.85;
+	background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 230 220'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='0' stop-color='%23FFE3B0' stop-opacity='0.3'/%3E%3Cstop offset='1' stop-color='%23FFE3B0' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='160' cy='80' r='80' fill='url(%23g)'/%3E%3Cpath d='M160 30c-24 0-38 20-38 44v58l10-8 9 8 9-8 10 8 10-8 9 8 9-8 10 8V74c0-24-14-44-38-44z' fill='%23F7F1EA'/%3E%3Cellipse cx='146' cy='78' rx='5' ry='7' fill='%232A1E16'/%3E%3Cellipse cx='174' cy='78' rx='5' ry='7' fill='%232A1E16'/%3E%3Ccircle cx='147.5' cy='75.5' r='1.6' fill='%23FFFFFF'/%3E%3Ccircle cx='175.5' cy='75.5' r='1.6' fill='%23FFFFFF'/%3E%3Cellipse cx='137' cy='92' rx='6' ry='3.5' fill='%23FFB7A8' opacity='.8'/%3E%3Cellipse cx='183' cy='92' rx='6' ry='3.5' fill='%23FFB7A8' opacity='.8'/%3E%3Cpath d='M155 92q5 5 10 0' stroke='%232A1E16' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3Crect x='148' y='104' width='24' height='20' rx='4' fill='%23E07B39'/%3E%3Cpath d='M172 108c8 0 8 12 0 12' stroke='%23E07B39' stroke-width='4' fill='none'/%3E%3Cpath d='M154 98c-3-5 3-7 0-12M166 98c-3-5 3-7 0-12' stroke='%23F7F1EA' stroke-width='2' fill='none' stroke-linecap='round' opacity='.7'/%3E%3C/svg%3E");
+}
+/* …and an oak branch with acorns in the top-left one. */
+html body::after{
+	content:"";
+	position:fixed;
+	top:0;
+	left:0;
+	width:150px;
+	height:130px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.8;
+	background:no-repeat top left/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 130'%3E%3Cpath d='M0 14c30 4 60 16 90 36' stroke='%236B4A34' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M56 30c-6 14 0 26 12 30 4-12-2-24-12-30z' fill='%23C2672B'/%3E%3Cpath d='M86 48c10 10 24 12 34 4-8-10-22-12-34-4z' fill='%23D9A441'/%3E%3Cpath d='M26 18c-4 12 2 22 12 24 2-10-4-20-12-24z' fill='%239DB77A'/%3E%3Cg%3E%3Cellipse cx='44' cy='52' rx='8' ry='10' fill='%23A8703E'/%3E%3Cpath d='M34 46c0-6 6-9 10-9s10 3 10 9z' fill='%236B4A34'/%3E%3Cpath d='M44 37v-5' stroke='%236B4A34' stroke-width='2'/%3E%3C/g%3E%3Cg%3E%3Cellipse cx='100' cy='82' rx='7' ry='9' fill='%23A8703E'/%3E%3Cpath d='M91 77c0-5 5-8 9-8s9 3 9 8z' fill='%236B4A34'/%3E%3Cpath d='M100 69v-8' stroke='%236B4A34' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E");
+}
+@media (max-width:700px){
+	html body::before{width:130px;height:124px;opacity:0.65;}
+	html body::after{width:90px;height:78px;}
+}
+
+::selection{background:rgba(224,123,57,0.35);color:#fff;}
+
+/* ---- restyled bits of existing components ---- */
+html #siteNavMount a.site-nav-new-link,
+html #siteNavMount a.site-nav-new-link:hover,
+html #siteNavMount a.site-nav-new-link.active{
+	background-image:linear-gradient(90deg,#E07B39,#E8C27A,#9DB77A,#E07B39);
+}
+html .site-nav-new-badge{background:linear-gradient(135deg,#E07B39,#9DB77A);}
+html #downloadMod{background-image:linear-gradient(90deg,#D9662A,#B8863A,#7E9E5E,#D9662A);}

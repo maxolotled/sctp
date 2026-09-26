@@ -1,0 +1,84 @@
+/*
+ * SCTP — winter / Christmas theme (pairs with themes/christmas.js).
+ *
+ * A snowy midnight-blue night, Christmas red for buttons and links, pine green
+ * as the second accent and gold for secondary text, with festive titles, a
+ * glowing star and a holly sprig in the corners. The moving parts (snowfall,
+ * fairy lights, Santa's sleigh, snowman and presents, the Santa hat, icons)
+ * come from christmas.js + fx.js.
+ *
+ * Make it live by copying this file over /theme.css and christmas.js over
+ * /theme.js. See themes/README.md.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&display=swap");
+
+:root{
+	--bg:#0C1320; --bg-rgb:12,19,32;
+	--panel:#152033; --panel-alt:#1B283D; --line:#2A3A52;
+	--muted:#9DAEC4; --text:#EEF3F9; --shell:#E9CB7A;
+	--accent:#F2555A; --accent-rgb:242,85,90; --accent-dim:#C83A42; --accent-ink:#FFFFFF;
+	--accent-2:#43C08A;
+	--img-bg:#0A101B;
+}
+
+html body{
+	background:
+		radial-gradient(900px 460px at 88% -6%, rgba(255,214,120,0.10), transparent 60%),
+		radial-gradient(1000px 600px at 0% 105%, rgba(90,150,255,0.12), transparent 60%),
+		var(--bg);
+	background-attachment:fixed;
+	background-repeat:no-repeat;
+}
+
+html header.site h1{
+	font-family:"Mountains of Christmas", var(--font-display, serif);
+	font-weight:700;
+	letter-spacing:0.02em;
+	color:#FFF1CF;
+	text-shadow:0 0 16px rgba(242,85,90,0.4);
+}
+@media (max-width:560px){
+	html header.site h1{font-size:26px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;}
+}
+
+/* A glowing star with a few twinkles in the top-right corner… */
+html body::before{
+	content:"";
+	position:fixed;
+	top:0;
+	right:0;
+	width:260px;
+	height:220px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.9;
+	background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 220'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='0' stop-color='%23FFE6A0' stop-opacity='0.55'/%3E%3Cstop offset='1' stop-color='%23FFE6A0' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='190' cy='72' r='80' fill='url(%23g)'/%3E%3Cpath d='M190 22l7 38 38 12-38 12-7 38-7-38-38-12 38-12z' fill='%23FFF4D2'/%3E%3Cpath d='M190 48l4 20 20 4-20 4-4 20-4-20-20-4 20-4z' fill='%23FFFFFF'/%3E%3Cg fill='%23FFF4D2'%3E%3Cpath d='M96 60l2 7 7 2-7 2-2 7-2-7-7-2 7-2z'/%3E%3Cpath d='M130 150l1.5 5 5 1.5-5 1.5-1.5 5-1.5-5-5-1.5 5-1.5z'/%3E%3Cpath d='M236 160l1.5 5 5 1.5-5 1.5-1.5 5-1.5-5-5-1.5 5-1.5z'/%3E%3Ccircle cx='70' cy='120' r='1.8'/%3E%3Ccircle cx='160' cy='190' r='1.6'/%3E%3Ccircle cx='250' cy='20' r='1.6'/%3E%3C/g%3E%3C/svg%3E");
+}
+/* …and a holly sprig in the top-left one. */
+html body::after{
+	content:"";
+	position:fixed;
+	top:0;
+	left:0;
+	width:150px;
+	height:130px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.75;
+	background:no-repeat top left/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 130'%3E%3Cpath d='M58 58C44 40 20 44 4 30c8 12 4 20 12 26-6 4-6 10 0 14 10-6 22-2 30-6 2 8 6 12 12 12 0-8 4-12 0-18z' fill='%232E8B57'/%3E%3Cpath d='M62 56c6-20 28-30 36-50-2 14 6 20 2 28 8 0 12 6 10 12-10 0-18 10-28 10 0 8-4 14-10 14-4-6-12-8-10-14z' fill='%23267A4B'/%3E%3Cpath d='M58 58L10 34M62 56L96 12' stroke='%23184D30' stroke-width='1.5'/%3E%3Ccircle cx='60' cy='64' r='7' fill='%23D62839'/%3E%3Ccircle cx='71' cy='60' r='6' fill='%23E03C45'/%3E%3Ccircle cx='66' cy='72' r='5.5' fill='%23C21F30'/%3E%3Ccircle cx='58' cy='61' r='2' fill='%23FFFFFF' opacity='.6'/%3E%3C/svg%3E");
+}
+@media (max-width:700px){
+	html body::before{width:150px;height:127px;opacity:0.7;}
+	html body::after{width:90px;height:78px;}
+}
+
+::selection{background:rgba(242,85,90,0.35);color:#fff;}
+
+/* ---- restyled bits of existing components ---- */
+html #siteNavMount a.site-nav-new-link,
+html #siteNavMount a.site-nav-new-link:hover,
+html #siteNavMount a.site-nav-new-link.active{
+	background-image:linear-gradient(90deg,#F2555A,#FFD34D,#43C08A,#F2555A);
+}
+html .site-nav-new-badge{background:linear-gradient(135deg,#F2555A,#43C08A);color:#fff;}
+html #downloadMod{background-image:linear-gradient(90deg,#E03C45,#43C08A,#E9B949,#E03C45);}

@@ -1,0 +1,93 @@
+/*
+ * SCTP — Pride month theme (pairs with themes/pride.js).
+ *
+ * A soft night sky with rainbow everything: lavender for buttons and links,
+ * teal as the second accent, sunny yellow for secondary text, bold titles
+ * filled with a slowly moving rainbow, a rainbow and a Progress flag in the
+ * corners. The moving parts (rainbow confetti and hearts, rainbow bursts, a
+ * Pride Duck waddling past, rainbow bunting, ducks and flags on the header,
+ * the rainbow over the snail, icons) come from pride.js + fx.js.
+ *
+ * Make it live by copying this file over /theme.css and pride.js over
+ * /theme.js. See themes/README.md.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Rubik:wght@800&display=swap");
+
+:root{
+	--bg:#111018; --bg-rgb:17,16,24;
+	--panel:#1B1A26; --panel-alt:#22212F; --line:#34324A;
+	--muted:#A9A7C2; --text:#F6F5FB; --shell:#FFD66B;
+	--accent:#C084FC; --accent-rgb:192,132,252; --accent-dim:#9D5CF0; --accent-ink:#1A0B2E;
+	--accent-2:#4FD1C5;
+	--img-bg:#0D0C13;
+}
+
+html body{
+	background:
+		radial-gradient(900px 460px at 88% -6%, rgba(192,132,252,0.12), transparent 60%),
+		radial-gradient(1000px 600px at 0% 105%, rgba(79,209,197,0.10), transparent 60%),
+		var(--bg);
+	background-attachment:fixed;
+	background-repeat:no-repeat;
+}
+
+html header.site h1{
+	font-family:"Rubik", var(--font-body, sans-serif);
+	font-weight:800;
+	letter-spacing:0;
+	background:linear-gradient(90deg,#FF5A5A,#FF9F43,#FFD84D,#5BE37D,#4FA3FF,#B57BFF,#FF5A5A);
+	background-size:300% auto;
+	-webkit-background-clip:text;
+	background-clip:text;
+	color:transparent;
+	animation:prideTitle 12s linear infinite;
+	filter:drop-shadow(0 0 10px rgba(192,132,252,0.35));
+}
+@keyframes prideTitle{from{background-position:0% center;}to{background-position:300% center;}}
+@media (prefers-reduced-motion: reduce){ html header.site h1{animation:none;} }
+html header.site .brand h1{font-size:30px;}
+@media (max-width:560px){
+	html header.site h1, html header.site .brand h1{font-size:23px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;}
+}
+
+/* A rainbow arching out of two clouds in the top-right corner… */
+html body::before{
+	content:"";
+	position:fixed;
+	top:0;
+	right:0;
+	width:260px;
+	height:170px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.85;
+	background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 170' fill='none' stroke-width='9'%3E%3Cpath d='M70 140a90 90 0 0 1 180 0' stroke='%23FF5A5A'/%3E%3Cpath d='M79 140a81 81 0 0 1 162 0' stroke='%23FF9F43'/%3E%3Cpath d='M88 140a72 72 0 0 1 144 0' stroke='%23FFD84D'/%3E%3Cpath d='M97 140a63 63 0 0 1 126 0' stroke='%235BE37D'/%3E%3Cpath d='M106 140a54 54 0 0 1 108 0' stroke='%234FA3FF'/%3E%3Cpath d='M115 140a45 45 0 0 1 90 0' stroke='%23B57BFF'/%3E%3Cg fill='%23F4F2FA' stroke='none'%3E%3Cpath d='M44 150c0-12 10-18 20-16 4-10 18-12 25-4 10-2 18 6 16 16 8 2 10 12 3 16H50c-6-1-9-8-6-12z'/%3E%3Cpath d='M204 150c0-12 10-18 20-16 4-10 18-12 25-4 10-2 18 6 16 16 8 2 10 12 3 16h-58c-6-1-9-8-6-12z'/%3E%3C/g%3E%3C/svg%3E");
+}
+/* …and a waving Progress Pride flag in the top-left one. */
+html body::after{
+	content:"";
+	position:fixed;
+	top:0;
+	left:0;
+	width:120px;
+	height:110px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.8;
+	background:no-repeat top left/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 110'%3E%3Cdefs%3E%3CclipPath id='f'%3E%3Cpath d='M20 14c20-8 40 8 60 0s30-4 30-4v54s-10-4-30 4-40-8-60 0z'/%3E%3C/clipPath%3E%3C/defs%3E%3Cpath d='M18 8v100' stroke='%23C9C5DA' stroke-width='4' stroke-linecap='round'/%3E%3Cg clip-path='url(%23f)'%3E%3Crect x='0' y='0' width='120' height='20' fill='%23FF5A5A'/%3E%3Crect x='0' y='20' width='120' height='10' fill='%23FF9F43'/%3E%3Crect x='0' y='30' width='120' height='10' fill='%23FFD84D'/%3E%3Crect x='0' y='40' width='120' height='10' fill='%235BE37D'/%3E%3Crect x='0' y='50' width='120' height='10' fill='%234FA3FF'/%3E%3Crect x='0' y='60' width='120' height='20' fill='%23B57BFF'/%3E%3Cpath d='M0 0h26l24 39-24 39H0z' fill='%23FFFFFF'/%3E%3Cpath d='M0 0h18l20 39-20 39H0z' fill='%23F7A8C8'/%3E%3Cpath d='M0 0h10l16 39-16 39H0z' fill='%2355CDFC'/%3E%3Cpath d='M0 6l12 33L0 72z' fill='%23784F17'/%3E%3C/g%3E%3C/svg%3E");
+}
+@media (max-width:700px){
+	html body::before{width:150px;height:98px;opacity:0.7;}
+	html body::after{width:76px;height:70px;}
+}
+
+::selection{background:rgba(192,132,252,0.4);color:#fff;}
+
+/* ---- restyled bits of existing components ---- */
+html #siteNavMount a.site-nav-new-link,
+html #siteNavMount a.site-nav-new-link:hover,
+html #siteNavMount a.site-nav-new-link.active{
+	background-image:linear-gradient(90deg,#FF5A5A,#FF9F43,#FFD84D,#5BE37D,#4FA3FF,#B57BFF,#FF5A5A);
+}
+html .site-nav-new-badge{background:linear-gradient(135deg,#FF5A5A,#FFD84D,#5BE37D,#4FA3FF,#B57BFF);color:#1A0B2E;}
+html #downloadMod{background-image:linear-gradient(90deg,#FF5A5A,#FF9F43,#FFD84D,#5BE37D,#4FA3FF,#B57BFF,#FF5A5A);}

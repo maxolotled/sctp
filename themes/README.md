@@ -1,28 +1,60 @@
 # Site themes
 
-Every page links `/theme.css` (after its own styles) and `/theme.js`, so whatever
+Every page links `/theme.css` (after its own styles) and `/theme.js`. Whatever
 is in those two files restyles and decorates the whole site. The files in this
 folder are the saved themes, one `.css` + `.js` pair each:
 
-| File | Look |
+| Theme | Look |
 | --- | --- |
-| `original.css` + `original.js` | The normal green SCTP theme (the same colours each page already has built in, no decorations). |
-| `halloween.css` + `halloween.js` | Fall / Halloween: pumpkin orange on a dark plum night, spooky titles, moon, bats, cobweb, jack-o-lanterns, falling leaves (with an on/off button), Halloween page icons and favicon. |
+| `original` | The normal green SCTP theme (the colours each page already has built in), no decorations. |
+| `halloween` | Pumpkin orange on a dark plum night, spooky titles, moon and cobweb, jack-o-lanterns, falling leaves, a bat now and then, a witch hat on the snail. |
+| `christmas` | Midnight blue with Christmas red, festive titles, a star and holly, fairy lights across the top, snowfall, Santa's sleigh, a snowman and presents, a Santa hat. |
+| `newyear` | Black and champagne gold, art-deco titles, a mirror ball and a clock at midnight, fairy lights, confetti, fireworks, shooting stars, champagne, a top hat. The footer wishes a happy new year for the coming year automatically. |
+| `easter` | Soft spring twilight in blossom pink and mint, a smiling sun and a cherry-blossom branch, pastel bunting, falling petals, a hopping bunny, butterflies, painted eggs and a chick, bunny ears. |
+| `birthday` | SCTP's own birthday: party purple and hot pink, balloons and streamers, HAPPY BIRTHDAY bunting, confetti, balloons floating up, confetti pops, a cake with candles and presents, a party hat. |
+| `summer` | A summer festival night in sunset coral and turquoise, a lit-up Ferris wheel and a wind chime, paper lanterns across the top, fireflies, sky lanterns, fireworks, watermelon, a goldfish bag and a fan, a straw hat. |
+| `valentines` | Candlelit deep rose and love-heart red, romantic script titles, a glowing heart and a rose, a string of hearts, hearts floating up, rose petals, winged hearts, a love letter and chocolates, heart boppers. |
+| `autumn` | Cosy November (the spooky-cute follow-up to Halloween): cocoa browns and burnt orange, hand-written titles, a friendly ghost with cocoa, an acorn branch, a leaf garland, falling leaves and soft rain, cute mushrooms and pumpkin, a knitted beanie. |
+| `pride` | Pride month: rainbow bunting, titles filled with a moving rainbow, a rainbow and the Progress flag, rainbow confetti and hearts, rainbow bursts, a Pride Duck waddling past, rubber ducks, a rainbow over the snail. |
+| `aprilfools` | Silly but never broken: wonky comic titles, the snail upside down with googly eyes, giant eyes peeking in, falling question marks and googly eyes, a rubber chicken, the snail speedrunning, deliberately wrong icons. |
+| `lunarnewyear` | Lucky red and gold, brush-style titles, a full moon with plum blossoms, firecrackers, red lanterns, gold coins and plum petals, firecracker bursts, a dragon flying past, red envelopes and gold ingots. The footer names the coming year's zodiac animal automatically. |
 
-## Switching
+Every seasonal theme also swaps the page icons, the favicon and the tab title
+emoji, and has a button in the bottom-left corner to turn its moving effects
+off (remembered per visitor). For people whose system asks for reduced motion,
+the effects start off.
 
-Copy both files of the theme you want over `/theme.css` and `/theme.js`, then commit and push:
+## Previewing a theme
+
+Add `?theme=<name>` to any page, e.g. `sctp.nl/?theme=christmas`. That tab
+keeps showing that theme while you browse, with a "Previewing" banner at the
+bottom. `?theme=live` (or the banner's Stop button) goes back to the live
+theme. Nobody else sees a preview.
+
+## Switching the live theme
+
+Copy both files of the theme you want over `/theme.css` and `/theme.js`, then
+commit and push:
 
 ```sh
 cp themes/original.css theme.css && cp themes/original.js theme.js     # back to normal
-cp themes/halloween.css theme.css && cp themes/halloween.js theme.js   # Halloween
+cp themes/christmas.css theme.css && cp themes/christmas.js theme.js   # e.g. Christmas
 ```
 
-Empty `theme.css` / `theme.js` files also give the original look. GitHub Pages can take a few
-minutes to pick up the change.
+GitHub Pages can take a few minutes to pick up the change.
+
+## How it's built
+
+- `<name>.css` sets the colour tokens, the title font, the body glow, the two
+  corner pictures (`body::before` / `body::after`) and a few restyled bits.
+- `<name>.js` is a config (artwork + which effects) plus a small preview
+  handler. The effects themselves (particles, fireworks, flyers, the garland
+  across the top, header props, footer banner, logo accessory, icons, the on/off
+  button) all live in the shared `fx.js`. Its header comment lists every option.
 
 ## Making a new theme
 
-Copy `original.css`/`original.js`, change the colour tokens, and add decorations if you like.
-Leave `--warn`, `--bad` and `--info` alone: they're status colours, and
-Rare-dle uses its own versions of them.
+Copy the pair closest to what you want, rename them, change `ID` in the `.js`
+to the new name, then change the colours, artwork and effects. Leave `--warn`,
+`--bad` and `--info` alone: they're status colours, and Rare-dle uses its own
+versions of them.

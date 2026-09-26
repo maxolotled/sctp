@@ -2,10 +2,9 @@
  * SCTP — Halloween / fall theme (pairs with themes/halloween.js).
  *
  * Pumpkin orange on a dark plum night, candlelight gold for secondary text,
- * a witchy purple as the second accent. Decorations: a moon with bats and a
- * cobweb in the corners, jack-o-lanterns on the header and footer, falling
- * leaves (with an on/off button), the odd bat flying past, a witch hat on the
- * snail and Halloween page icons; the moving parts come from halloween.js.
+ * a witchy purple as the second accent, spooky titles, and a moon with bats
+ * and a cobweb in the corners. The moving parts (leaves, bats, pumpkins, the
+ * witch hat, icons) come from halloween.js + fx.js.
  *
  * Only the shared colour tokens are overridden, so every page's own layout is
  * untouched. --warn / --bad / --info are left alone on purpose: they're status
@@ -82,136 +81,6 @@ html body::after{
 }
 
 ::selection{background:rgba(255,140,43,0.35);color:#fff;}
-
-/* ---- jack-o-lanterns (added by halloween.js) ---- */
-html header.site{position:relative;}
-.hw-porch{
-	position:absolute;
-	left:clamp(8px, calc(50% - 690px), 60px);
-	bottom:-3px;
-	display:flex;
-	align-items:flex-end;
-	gap:2px;
-	pointer-events:none;
-}
-.hw-porch svg{display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,0.5));}
-.hw-face{animation:hwFlicker 3.2s infinite;}
-.hw-porch svg:nth-child(2) .hw-face{animation-duration:2.6s;animation-delay:-1.1s;}
-.hw-porch svg:nth-child(3) .hw-face{animation-duration:3.8s;animation-delay:-2s;}
-@keyframes hwFlicker{
-	0%,100%{opacity:1;filter:drop-shadow(0 0 3px #FFB347);}
-	42%{opacity:0.82;filter:drop-shadow(0 0 1px #FFB347);}
-	46%{opacity:1;filter:drop-shadow(0 0 5px #FFC66B);}
-	71%{opacity:0.9;}
-	74%{opacity:0.7;filter:drop-shadow(0 0 1px #FFB347);}
-	77%{opacity:1;}
-}
-/* The porch sits in the side margin on wide screens; on narrow ones there's no room. */
-@media (max-width:1100px){ .hw-porch{display:none;} }
-
-.hw-footer-porch{
-	display:flex;
-	align-items:center;
-	justify-content:center;
-	gap:10px;
-	margin:0 0 10px;
-	color:var(--shell);
-	font-family:"Creepster", var(--font-display, serif);
-	font-size:17px;
-	letter-spacing:0.05em;
-}
-.hw-footer-porch svg{display:block;}
-
-/* ---- witch hat on the snail logo ---- */
-.hw-hat-wrap{position:relative;display:inline-flex;flex:0 0 auto;}
-.hw-hat{
-	position:absolute;
-	width:78%;
-	aspect-ratio:32/28;
-	top:-50%;
-	right:-22%;
-	transform:rotate(18deg);
-	pointer-events:none;
-	filter:drop-shadow(0 2px 3px rgba(0,0,0,0.5));
-}
-.hw-hat svg{display:block;}
-
-/* ---- falling leaves ---- */
-.hw-leaves{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:60;}
-.hw-leaf{
-	position:absolute;
-	top:-40px;
-	animation-name:hwFall;
-	animation-timing-function:linear;
-	animation-iteration-count:infinite;
-	will-change:transform;
-}
-.hw-leaf-sway{
-	animation-name:hwSway;
-	animation-timing-function:ease-in-out;
-	animation-iteration-count:infinite;
-	animation-direction:alternate;
-	opacity:0.85;
-}
-.hw-leaf-sway svg{display:block;filter:drop-shadow(0 2px 2px rgba(0,0,0,0.35));}
-@keyframes hwFall{
-	from{transform:translateY(0);}
-	to{transform:translateY(calc(100vh + 80px));}
-}
-@keyframes hwSway{
-	from{transform:translateX(calc(var(--hw-drift, 50px) * -0.5)) rotate(-35deg);}
-	to{transform:translateX(calc(var(--hw-drift, 50px) * 0.5)) rotate(35deg);}
-}
-
-.hw-leaf-toggle{
-	position:fixed;
-	left:14px;
-	bottom:calc(14px + env(safe-area-inset-bottom, 0px));
-	z-index:70;
-	width:38px;
-	height:38px;
-	border-radius:50%;
-	border:1px solid var(--line);
-	background:var(--panel);
-	font-size:18px;
-	line-height:1;
-	cursor:pointer;
-	box-shadow:0 4px 14px rgba(0,0,0,0.4);
-	transition:transform .15s ease, opacity .15s ease;
-}
-.hw-leaf-toggle:hover{transform:scale(1.08);border-color:var(--accent-dim);}
-.hw-leaf-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-.hw-leaf-toggle.off{opacity:0.55;filter:grayscale(0.7);}
-
-/* ---- the occasional bat ---- */
-.hw-bat{
-	position:fixed;
-	left:0;
-	z-index:60;
-	pointer-events:none;
-	animation:hwBatFly 9s linear forwards;
-}
-.hw-bat.rtl{animation-name:hwBatFlyBack;}
-.hw-bat svg{display:block;animation:hwFlap .22s ease-in-out infinite alternate;transform-origin:50% 60%;}
-@keyframes hwFlap{from{transform:scaleY(1);}to{transform:scaleY(0.35);}}
-@keyframes hwBatFly{
-	0%{transform:translate(-60px,0);}
-	25%{transform:translate(25vw,-4vh);}
-	50%{transform:translate(50vw,3vh);}
-	75%{transform:translate(75vw,-3vh);}
-	100%{transform:translate(calc(100vw + 60px),1vh);}
-}
-@keyframes hwBatFlyBack{
-	0%{transform:translate(calc(100vw + 60px),0) scaleX(-1);}
-	25%{transform:translate(75vw,4vh) scaleX(-1);}
-	50%{transform:translate(50vw,-3vh) scaleX(-1);}
-	75%{transform:translate(25vw,3vh) scaleX(-1);}
-	100%{transform:translate(-60px,-1vh) scaleX(-1);}
-}
-
-@media (prefers-reduced-motion: reduce){
-	.hw-face, .hw-bat, .hw-bat svg{animation:none;}
-}
 
 /* ---- restyled bits of existing components ---- */
 

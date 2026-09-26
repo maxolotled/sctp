@@ -1,0 +1,98 @@
+/*
+ * SCTP — April Fools' theme (pairs with themes/aprilfools.js).
+ *
+ * Silly, never broken: bubblegum pink buttons and links, sky blue as the
+ * second accent, banana yellow for secondary text, wonky comic-style titles,
+ * the snail logo upside down, giant googly eyes peeking in and a banana peel
+ * in the corners. The moving parts (falling question marks and googly eyes,
+ * confetti pops, a rubber chicken flying past, the snail speedrunning along
+ * the bottom, clown bunting, a whoopee cushion and jack-in-the-box, googly
+ * eyes on the snail, silly icons) come from aprilfools.js + fx.js.
+ *
+ * Make it live by copying this file over /theme.css and aprilfools.js over
+ * /theme.js. See themes/README.md.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap");
+
+:root{
+	--bg:#14101E; --bg-rgb:20,16,30;
+	--panel:#1E1830; --panel-alt:#262040; --line:#3A3158;
+	--muted:#ADA5CC; --text:#F7F4FF; --shell:#FFE14D;
+	--accent:#FF4DA6; --accent-rgb:255,77,166; --accent-dim:#E0338A; --accent-ink:#2A0718;
+	--accent-2:#4DD8FF;
+	--img-bg:#0F0C17;
+}
+
+html body{
+	background:
+		radial-gradient(900px 460px at 88% -6%, rgba(255,225,77,0.10), transparent 60%),
+		radial-gradient(1000px 600px at 0% 105%, rgba(77,216,255,0.10), transparent 60%),
+		var(--bg);
+	background-attachment:fixed;
+	background-repeat:no-repeat;
+}
+
+/* Wonky comic titles that wobble when you point at them. */
+html header.site h1{
+	font-family:"Comic Neue", "Comic Sans MS", var(--font-body, sans-serif);
+	font-weight:700;
+	letter-spacing:0;
+	color:#FFF27A;
+	text-shadow:2px 2px 0 #FF4DA6, 4px 4px 0 rgba(77,216,255,0.6);
+	transform:rotate(-1.5deg);
+	transform-origin:left center;
+	transition:transform .2s ease;
+}
+html header.site h1:hover{animation:afWobble .5s ease-in-out 2;}
+@keyframes afWobble{0%,100%{transform:rotate(-1.5deg);}25%{transform:rotate(2deg) scale(1.03);}75%{transform:rotate(-4deg);}}
+@media (max-width:560px){
+	html header.site h1, html header.site .brand h1{font-size:24px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;}
+}
+
+/* The snail logo, upside down. (The googly eyes go on top, the right way up.) */
+html svg.brand-mark{transform:rotate(180deg);}
+.af-pupil{animation:afLook 4s ease-in-out infinite;transform-box:fill-box;}
+@keyframes afLook{0%,100%{transform:translate(0,0);}20%{transform:translate(1.4px,.6px);}45%{transform:translate(-1.4px,.4px);}70%{transform:translate(.4px,1.4px);}}
+@media (prefers-reduced-motion: reduce){ .af-pupil{animation:none;} html header.site h1:hover{animation:none;} }
+
+/* Giant googly eyes peeking in at the top-right corner… */
+html body::before{
+	content:"";
+	position:fixed;
+	top:0;
+	right:0;
+	width:220px;
+	height:130px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.9;
+	background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 130'%3E%3Ccircle cx='120' cy='56' r='40' fill='%23FFFFFF' stroke='%231A1A1A' stroke-width='3'/%3E%3Ccircle cx='190' cy='50' r='34' fill='%23FFFFFF' stroke='%231A1A1A' stroke-width='3'/%3E%3Ccircle cx='106' cy='74' r='18' fill='%231A1A1A'/%3E%3Ccircle cx='200' cy='66' r='16' fill='%231A1A1A'/%3E%3Ccircle cx='100' cy='68' r='5' fill='%23FFFFFF'/%3E%3Ccircle cx='195' cy='60' r='4.5' fill='%23FFFFFF'/%3E%3C/svg%3E");
+}
+/* …and a banana peel in the top-left one. */
+html body::after{
+	content:"";
+	position:fixed;
+	top:0;
+	left:0;
+	width:120px;
+	height:100px;
+	z-index:-1;
+	pointer-events:none;
+	opacity:0.8;
+	background:no-repeat top left/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 100'%3E%3Cpath d='M52 52c-4-20 4-36 10-40 2 16 0 30-6 42z' fill='%23FFE14D'/%3E%3Cpath d='M58 54c16-12 34-14 44-8-14 4-26 10-38 18z' fill='%23FFD21F'/%3E%3Cpath d='M52 58c-18-6-34-2-42 6 14 2 28 2 40 0z' fill='%23F2C21A'/%3E%3Cpath d='M50 50c0 10 4 16 10 18 4-6 4-14 0-20-4-2-8-2-10 2z' fill='%23FFF3B0'/%3E%3Cpath d='M58 14l4-4' stroke='%236B4A1A' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+@media (max-width:700px){
+	html body::before{width:130px;height:77px;opacity:0.75;}
+	html body::after{width:76px;height:64px;}
+}
+
+::selection{background:rgba(255,225,77,0.45);color:#14101E;}
+
+/* ---- restyled bits of existing components ---- */
+html #siteNavMount a.site-nav-new-link,
+html #siteNavMount a.site-nav-new-link:hover,
+html #siteNavMount a.site-nav-new-link.active{
+	background-image:linear-gradient(90deg,#FF4DA6,#FFE14D,#4DD8FF,#7CF29A,#FF4DA6);
+}
+html .site-nav-new-badge{background:linear-gradient(135deg,#FFE14D,#FF4DA6);color:#2A0718;}
+html #downloadMod{background-image:linear-gradient(90deg,#FF4DA6,#FFB84D,#4DD8FF,#FF4DA6);}
