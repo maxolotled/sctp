@@ -3,9 +3,9 @@
  * The pranks (see pranks() below): a fake "SCTP NEWS" ticker, a one-time
  * "SCTP Premium™" upsell that turns out to be a joke, silly nav names, a
  * "Download more RAM" button, a "come back!" tab title, and cards that
- * randomly shake. Plus the decoration: question marks and googly eyes raining
- * down, confetti pops, a rubber chicken flying past, the snail speedrunning
- * along the bottom, clown bunting, a whoopee cushion and jack-in-the-box,
+ * randomly shake. Plus the decoration: confetti pops, a rubber chicken flying
+ * past, the snail speedrunning along the bottom, clown bunting, a whoopee
+ * cushion and jack-in-the-box,
  * googly eyes on the (upside-down) snail, and deliberately wrong icons.
  * Nothing actually breaks: every link and button still does its normal job.
  * The effects themselves live in themes/fx.js. See themes/README.md.
@@ -73,21 +73,12 @@
 			item: function (c) { return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 22" width="14" height="22"><path d="M7 0l7 11-7 11-7-11z" fill="' + c + '"/><circle cx="7" cy="11" r="1.6" fill="#FFFFFF" opacity=".7"/></svg>'; }
 		},
 		footer: { left: clownNose(18), text: "Happy April Fools' from SCTP. Nothing is broken. Probably.", right: chicken(34), font: '"Comic Neue", "Comic Sans MS", system-ui, sans-serif' },
-		particles: [
-			{ type: "fall", count: 14, mobileCount: 7, size: [14, 22], dur: [9, 16], sway: [30, 80], spin: 60, opacity: 0.85, colors: SILLY,
-				shapes: [
-					'<path d="M8 8.5C8 5.5 10 3.5 12.5 3.5S17 5.3 17 8c0 3.6-4 4-4 7.5" stroke="currentColor" stroke-width="3.2" fill="none" stroke-linecap="round"/><circle cx="13" cy="20" r="2"/>',
-					'<path d="M12 3v11" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><circle cx="12" cy="20" r="2.1"/>'
-				] },
-			{ type: "fall", count: 6, mobileCount: 3, size: [16, 24], dur: [11, 18], sway: [20, 60], spin: 90, opacity: 0.95, colors: ["#FFFFFF"],
-				shapes: ['<circle cx="12" cy="12" r="10" stroke="#1A1A1A" stroke-width="1.5"/><circle cx="14.5" cy="14" r="4.6" fill="#1A1A1A"/>'] }
-		],
 		bursts: { every: [9000, 16000], first: [3000, 6000], sparks: 22, shape: "rect", colors: SILLY },
 		flyers: [
 			{ path: "fly", svg: chicken(44).replace(/ width="44" height="22"/, ""), width: 60, height: 30, every: [30000, 60000], first: [6000, 12000], dur: 8 },
 			{ path: "hop", svg: SPEEDY_SNAIL, width: 58, height: 29, every: [25000, 50000], first: [12000, 20000], dur: 3.2 }
 		],
-		toggle: { icon: "🤡", noun: "silliness" },
+		toggle: { icon: "🤡", noun: "confetti pops" },
 		extra: pranks
 	};
 

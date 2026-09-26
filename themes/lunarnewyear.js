@@ -1,6 +1,6 @@
 /*
  * SCTP — Lunar New Year theme (pairs with themes/lunarnewyear.css).
- * Gold coins and plum petals falling, firecracker bursts, a dragon flying
+ * Firecracker bursts, a dragon flying
  * past, red lanterns across the top, red envelopes, gold ingots and mandarins
  * on the header, a plum-blossom sprig on the snail, festive icons. The
  * footer names the zodiac animal of the coming year automatically.
@@ -80,15 +80,9 @@
 			item: function () { return lantern(18); }
 		},
 		footer: { left: lantern(14), text: "Happy Lunar New Year from SCTP: Year of the " + animal, right: coin(20), font: '"Ma Shan Zheng", var(--font-display, serif)' },
-		particles: [
-			{ type: "fall", count: 10, mobileCount: 5, size: [10, 16], dur: [8, 14], sway: [20, 50], spin: 180, opacity: 0.95, colors: ["#F5C35B", "#FFD04D"],
-				shapes: ['<path fill-rule="evenodd" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm-3 7v6h6V9z"/>'] },
-			{ type: "fall", count: 12, mobileCount: 6, size: [8, 14], dur: [10, 18], sway: [40, 100], spin: 120, opacity: 0.85, colors: ["#FFB7C9", "#FFD3DE", "#FF8FAE"],
-				shapes: ['<path d="M12 2c4 4 5 11 0 20C7 13 8 6 12 2z"/>'] }
-		],
 		bursts: { every: [3000, 7000], first: [1500, 3000], sparks: 26, colors: ["#FF4D3D", "#FFC247", "#FFE4A8", "#E0332E"] },
 		flyers: [{ path: "fly", svg: DRAGON, width: 170, height: 54, every: [40000, 70000], first: [6000, 12000], dur: 15 }],
-		toggle: { icon: "🧧", noun: "coins and firecrackers" }
+		toggle: { icon: "🧧", noun: "firecrackers" }
 	};
 
 	// ---- which theme to show: the live one, or a preview (?theme=<name>; ?theme=live stops it) ----

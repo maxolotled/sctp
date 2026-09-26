@@ -1,6 +1,6 @@
 /*
  * SCTP — Easter / spring theme (pairs with themes/easter.css).
- * Falling blossom petals, pastel bunting across the top, a bunny hopping
+ * Pastel bunting across the top, a bunny hopping
  * along the bottom, butterflies, painted eggs and a chick on the header,
  * bunny ears on the snail, spring icons.
  * The effects themselves live in themes/fx.js. See themes/README.md.
@@ -70,20 +70,10 @@
 			}
 		},
 		footer: { left: chick(22), text: "Happy Easter from SCTP", right: egg(16, "#FF9FCF", "#FFFFFF", "stripes"), font: '"Chewy", var(--font-display, serif)' },
-		particles: [{
-			type: "fall", count: 16, mobileCount: 8, size: [9, 16], dur: [10, 20], sway: [40, 110], swayDur: [3, 5], spin: 120, opacity: 0.85,
-			colors: ["#FFC1DA", "#FFD9E8", "#FFFFFF", "#F7A8C8", "#FFE6F0"],
-			shapes: [
-				'<path d="M12 2c4 4 5 11 0 20C7 13 8 6 12 2z"/>',
-				'<path d="M12 3c5 3 6 10 1 18C8 13 7 7 12 3z"/>',
-				'<g><circle cx="12" cy="6" r="4.5"/><circle cx="17.7" cy="10.1" r="4.5"/><circle cx="15.5" cy="16.9" r="4.5"/><circle cx="8.5" cy="16.9" r="4.5"/><circle cx="6.3" cy="10.1" r="4.5"/><circle cx="12" cy="12" r="2.6" fill="#FFD35A"/></g>'
-			]
-		}],
 		flyers: [
 			{ path: "hop", svg: BUNNY, width: 44, height: 35, every: [30000, 60000], first: [5000, 10000], dur: 13 },
 			{ path: "fly", svg: BUTTERFLY, width: 26, height: 21, every: [35000, 70000], first: [12000, 20000], dur: 12, flap: true }
-		],
-		toggle: { icon: "🌸", noun: "falling petals" }
+		]
 	};
 
 	// ---- which theme to show: the live one, or a preview (?theme=<name>; ?theme=live stops it) ----

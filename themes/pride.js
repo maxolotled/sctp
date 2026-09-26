@@ -1,6 +1,6 @@
 /*
  * SCTP — Pride month theme (pairs with themes/pride.css).
- * Rainbow confetti and hearts, rainbow bursts, a Pride Duck waddling along
+ * Rainbow bursts, a Pride Duck waddling along
  * the bottom, rainbow bunting across the top, rubber ducks and flags on the
  * header, a little rainbow over the snail, rainbow icons.
  * The effects themselves live in themes/fx.js. See themes/README.md.
@@ -55,13 +55,9 @@
 			item: function (c) { return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 20" width="16" height="20"><path d="M0 0H16L8 18Z" fill="' + c + '"/></svg>'; }
 		},
 		footer: { left: heart(20), text: "Happy Pride from SCTP: everyone is welcome here", right: duck(26), font: '"Rubik", system-ui, sans-serif' },
-		particles: [
-			{ type: "fall", count: 22, mobileCount: 10, size: [8, 14], dur: [8, 15], sway: [20, 70], spin: 180, opacity: 0.9, colors: RAINBOW,
-				shapes: ['<rect x="8" y="3" width="8" height="18" rx="1.5"/>', '<circle cx="12" cy="12" r="6"/>', '<path d="' + HEART + '"/>'] }
-		],
 		bursts: { every: [6000, 12000], first: [2000, 4000], sparks: 30, colors: RAINBOW },
 		flyers: [{ path: "hop", svg: duck(34).replace(/ width="34" height="28"/, ""), width: 40, height: 33, every: [30000, 60000], first: [5000, 10000], dur: 14 }],
-		toggle: { icon: "🌈", noun: "rainbow confetti" }
+		toggle: { icon: "🌈", noun: "rainbow bursts" }
 	};
 
 	// ---- which theme to show: the live one, or a preview (?theme=<name>; ?theme=live stops it) ----

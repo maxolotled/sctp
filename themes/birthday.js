@@ -1,6 +1,6 @@
 /*
  * SCTP — birthday theme (pairs with themes/birthday.css), for Snailcraft's birthday.
- * Confetti, balloons floating up, confetti pops, HAPPY BIRTHDAY SNAILCRAFT bunting across
+ * Confetti pops, HAPPY BIRTHDAY SNAILCRAFT bunting across
  * the top, a cake with flickering candles and presents on the header, a party
  * hat on the snail, party icons.
  * The effects themselves live in themes/fx.js. See themes/README.md.
@@ -69,15 +69,8 @@
 			}
 		},
 		footer: { left: cake(24), text: "Happy birthday, Snailcraft! Love from all of us at SCTP", right: balloon(14, "#FF5FA2"), font: '"Fredoka", system-ui, sans-serif' },
-		particles: [
-			{ type: "fall", count: 18, mobileCount: 8, size: [8, 14], dur: [8, 15], sway: [20, 70], spin: 180, opacity: 0.9, colors: CONFETTI_COLORS,
-				shapes: ['<rect x="8" y="3" width="8" height="18" rx="1.5"/>', '<circle cx="12" cy="12" r="6"/>', '<path d="M4 12c3-6 5 6 8 0s5 6 8 0" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>'] },
-			{ type: "rise", count: 5, mobileCount: 3, size: [26, 40], viewBox: "0 0 24 44", dur: [16, 26], sway: [20, 50], swayDur: [3, 5], spin: 8, opacity: 0.95,
-				colors: ["#FF5FA2", "#5CE1E6", "#FFD34D", "#A57BFF", "#FF8A4C"],
-				shapes: ['<path d="M12 2c6.5 0 10 5.5 10 11 0 7-5.5 12-10 13C7.5 25 2 20 2 13 2 7.5 5.5 2 12 2z"/><path d="M10.6 25.8h2.8L12 28.2z"/><path d="M12 28.2c-2.5 3.5 2.5 6-.5 9.5s1.5 5 0 6" stroke="rgba(255,255,255,.55)" stroke-width=".8" fill="none"/><ellipse cx="8" cy="9" rx="2.2" ry="3.6" fill="#FFFFFF" opacity=".35"/>'] }
-		],
 		bursts: { every: [5000, 11000], first: [2000, 4000], sparks: 26, shape: "rect", colors: CONFETTI_COLORS },
-		toggle: { icon: "🎉", noun: "confetti and balloons" }
+		toggle: { icon: "🎉", noun: "confetti pops" }
 	};
 
 	// ---- which theme to show: the live one, or a preview (?theme=<name>; ?theme=live stops it) ----

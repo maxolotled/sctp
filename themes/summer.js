@@ -1,6 +1,6 @@
 /*
  * SCTP — summer theme: a tropical beach (pairs with themes/summer.css).
- * Bubbles drifting up and hibiscus flowers floating down, a flower lei across
+ * A hibiscus flower lei across
  * the top, seagulls gliding past, a crab scuttling along the bottom, a beach
  * umbrella, beach ball, sandcastle and coconut drink on the header,
  * sunglasses on the snail, beach icons.
@@ -87,18 +87,10 @@
 			item: function (c) { return hibiscus(16, c); }
 		},
 		footer: { left: palm(22), text: "Summer vibes from SCTP", right: sun(22), font: '"Pacifico", var(--font-display, serif)' },
-		particles: [
-			{ type: "rise", count: 16, mobileCount: 8, size: [6, 14], dur: [12, 22], sway: [20, 60], swayDur: [3, 5], spin: 0, opacity: 0.6,
-				colors: ["#BFF5EC", "#D9FFF8", "#9FE8FF"], shapes: ['<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8" cy="8" r="2.4"/>'] },
-			{ type: "fall", count: 6, mobileCount: 3, size: [14, 20], dur: [13, 22], sway: [40, 100], spin: 60, opacity: 0.9,
-				colors: ["#FF5A8A", "#FFB83D", "#FF7A4D", "#FFFFFF"],
-				shapes: [hibiscus(24, "currentColor").replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "")] }
-		],
 		flyers: [
 			{ path: "fly", svg: GULL, width: 40, height: 16, every: [25000, 50000], first: [4000, 9000], dur: 12, flap: true },
 			{ path: "hop", svg: CRAB, width: 42, height: 27, every: [30000, 60000], first: [10000, 18000], dur: 16 }
-		],
-		toggle: { icon: "🌊", noun: "bubbles and flowers" }
+		]
 	};
 
 	// ---- which theme to show: the live one, or a preview (?theme=<name>; ?theme=live stops it) ----
