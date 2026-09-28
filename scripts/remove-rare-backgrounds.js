@@ -15,6 +15,8 @@
  *   node scripts/remove-rare-backgrounds.js            dry run: only lists what would change
  *   node scripts/remove-rare-backgrounds.js --apply    rewrites the PNGs in place (keep git handy to undo)
  *   node scripts/remove-rare-backgrounds.js --apply --tolerance=6
+ *   node scripts/remove-rare-backgrounds.js --apply --from=1494   only rare_image1494.png and up
+ *                                                               (i.e. just a fresh import's textures)
  *
  * Handles 8-bit RGBA, RGB and palette PNGs (all output as RGBA); anything else is reported and skipped.
  */
@@ -170,7 +172,12 @@ function removeHoles(im, grey) {
 }
 
 const items = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "rare-items.json"), "utf8"));
-const files = [...new Set(items.map((i) => i.texture).filter(Boolean))];
+const FROM = (() => { const a = process.argv.find((x) => x.startsWith("--from=")); return a ? Number(a.split("=")[1]) : 0; })();
+const files = [...new Set(items.map((i) => i.texture).filter(Boolean))].filter((t) => {
+	if (!FROM) return true;
+	const m = /rare_image(\d+)\.png$/.exec(t);
+	return m && Number(m[1]) >= FROM;
+});
 let holeTextures = 0, changed = 0, skipped = 0, already = 0, missing = 0, unsupported = [];
 const report = [];
 for (const t of files) {

@@ -39,6 +39,18 @@
 	.btn:hover{background:var(--accent-dim);}
 	.btn-ghost{display:inline-block;background:transparent;border:1px solid var(--line);color:var(--text);border-radius:999px;padding:10px 20px;font-weight:600;font-size:14px;cursor:pointer;text-decoration:none;font-family:inherit;}
 	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
+/* "Available on CurseForge" badge (same as the home page's download popup):
+   CurseForge has no official button, so it's our own store-style badge with
+   their orange mark. Fixed colours so it looks the same in every theme. */
+.cf-btn{display:inline-flex;align-items:center;gap:9px;padding:6px 16px 6px 12px;background:#141414;border:1px solid #3A3A3A;border-radius:999px;color:#FFFFFF;text-decoration:none;font-family:inherit;vertical-align:middle;transition:border-color .15s ease, transform .12s ease;}
+.cf-btn:hover{border-color:#F16436;transform:translateY(-1px);}
+.cf-btn:focus-visible{outline:2px solid #F16436;outline-offset:2px;}
+.cf-btn svg{width:24px;height:24px;flex:0 0 auto;fill:#F16436;}
+.cf-btn-text{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1;}
+.cf-btn-text small{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#C9C9C9;}
+.cf-btn-text b{font-size:15px;font-weight:800;letter-spacing:.01em;color:#FFFFFF;}
+.cf-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:14px 0 4px;}
+.cf-row p{margin:0;flex:1 1 220px;font-size:13.5px;color:var(--muted);}
 	.hero-meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:26px;font-size:12.5px;color:var(--muted);}
 	.hero-meta b{color:var(--text);}
 
@@ -124,6 +136,10 @@
 	<p>Shop Logger is the Fabric/NeoForge mod that makes SCTP possible: it quietly scans every shop chest you walk past and uploads what it finds, so the website always has fresh listings. This page covers installing it and every feature it adds in-game &mdash; the automatic scanning, the watchlist, the built-in mapart scanner, and the settings that make it stay out of your way.</p>
 	<div class="hero-actions">
 		<a class="btn" href="/">Download the mod &rarr;</a>
+		<a class="cf-btn" href="https://www.curseforge.com/minecraft/mc-mods/sctp" target="_blank" rel="noopener">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>
+			<span class="cf-btn-text"><small>Available on</small><b>CurseForge</b></span>
+		</a>
 		<a class="btn-ghost" href="/onboarding/web">See the website walkthrough &rarr;</a>
 	</div>
 	<div class="hero-meta">
@@ -195,6 +211,13 @@
 						<li>Drop the downloaded <code>.jar</code> in (plus Fabric API's <code>.jar</code>, if you're on Fabric).</li>
 						<li>Launch the profile again — you're in.</li>
 					</ol>
+					<div class="cf-row">
+						<p>Prefer CurseForge? Shop Logger is on there too, and the CurseForge app can install it and keep it updated for you.</p>
+						<a class="cf-btn" href="https://www.curseforge.com/minecraft/mc-mods/sctp" target="_blank" rel="noopener">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>
+							<span class="cf-btn-text"><small>Available on</small><b>CurseForge</b></span>
+						</a>
+					</div>
 					<div class="tip">Want to check the code before you trust it? The full source is on <a href="https://github.com/maxolotled/sctp" target="_blank" rel="noopener">GitHub</a>.</div>
 				</div>
 			</div>
