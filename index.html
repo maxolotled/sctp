@@ -454,6 +454,20 @@
 	.modal{
 		background:var(--panel);border:1px solid var(--line);border-radius:16px;
 		max-width:480px;width:100%;padding:26px;
+		/* never taller than the screen: scroll inside the popup instead */
+		max-height:calc(100vh - 40px);overflow-y:auto;
+	}
+	/* The download popup: wide and two columns (choose + download on the left,
+	   guide/credits/archive on the right) so it fits on short screens. */
+	.modal.modal-download{max-width:860px;}
+	.dl-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:start;}
+	.dl-side{border-left:1px solid var(--line);padding-left:26px;display:flex;flex-direction:column;gap:12px;}
+	.dl-side .download-reminder{margin:0;}
+	.dl-side h3{margin:0;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
+	.dl-main .cf-btn{margin-bottom:0;}
+	@media (max-width:720px){
+		.dl-grid{grid-template-columns:minmax(0,1fr);gap:18px;}
+		.dl-side{border-left:none;padding-left:0;border-top:1px solid var(--line);padding-top:16px;}
 	}
 	.modal h2{font-family:var(--font-display);font-size:22px;margin:0 0 6px;}
 	.modal p{color:var(--muted);font-size:13.5px;margin:0 0 18px;}
@@ -843,10 +857,12 @@
 
 <!-- download modal -->
 <div class="modal-backdrop" id="downloadBackdrop">
-	<div class="modal">
+	<div class="modal modal-download">
 		<h2>Download Shop Logger</h2>
 		<p>Pick your mod loader and Minecraft version.</p>
 
+		<div class="dl-grid">
+		<div class="dl-main">
 		<div class="dl-step-label">1. Mod loader</div>
 		<div class="segmented" id="dlLoaderSeg">
 			<button type="button" data-v="fabric" class="active">Fabric</button>
@@ -873,11 +889,16 @@
 			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>
 			<span class="cf-btn-text"><small>Available on</small><b>CurseForge</b></span>
 		</a>
+		</div>
 
-		<p class="download-reminder">New to installing mods? See the <a href="/docs/installation">installation guide</a>.</p>
-		<p class="download-reminder">View the <a href="https://github.com/maxolotled/sctp" target="_blank" rel="noopener">source code on GitHub</a>.</p>
-		<p class="download-reminder">Thanks to <strong>Zyski</strong> for the QOL features, <strong>tinatina5252</strong> for feedback, testing, and tons of general help, and <strong>LadyMaledicte</strong> for the rare item library.</p>
-		<p class="download-reminder"><a href="#" id="openArchived">Looking for an older Minecraft version? Archived downloads</a></p>
+		<div class="dl-side">
+			<h3>Good to know</h3>
+			<p class="download-reminder">New to installing mods? See the <a href="/docs/installation">installation guide</a>.</p>
+			<p class="download-reminder">View the <a href="https://github.com/maxolotled/sctp" target="_blank" rel="noopener">source code on GitHub</a>.</p>
+			<p class="download-reminder"><a href="#" id="openArchived">Looking for an older Minecraft version? Archived downloads</a></p>
+			<p class="download-reminder">Thanks to <strong>Zyski</strong> for the QOL features, <strong>tinatina5252</strong> for feedback, testing, and tons of general help, and <strong>LadyMaledicte</strong> for the rare item library.</p>
+		</div>
+		</div>
 		<div class="modal-actions">
 			<button id="closeDownload" type="button">Close</button>
 		</div>
