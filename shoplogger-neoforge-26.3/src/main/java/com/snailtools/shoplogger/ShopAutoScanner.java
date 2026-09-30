@@ -4,8 +4,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
@@ -237,7 +239,9 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 		if (armed) return; // waiting on a silent open to finish
 		if (client.player.containerMenu != client.player.inventoryMenu) return; // player has a container open themselves — don't compete for it
-		if (isHoldingPausingItem(client)) return; // see isHoldingPausingItem() — don't silently right-click while holding one of these
+		// Sneaking with anything in hand skips the block's own right-click on the
+		// server and uses the item instead, so the chest wouldn't even open.
+		if (client.player.isShiftKeyDown()) return;
 		long now = System.currentTimeMillis();
 		if (now < holdOffUntil) return;
 		if (now - lastOpenAttempt < getAdaptiveCooldownMs()) return;
@@ -248,19 +252,30 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 	}
 
 	/**
-	 * Silent scanning right-clicks a container using whatever's in the
-	 * player's main hand (see openSilently()'s useItemOn call) — for a
-	 * held item with its own special block-interaction behavior, that could
-	 * silently fire on every shop container the player walks past, not just
-	 * open it. Name tags and anything built on the vanilla feather item
-	 * (Snailcraft's convention for several custom tools/wands) are the known
-	 * cases; pausing while either is in hand avoids triggering them by
-	 * accident. Scanning resumes on its own the moment the player switches
-	 * away from holding one.
+	 * Which hotbar slot to right-click the container with. A silent open is a
+	 * real right-click with whatever is in that slot, and server items that
+	 * react to any right-click (tokens, wands, custom tools) would fire on
+	 * every shop walked past. So, in order: an empty slot (the current one
+	 * first), else a plain vanilla item (the current one first), else just
+	 * the current slot.
 	 */
-	private static boolean isHoldingPausingItem(Minecraft client) {
-		ItemStack main = client.player.getMainHandItem();
-		return main.getItem() == Items.NAME_TAG || main.getItem() == Items.FEATHER;
+	private static int pickScanSlot(Inventory inventory) {
+		int current = inventory.getSelectedSlot();
+		int size = Inventory.getSelectionSize();
+		if (inventory.getItem(current).isEmpty()) return current;
+		for (int i = 0; i < size; i++) if (inventory.getItem(i).isEmpty()) return i;
+		if (isPlainVanilla(inventory.getItem(current))) return current;
+		for (int i = 0; i < size; i++) if (isPlainVanilla(inventory.getItem(i))) return i;
+		return current;
+	}
+
+	/** No custom name, lore or plugin data. Feathers and name tags don't count: Snailcraft builds several custom tools on them. */
+	private static boolean isPlainVanilla(ItemStack stack) {
+		if (stack.getItem() == Items.NAME_TAG || stack.getItem() == Items.FEATHER) return false;
+		return !stack.has(DataComponents.CUSTOM_NAME)
+				&& !stack.has(DataComponents.LORE)
+				&& !stack.has(DataComponents.CUSTOM_DATA)
+				&& !stack.has(DataComponents.CUSTOM_MODEL_DATA);
 	}
 
 	private record Target(BlockPos pos, ShopSign sign) {}
@@ -322,10 +337,18 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 		armedSyncId = -1;
 		lastOpenAttempt = System.currentTimeMillis();
 
+		// Click with the slot pickScanSlot() chose, then switch straight back.
+		// useItemOn() sends the switched slot to the server first; the game's
+		// own next tick sends the original one back, before anything renders.
+		Inventory inventory = client.player.getInventory();
+		int originalSlot = inventory.getSelectedSlot();
+		int scanSlot = pickScanSlot(inventory);
 		selfInteracting = true;
 		try {
+			if (scanSlot != originalSlot) inventory.setSelectedSlot(scanSlot);
 			client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
 		} finally {
+			if (scanSlot != originalSlot) inventory.setSelectedSlot(originalSlot);
 			selfInteracting = false;
 		}
 	}

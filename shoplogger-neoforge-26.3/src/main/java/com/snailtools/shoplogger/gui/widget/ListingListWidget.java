@@ -1,5 +1,6 @@
 package com.snailtools.shoplogger.gui.widget;
 
+import com.snailtools.shoplogger.gui.data.RareIcons;
 import com.snailtools.shoplogger.ShopReporter;
 import com.snailtools.shoplogger.TeleportHighlight;
 import com.snailtools.shoplogger.gui.data.Listing;
@@ -91,6 +92,10 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 		private final BlockPos teleportTarget; // null if listing.position isn't parseable coordinates
 		private final boolean canReport; // marketplace rows have no shop to report
 		private final ItemStack icon;
+		// rares draw their own texture instead of the vanilla item they're made
+		// from; resolved once the rare catalog has loaded (see RareIcons)
+		private String rareTexture;
+		private boolean rareResolved;
 		private boolean reported;
 
 		private ListingEntry(Listing listing, boolean showItemName, java.util.function.Consumer<String> onClickSeller) {
@@ -135,7 +140,12 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 			int x = getX(), y = getY(), w = getWidth(), h = getHeight();
 			UiLists.rowCard(g, x, y, w, h, hovered);
 
-			Draw.iconSlot(g, x + 4, y + (h - 20) / 2, 16, icon.isEmpty() ? null : icon, null);
+			if (!rareResolved && RareIcons.isLoaded()) {
+				rareTexture = RareIcons.textureFor(listing.itemName);
+				rareResolved = true;
+			}
+			if (rareTexture != null) Draw.iconSlot(g, x + 4, y + (h - 20) / 2, 16, null, rareTexture);
+			else Draw.iconSlot(g, x + 4, y + (h - 20) / 2, 16, icon.isEmpty() ? null : icon, null);
 
 			int tx = x + 28;
 			int rightEdge = buttonsLeft() - 6;

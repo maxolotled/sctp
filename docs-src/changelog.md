@@ -11,7 +11,7 @@ Thank you for using the SCTP! Download the newest mod files via the website. New
 - Pressing X now opens a dashboard: your world, scanner and watchlist at a glance, a search box that goes straight to the listings, and a tile for every section.
 :::
 ::: details One Settings screen
-- Settings and Advanced settings are now one screen, grouped into categories (Scanning, Alerts, Highlights & tools, Data, Advanced).
+- Settings and Advanced settings are now one screen, grouped into categories (Scanning, Alerts, Look & tools, Data, Advanced).
 - Every option has a short explanation, and the rescan cooldown is a simple - / + stepper.
 :::
 ::: details Better item pages
@@ -19,6 +19,9 @@ Thank you for using the SCTP! Download the newest mod files via the website. New
 :::
 ::: details Ender chest ⇄ backpack
 - Arrows on either side of your ender chest and backpack screens switch between them (/ec and /bp). Don't want them? Turn them off in Settings.
+:::
+::: details Colour themes
+- Choose from 10 colour themes for the mod's menus in Settings: Snail, Ocean, Amethyst, Sakura, Honey, Pumpkin, Crimson, Frost, Firefly and Graphite.
 :::
 ::: details Easier filters
 - Click any filter to pick from a list (with a search box for long lists) instead of clicking through every option.

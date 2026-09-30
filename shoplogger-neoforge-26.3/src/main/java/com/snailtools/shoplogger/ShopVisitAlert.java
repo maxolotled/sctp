@@ -164,6 +164,11 @@ public final class ShopVisitAlert {
 	/** Call every client tick — fires any queued "shops plot info" command whose delay has elapsed. */
 	public static void tick(Minecraft client) {
 		if (pendingShopInfoFireTimes.isEmpty() || client.getConnection() == null) return;
+		// Never while a silent open is in flight: any command counts as "the
+		// player may be opening a screen" (see ShopAutoScanner#onPlayerMayOpenScreen),
+		// which would release that open and pop the chest up on the player's
+		// screen. Wait for it to finish; the next tick is soon enough.
+		if (SilentScreenCoordinator.isArmed()) return;
 		long now = System.currentTimeMillis();
 		Iterator<Long> it = pendingShopInfoFireTimes.iterator();
 		while (it.hasNext()) {

@@ -108,7 +108,15 @@ public class SettingRow extends AbstractButton {
 			case CHOICE -> {
 				int i = choices.indexOf(choiceGet.get());
 				int n = choices.size();
-				boolean back = input.hasShiftDown() || (clickX >= 0 && clickX < controlLeft() + 12);
+				int left = controlLeft();
+				int right = left + controlWidth(Minecraft.getInstance().font);
+				boolean back = input.hasShiftDown() || (clickX >= 0 && clickX < left + 12);
+				boolean forward = clickX >= right - 12;
+				// long lists: clicking anywhere but the arrows opens the pick list
+				if (!back && !forward && n > 4 && Minecraft.getInstance().gui.screen() instanceof UiScreen owner) {
+					Minecraft.getInstance().setScreenAndShow(new UiPickerScreen<>(owner, label, choices, choiceGet.get(), choiceFormat, choiceSet));
+					return;
+				}
 				int next = ((i < 0 ? 0 : i) + (back ? -1 : 1) + n) % n;
 				choiceSet.accept(choices.get(next));
 			}

@@ -93,15 +93,15 @@ public abstract class UiScreen extends Screen {
 	@Override
 	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
 		super.extractBackground(g, mouseX, mouseY, delta);
-		Draw.gradient(g, 0, 0, width, height, 0xE6101B14, 0xF20A120D);
-		// soft lime glow top-right, like the website header
-		Draw.gradient(g, width / 2, 0, width / 2, height / 3, 0x14B7E23D, 0x00B7E23D);
+		Draw.gradient(g, 0, 0, width, height, Theme.alpha(Theme.BG, 0xE6), Theme.alpha(Theme.BG_DEEP, 0xF2));
+		// soft accent glow top-right, like the website header
+		Draw.gradient(g, width / 2, 0, width / 2, height / 3, Theme.alpha(Theme.ACCENT, 0x14), Theme.alpha(Theme.ACCENT, 0x00));
 	}
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
 		// top bar
-		Draw.gradient(g, 0, 0, width, TOP_H, 0xF21A281F, 0xF2142019);
+		Draw.gradient(g, 0, 0, width, TOP_H, Theme.alpha(Theme.PANEL, 0xF2), Theme.alpha(Theme.BAR, 0xF2));
 		Draw.hline(g, 0, TOP_H, width, Theme.LINE_SOFT);
 		Draw.logo(g, titleLeft - 19, 6);
 
