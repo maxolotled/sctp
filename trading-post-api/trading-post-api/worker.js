@@ -5493,17 +5493,22 @@ async function getRareCatalog() {
 function raredleToday() { return new Date().toISOString().slice(0, 10); }
 
 // "Feb 2026" -> [{y, m: 1}]; "2025" -> [{y, m: null}]; "Apr 2025 / Jan 2026" -> both; missing -> []
+// "Summer 2026" -> its three months, flagged approx (so "Jul 2026" is close, not an exact match).
+const RAREDLE_SEASON_MONTHS = { spring: [2, 3, 4], summer: [5, 6, 7], autumn: [8, 9, 10], fall: [8, 9, 10], winter: [11, 12, 13] };
 function raredleReleases(s) {
 	const str = String(s == null ? "" : s).trim();
 	if (!str || str === "null") return [];
 	const out = [];
-	const re = /([A-Za-z]{3})[a-z]*\s+(\d{4})|(\d{4})/g;
+	const re = /(spring|summer|autumn|fall|winter)\s+(\d{4})|([A-Za-z]{3})[a-z]*\s+(\d{4})|(\d{4})/gi;
 	let m;
 	while ((m = re.exec(str))) {
 		if (m[1]) {
-			const idx = "jan feb mar apr may jun jul aug sep oct nov dec".indexOf(m[1].toLowerCase());
-			out.push(idx >= 0 ? { y: +m[2], m: idx / 4 } : { y: +m[2], m: null });
-		} else out.push({ y: +m[3], m: null });
+			// winter runs Dec of that year into Jan/Feb of the next (months 12/13 roll over)
+			for (const k of RAREDLE_SEASON_MONTHS[m[1].toLowerCase()]) out.push({ y: +m[2] + Math.floor(k / 12), m: k % 12, approx: true });
+		} else if (m[3]) {
+			const idx = "jan feb mar apr may jun jul aug sep oct nov dec".indexOf(m[3].toLowerCase());
+			out.push(idx >= 0 ? { y: +m[4], m: idx / 4 } : { y: +m[4], m: null });
+		} else out.push({ y: +m[5], m: null });
 	}
 	return out;
 }
@@ -5544,7 +5549,7 @@ function raredleCompare(g, a) {
 			let best = null;
 			for (const x of gr) for (const y of ar) {
 				let d, exact;
-				if (x.m !== null && y.m !== null) { d = (y.y * 12 + y.m) - (x.y * 12 + x.m); exact = d === 0; }
+				if (x.m !== null && y.m !== null) { d = (y.y * 12 + y.m) - (x.y * 12 + x.m); exact = d === 0 && !x.approx && !y.approx; }
 				else { d = (y.y - x.y) * 12; exact = d === 0 && x.m === null && y.m === null; }
 				const near = x.m !== null && y.m !== null ? Math.abs(d) <= 3 : Math.abs(d) <= 12;
 				const score = Math.abs(d);
