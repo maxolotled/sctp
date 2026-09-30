@@ -77,6 +77,16 @@
 	.job-rating .down{color:var(--bad);}
 	.job-vote-btn.active-up{background:rgba(var(--accent-rgb),0.18);border-color:var(--accent);color:var(--accent);}
 	.job-vote-btn.active-down{background:rgba(226,100,61,0.18);border-color:var(--bad);color:var(--bad);}
+	.job-review-list{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px;}
+	.job-review-list:empty{display:none;}
+	.job-review{background:var(--panel-alt);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:8px 10px;}
+	.job-review.down{border-left-color:var(--bad);}
+	.job-review .jr-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;}
+	.job-review p{margin:4px 0 0;font-size:13px;white-space:pre-line;overflow-wrap:anywhere;}
+	.job-review-form{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+	.job-review-form textarea{resize:vertical;}
+	.expiry-note{font-size:12px;color:var(--muted);margin:0 0 4px;}
+	.expiry-note.soon{color:var(--warn);font-weight:600;}
 	.empty-state{color:var(--muted);font-size:13.5px;padding:30px 0;text-align:center;}
 
 	.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
@@ -230,6 +240,7 @@
 
 	var jobs = [];
 	var myJobReviews = {}; // jobId -> 1 | -1, the caller's own vote (any job, not just their own)
+	var myJobReviewComments = {}; // jobId -> the caller's own written review text, if any
 	var jobWorldFilter = "Firefly";
 	var jobTypeFilter = "";
 	var jobSearch = "";
@@ -483,9 +494,10 @@
 		return '<span class="job-rating" title="' + Math.round((up / total) * 100) + '% positive"><span class="up">👍 ' + up + '</span><span class="down">👎 ' + down + '</span></span>';
 	}
 	function loadMyJobReviews(){
-		if(!session()) { myJobReviews = {}; return Promise.resolve(); }
+		if(!session()) { myJobReviews = {}; myJobReviewComments = {}; return Promise.resolve(); }
 		return authFetch("/marketplace/mine").then(function(res){
 			myJobReviews = (res.ok && res.data.myJobReviews) || {};
+			myJobReviewComments = (res.ok && res.data.myJobReviewComments) || {};
 		});
 	}
 
@@ -596,38 +608,86 @@
 		}
 	}
 
-	// Rating summary + thumbs up/down voting inside the job detail modal.
-	// Not shown for your own job post (the poster can't review themselves —
-	// enforced server-side too, this is just to not show a pointless control).
+	// Rating summary, written reviews, and your own review form inside the
+	// job detail modal. The form isn't shown for your own job post (the poster
+	// can't review themselves — enforced server-side too).
 	function renderJobReviewArea(j, s){
 		var host = document.getElementById("jobReviewArea");
+		if(!host) return;
 		var isOwn = s && (s.mcUsername || s.username) === j.poster;
-		var mine = myJobReviews[j.id] || 0;
-		var voteBtns = !s || isOwn ? "" :
-			'<div style="display:flex;gap:8px;align-items:center;margin-top:6px;">' +
-				'<button type="button" class="btn-ghost job-vote-btn' + (mine === 1 ? " active-up" : "") + '" data-vote="1">👍 Helpful</button>' +
-				'<button type="button" class="btn-ghost job-vote-btn' + (mine === -1 ? " active-down" : "") + '" data-vote="-1">👎 Not helpful</button>' +
+		var saved = myJobReviews[j.id] || 0;
+		var savedComment = myJobReviewComments[j.id] || "";
+		var pick = saved;
+		var form = !s || isOwn ? "" :
+			'<div class="job-review-form">' +
+				'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+					'<button type="button" class="btn-ghost job-vote-btn" data-vote="1">👍 Helpful</button>' +
+					'<button type="button" class="btn-ghost job-vote-btn" data-vote="-1">👎 Not helpful</button>' +
+				'</div>' +
+				'<textarea id="jobReviewText" rows="3" maxlength="500" placeholder="Write a review (optional): how did it go?"></textarea>' +
+				'<p class="err" id="jobReviewErr" hidden></p>' +
+				'<div style="display:flex;gap:8px;">' +
+					'<button type="button" class="btn" id="jobReviewSave" style="flex:1;">' + (saved ? "Update review" : "Post review") + '</button>' +
+					(saved ? '<button type="button" class="btn-danger" id="jobReviewRemove">Remove</button>' : '') +
+				'</div>' +
 			'</div>';
-		host.innerHTML = '<div class="lc-meta">' + jobRatingHtml(j) + '</div>' + voteBtns;
-		if(!voteBtns) return;
-		host.querySelectorAll("[data-vote]").forEach(function(btn){
-			btn.addEventListener("click", function(){
+		host.innerHTML = '<div class="lc-meta">' + jobRatingHtml(j) + '</div>' +
+			'<div id="jobReviewList" class="job-review-list"></div>' + form;
+		loadJobReviewList(j.id);
+		if(!form) return;
+
+		var text = document.getElementById("jobReviewText");
+		text.value = savedComment;
+		var errEl = document.getElementById("jobReviewErr");
+		function paintVote(){
+			host.querySelectorAll("[data-vote]").forEach(function(btn){
 				var v = Number(btn.getAttribute("data-vote"));
-				var next = mine === v ? 0 : v; // clicking your existing vote again removes it
-				authFetch("/marketplace/jobs/review", { method: "POST", body: JSON.stringify({ jobId: j.id, vote: next }) }).then(function(res){
-					if(!res.ok) return;
-					myJobReviews[j.id] = next || undefined;
-					// Undo the old vote's count, then apply the new one.
-					if(mine === 1) j.thumbsUp = Math.max(0, (j.thumbsUp || 0) - 1);
-					if(mine === -1) j.thumbsDown = Math.max(0, (j.thumbsDown || 0) - 1);
-					if(next === 1) j.thumbsUp = (j.thumbsUp || 0) + 1;
-					if(next === -1) j.thumbsDown = (j.thumbsDown || 0) + 1;
-					mine = next;
-					renderJobReviewArea(j, s);
-					renderJobs();
-				});
+				btn.classList.toggle("active-up", v === 1 && pick === 1);
+				btn.classList.toggle("active-down", v === -1 && pick === -1);
 			});
+		}
+		paintVote();
+		host.querySelectorAll("[data-vote]").forEach(function(btn){
+			btn.addEventListener("click", function(){ pick = Number(btn.getAttribute("data-vote")); errEl.hidden = true; paintVote(); });
 		});
+		function submit(vote){
+			errEl.hidden = true;
+			if(vote !== 0 && !pick){ errEl.textContent = "Pick 👍 or 👎 first."; errEl.hidden = false; return; }
+			var comment = vote === 0 ? "" : text.value.trim();
+			authFetch("/marketplace/jobs/review", { method: "POST", body: JSON.stringify({ jobId: j.id, vote: vote, comment: comment || undefined }) }).then(function(res){
+				if(!res.ok){ errEl.textContent = res.data.error || "Couldn't save your review."; errEl.hidden = false; return; }
+				// Undo the old vote's count, then apply the new one.
+				if(saved === 1) j.thumbsUp = Math.max(0, (j.thumbsUp || 0) - 1);
+				if(saved === -1) j.thumbsDown = Math.max(0, (j.thumbsDown || 0) - 1);
+				if(vote === 1) j.thumbsUp = (j.thumbsUp || 0) + 1;
+				if(vote === -1) j.thumbsDown = (j.thumbsDown || 0) + 1;
+				myJobReviews[j.id] = vote || undefined;
+				myJobReviewComments[j.id] = comment || undefined;
+				renderJobReviewArea(j, s);
+				renderJobs();
+			});
+		}
+		document.getElementById("jobReviewSave").onclick = function(){ submit(pick); };
+		var rm = document.getElementById("jobReviewRemove");
+		if(rm) rm.onclick = function(){ submit(0); };
+	}
+
+	// Written reviews for one job (thumbs-only reviews are already in the counts above).
+	function loadJobReviewList(jobId){
+		fetch(API_BASE + "/marketplace/jobs/reviews?jobId=" + encodeURIComponent(jobId))
+			.then(function(r){ return r.ok ? r.json() : { reviews: [] }; })
+			.catch(function(){ return { reviews: [] }; })
+			.then(function(data){
+				var list = document.getElementById("jobReviewList");
+				if(!list) return;
+				var written = (data.reviews || []).filter(function(r){ return r.comment; });
+				list.innerHTML = written.map(function(r){
+					return '<div class="job-review ' + (r.vote === 1 ? "up" : "down") + '">' +
+						'<div class="jr-head"><span>' + (r.vote === 1 ? "👍" : "👎") + ' <strong>' + esc(r.reviewer) + '</strong></span>' +
+						'<span class="lc-meta" style="margin:0;">' + esc(new Date(r.createdAt).toLocaleDateString()) + '</span></div>' +
+						'<p>' + esc(r.comment) + '</p></div>';
+				}).join("");
+			});
 	}
 
 	// ---------------- jobs: new job post modal ----------------
@@ -871,6 +931,15 @@
 		});
 	}
 
+	// "Expires in 3 days" / "Expired on …" under your own posts, so you know when to renew.
+	function expiryNote(p){
+		if(!p.expiresAt || (p.status !== "active" && p.status !== "expired")) return "";
+		var ms = new Date(p.expiresAt).getTime() - Date.now();
+		if(p.status === "expired" || ms <= 0) return '<p class="expiry-note soon">Expired on ' + esc(new Date(p.expiresAt).toLocaleDateString()) + '. Renew to put it back up.</p>';
+		var days = Math.ceil(ms / 86400000);
+		return '<p class="expiry-note' + (days <= 3 ? " soon" : "") + '">Expires in ' + days + ' day' + (days === 1 ? "" : "s") + ' (' + esc(new Date(p.expiresAt).toLocaleDateString()) + ')</p>';
+	}
+
 	function renderMine(data){
 		var host = document.getElementById("mineContent");
 		var bidsByListing = {};
@@ -889,7 +958,11 @@
 				'<div class="lc-top"><h3>' + esc(l.itemName) + '</h3><span class="badge ' + (l.type === "selling" ? "selling" : "lookingfor") + '">' + esc(l.status) + '</span></div>' +
 				'<p class="lc-meta">' + esc(l.world) + ' · qty ' + fmtNum(l.quantity) + '</p>' +
 				bidsHtml +
-				(l.status === "active" ? '<button type="button" class="btn-danger" data-cancel-listing="' + esc(l.id) + '" style="margin-top:8px;">Cancel listing</button>' : '') +
+				expiryNote(l) +
+				(l.status === "active" || l.status === "expired" ? '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">' +
+					'<button type="button" class="btn-ghost" data-renew-listing="' + esc(l.id) + '">Renew 14 days</button>' +
+					(l.status === "active" ? '<button type="button" class="btn-danger" data-cancel-listing="' + esc(l.id) + '">Cancel listing</button>' : '') +
+				'</div>' : '') +
 			'</div>';
 		}).join("") : '<p class="empty-state">You haven\'t posted anything yet.</p>';
 
@@ -912,9 +985,11 @@
 				'<div class="lc-top"><h3>' + esc(j.title) + '</h3><span class="badge ' + (j.type === "hiring" ? "hiring" : "forhire") + '">' + esc(j.status) + '</span></div>' +
 				'<p class="lc-meta">' + esc(j.world) + '</p>' +
 				interestHtml +
-				(j.status === "active" ? '<div style="display:flex;gap:8px;margin-top:8px;">' +
-					'<button type="button" class="btn-ghost" data-fulfill-job="' + esc(j.id) + '">Mark fulfilled</button>' +
-					'<button type="button" class="btn-danger" data-cancel-job="' + esc(j.id) + '">Cancel</button>' +
+				expiryNote(j) +
+				(j.status === "active" || j.status === "expired" ? '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">' +
+					'<button type="button" class="btn-ghost" data-renew-job="' + esc(j.id) + '">Renew 14 days</button>' +
+					(j.status === "active" ? '<button type="button" class="btn-ghost" data-fulfill-job="' + esc(j.id) + '">Mark fulfilled</button>' +
+					'<button type="button" class="btn-danger" data-cancel-job="' + esc(j.id) + '">Cancel</button>' : '') +
 				'</div>' : '') +
 			'</div>';
 		}).join("") : '<p class="empty-state">You haven\'t posted any jobs yet.</p>';
@@ -942,6 +1017,12 @@
 		});
 		host.querySelectorAll("[data-cancel-listing]").forEach(function(btn){
 			btn.addEventListener("click", function(){ authFetch("/marketplace/listings/cancel", { method: "POST", body: JSON.stringify({ id: btn.getAttribute("data-cancel-listing") }) }).then(function(){ loadMine(); loadListings(); }); });
+		});
+		host.querySelectorAll("[data-renew-listing]").forEach(function(btn){
+			btn.addEventListener("click", function(){ btn.disabled = true; authFetch("/marketplace/listings/renew", { method: "POST", body: JSON.stringify({ id: btn.getAttribute("data-renew-listing") }) }).then(function(res){ if(!res.ok){ btn.disabled = false; alert(res.data.error || "Couldn't renew that listing."); return; } loadMine(); loadListings(); }); });
+		});
+		host.querySelectorAll("[data-renew-job]").forEach(function(btn){
+			btn.addEventListener("click", function(){ btn.disabled = true; authFetch("/marketplace/jobs/renew", { method: "POST", body: JSON.stringify({ id: btn.getAttribute("data-renew-job") }) }).then(function(res){ if(!res.ok){ btn.disabled = false; alert(res.data.error || "Couldn't renew that job post."); return; } loadMine(); loadJobs(); }); });
 		});
 		host.querySelectorAll("[data-fulfill-job]").forEach(function(btn){
 			btn.addEventListener("click", function(){ authFetch("/marketplace/jobs/close", { method: "POST", body: JSON.stringify({ id: btn.getAttribute("data-fulfill-job"), status: "fulfilled" }) }).then(function(){ loadMine(); loadJobs(); }); });

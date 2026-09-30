@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.3 (mod 2.3)
+
+### Mod
+- **All-new menus.** Every Shop Logger screen was redesigned to match the website: dark green cards, lime accents, proper switches, rounded buttons and filter chips, framed search boxes, and styled lists with a slim scrollbar. Every feature from before is still there.
+- **Easier to get around:** a top bar on every screen with Back, a "Trading Post › page" breadcrumb, and icon tabs to jump straight to Listings, Items, Rares, Watchlist, Marketplace, Mapart or Settings.
+- **Home is now a dashboard:** status at a glance (world, scanner, shops nearby, watchlist), a search box that goes straight to the listings (press Enter), and a tile per section with live badges.
+- **One Settings screen:** Settings and Advanced settings are merged into categories (Scanning, Alerts, Highlights & tools, Data, Advanced). Every option has a one-line explanation. The rescan cooldown is now a − / + stepper, and Export / Upload confirm with "Done ✓".
+- **Item pages have tabs:** Listings (with a count), Price history (both charts side by side) and Details for rares. The header shows a big icon and the key facts.
+- **Listings** show item icons, a coloured world dot, and rounded TP / Report buttons with tooltips.
+- **Watchlist:** "Watching" and "+ Add" badges, a clearer options card with the price shown in diamonds too, and your search and scroll position are kept.
+- **Marketplace:** "Selling" / "Looking for" badges and a button to post on sctp.nl. **Seller profiles** show the item name on each listing and link to the profile on sctp.nl.
+- **Mapart scanner:** proper on/off switch, stats at a glance, cards with coloured upload status.
+- **Ender chest ⇄ backpack:** arrows on either side of your ender chest and backpack screens: left opens your backpack (`/bp`), right your ender chest (`/ec`); the one for the screen you're on is greyed out. They can be turned off in Settings › Highlights & tools.
+- **Rare items: filter by release date.** The "Dyeable" filter on the Rares tab is replaced by "Released": All, a year (2025, 2026) or a single month (Jan 2025 … Sep 2026), oldest first. Items released in two periods show up under both.
+- **Fixed scans reporting an old price.** The auto-scanner remembered each shop's sign from when it first found the shop, so after a seller changed the price (say 25db → 20db) scans kept using the old one, both in watchlist alerts and in what was uploaded. The sign is now re-read right before every scan and kept up to date in the background.
+
+### Website
+- **Written job reviews:** besides 👍 / 👎 you can now write a review (up to 500 characters) on someone's job post. Reviews show in the job's detail view, and you can edit or remove your own.
+- **Renew listings and job posts:** a "Renew 14 days" button under your own posts in "Mine" pushes the expiry date 14 days out, so a post that's still relevant doesn't have to be posted again. It also brings back a post that just expired. Your posts now show when they expire.
+
+### Backend
+- Migration 0038: `comment` column on job reviews. New endpoints `GET /marketplace/jobs/reviews`, `POST /marketplace/jobs/renew` and `POST /marketplace/listings/renew`.
+
 ## 2.2.1 (mod 2.2.1, September 2026)
 
 ### Mod

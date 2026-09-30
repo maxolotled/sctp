@@ -6,168 +6,187 @@ import com.snailtools.shoplogger.ExcelExporter;
 import com.snailtools.shoplogger.OwnShopSaleTracker;
 import com.snailtools.shoplogger.RareRentalHighlighter;
 import com.snailtools.shoplogger.ScanChatLogger;
+import com.snailtools.shoplogger.SearchPreferences;
 import com.snailtools.shoplogger.ShopAutoScanner;
 import com.snailtools.shoplogger.ShopLog;
 import com.snailtools.shoplogger.ShopMarkerRenderer;
 import com.snailtools.shoplogger.ShopUploader;
 import com.snailtools.shoplogger.ShopVisitAlert;
+import com.snailtools.shoplogger.TempScanWaitOverlay;
+import com.snailtools.shoplogger.TeleportHighlight;
 import com.snailtools.shoplogger.WatchlistStore;
-import net.minecraft.client.Minecraft;
+import com.snailtools.shoplogger.gui.ui.Draw;
+import com.snailtools.shoplogger.gui.ui.Section;
+import com.snailtools.shoplogger.gui.ui.SettingRow;
+import com.snailtools.shoplogger.gui.ui.Theme;
+import com.snailtools.shoplogger.gui.ui.UiButton;
+import com.snailtools.shoplogger.gui.ui.UiScreen;
+import com.snailtools.shoplogger.qol.StorageSwitcher;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
 /**
- * Everything that used to be hotkey-only, gathered in one screen. Laid out as
- * two side-by-side categories (Scanning / Search & Alerts) when there's room,
- * collapsing to one column otherwise — see computeLayout(). Reachable from
- * HomeScreen — the hotkeys themselves keep working unchanged, this is just an
- * additional way to reach the same actions.
+ * Every setting in one place (this used to be two screens, "Settings" and
+ * "Advanced settings"), grouped into categories. Each setting is one row
+ * with a short explanation; the hotkeys keep working as before.
  */
-public class SettingsScreen extends Screen {
+public class SettingsScreen extends UiScreen {
 
-	private static final int LEFT_ITEM_COUNT = 3; // Chest scanning, Recently-scanned markers, Print scans in chat
-	private static final int RIGHT_ITEM_COUNT = 5; // New-item alerts, rares-only, Rare rental highlights, Own-shop sale alerts, Watchlist marketplace
-	private static final int ACTION_BUTTON_COUNT = 4; // Export, Upload, Advanced settings, Back
-	private static final int NATURAL_GAP = 24;
-	private static final int MIN_GAP = 16; // never shrink spacing below this — rows start overlapping past this point
-	private static final int NATURAL_COL_W = 200;
-	private static final int NATURAL_COL_GAP = 20;
-	private static final int SIDE_MARGIN = 10;
-	private static final int BOTTOM_MARGIN = 10;
-	private static final int TOP_Y = 56;
-	private static final int HEADER_H = 16;
+	private enum Category {
+		SCANNING("Scanning", "How the mod reads shop chests"),
+		ALERTS("Alerts", "What gets posted in your chat"),
+		DISPLAY("Highlights & tools", "In-world highlights and shortcuts"),
+		DATA("Data", "Export or upload what you've scanned"),
+		ADVANCED("Advanced", "Temporary testing tools");
 
-	private final Screen parent;
-	private final List<HeaderLabel> headers = new ArrayList<>();
+		final String label, description;
 
-	private record HeaderLabel(String text, int x, int y) {}
-
-	/**
-	 * Single source of truth for every widget's position, so the "does this
-	 * fit?" check below and the actual placement can never disagree. Two
-	 * columns collapse into one (right column's rows continuing under the
-	 * left's) when the window's too narrow for both at once; the row gap
-	 * itself shrinks (see init()) when the window's too short, rather than
-	 * ever letting rows — especially the bottom action buttons — land below
-	 * the visible/clickable area, which is what actually happened at some
-	 * high GUI-scale / small-window combinations.
-	 */
-	private record Layout(int leftX, int rightX, int colW, int actionW, boolean singleColumn,
-			int leftHeaderY, int[] leftItemY, int rightHeaderY, int[] rightItemY, int[] actionY, int bottom) {}
-
-	public SettingsScreen(Screen parent) {
-		super(Component.literal("Shop Logger Settings"));
-		this.parent = parent;
+		Category(String label, String description) {
+			this.label = label;
+			this.description = description;
+		}
 	}
 
-	private Layout computeLayout(int gap) {
-		boolean singleColumn = width < NATURAL_COL_W * 2 + NATURAL_COL_GAP + SIDE_MARGIN * 2;
-		int colW = singleColumn ? Math.max(120, width - SIDE_MARGIN * 2) : NATURAL_COL_W;
-		int leftX = singleColumn ? SIDE_MARGIN : (width / 2 - NATURAL_COL_GAP / 2 - NATURAL_COL_W);
-		int rightX = singleColumn ? SIDE_MARGIN : (width / 2 + NATURAL_COL_GAP / 2);
-		int actionW = singleColumn ? colW : (NATURAL_COL_W * 2 + NATURAL_COL_GAP);
+	private static final int[] COOLDOWN_STEPS = {1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240};
+	private static final int ROW_GAP = 4;
 
-		int y = TOP_Y;
-		int leftHeaderY = y;
-		y += HEADER_H;
-		int[] leftItemY = new int[LEFT_ITEM_COUNT];
-		for (int i = 0; i < LEFT_ITEM_COUNT; i++) {
-			leftItemY[i] = y;
-			y += gap;
-		}
-		int leftBottom = y + 12;
+	private Category category = Category.SCANNING;
+	private final List<SettingRow> rows = new ArrayList<>();
+	private int scroll = 0;
+	private int rowsX, rowsW, rowsTop;
+	private boolean sideNav;
 
-		// Two columns run side by side from the same starting y; stacked into
-		// one column, the right section instead continues right after the left.
-		y = singleColumn ? leftBottom : TOP_Y;
-		int rightHeaderY = y;
-		y += HEADER_H;
-		int[] rightItemY = new int[RIGHT_ITEM_COUNT];
-		for (int i = 0; i < RIGHT_ITEM_COUNT; i++) {
-			rightItemY[i] = y;
-			y += gap;
-		}
-		int rightBottom = y;
-
-		int bottomY = (singleColumn ? rightBottom : Math.max(leftBottom, rightBottom)) + 12;
-		int[] actionY = new int[ACTION_BUTTON_COUNT];
-		for (int i = 0; i < ACTION_BUTTON_COUNT; i++) {
-			actionY[i] = bottomY;
-			bottomY += (i == ACTION_BUTTON_COUNT - 2) ? gap + 12 : gap;
-		}
-		int bottom = actionY[ACTION_BUTTON_COUNT - 1] + 20;
-
-		return new Layout(leftX, rightX, colW, actionW, singleColumn, leftHeaderY, leftItemY, rightHeaderY, rightItemY, actionY, bottom);
+	public SettingsScreen(Screen parent) {
+		super("Settings", parent, Section.SETTINGS);
 	}
 
 	@Override
-	protected void init() {
-		headers.clear();
+	protected void initContent() {
+		int x = contentX(), y = contentY(), w = contentW();
+		sideNav = w >= 380;
 
-		int gap = NATURAL_GAP;
-		while (gap > MIN_GAP && computeLayout(gap).bottom() > height - BOTTOM_MARGIN) gap--;
-		Layout l = computeLayout(gap);
-		int rightX = l.singleColumn() ? l.leftX() : l.rightX();
+		if (sideNav) {
+			int navW = 118;
+			int ny = y;
+			for (Category c : Category.values()) {
+				addRenderableWidget(new UiButton(x, ny, navW, 20, c.label, UiButton.Style.TAB, () -> select(c)).selected(() -> category == c));
+				ny += 24;
+			}
+			rowsX = x + navW + 10;
+			rowsW = w - navW - 10;
+			rowsTop = y + 26;
+		} else {
+			int cx = x;
+			for (Category c : Category.values()) {
+				int cw = font.width(c.label) + 12;
+				if (cx + cw > x + w) break;
+				addRenderableWidget(new UiButton(cx, y, cw, 18, c.label, UiButton.Style.TAB, () -> select(c)).selected(() -> category == c));
+				cx += cw + 4;
+			}
+			rowsX = x;
+			rowsW = w;
+			rowsTop = y + 24 + 26;
+		}
 
-		// ---- left column: Scanning ----
-		headers.add(new HeaderLabel("Scanning", l.leftX(), l.leftHeaderY()));
+		rows.clear();
+		for (SettingRow r : rowsFor(category)) {
+			r.setWidth(rowsW);
+			rows.add(addRenderableWidget(r));
+		}
+		layoutRows();
+	}
 
-		addRenderableWidget(CycleButton.onOffBuilder(ShopAutoScanner.getInstance().isEnabled())
-				.create(l.leftX(), l.leftItemY()[0], l.colW(), 20, Component.literal("Chest scanning"),
-						(btn, value) -> ShopAutoScanner.getInstance().setEnabled(value)));
+	private void select(Category c) {
+		if (c == category) return;
+		category = c;
+		scroll = 0;
+		rebuild();
+	}
 
-		addRenderableWidget(CycleButton.onOffBuilder(ShopMarkerRenderer.getInstance().isEnabled())
-				.create(l.leftX(), l.leftItemY()[1], l.colW(), 20, Component.literal("Recently-scanned markers"),
-						(btn, value) -> ShopMarkerRenderer.getInstance().setEnabled(value)));
+	private List<SettingRow> rowsFor(Category c) {
+		return switch (c) {
+			case SCANNING -> List.of(
+					SettingRow.toggle("Chest scanning", "Read shop chests automatically as you walk past",
+							() -> ShopAutoScanner.getInstance().isEnabled(), v -> ShopAutoScanner.getInstance().setEnabled(v)),
+					SettingRow.toggle("Recently-scanned markers", "Show a marker on shops scanned recently",
+							() -> ShopMarkerRenderer.getInstance().isEnabled(), v -> ShopMarkerRenderer.getInstance().setEnabled(v)),
+					SettingRow.stepper("Rescan cooldown", "How long a shop counts as recently scanned",
+							COOLDOWN_STEPS, () -> (int) (ShopAutoScanner.getPerShopCooldownMs() / 60000L), ShopAutoScanner::setPerShopCooldownMinutes, "min"),
+					SettingRow.toggle("Print scans in chat", "Post each scanned shop's contents in chat",
+							ScanChatLogger::isEnabled, ScanChatLogger::setEnabled),
+					SettingRow.choice("Chat log format", "How a printed scan is laid out",
+							List.of(Boolean.TRUE, Boolean.FALSE), ScanChatLogger::isSingleLine, ScanChatLogger::setSingleLine,
+							v -> v ? "Single line" : "Multiple lines"),
+					SettingRow.toggle("Shop info on visit", "Send /shops plot info at a shop (max once an hour each)",
+							ShopVisitAlert::isShopInfoOnVisitEnabled, ShopVisitAlert::setShopInfoOnVisitEnabled));
+			case ALERTS -> List.of(
+					SettingRow.toggle("New-item alerts", "Tell me when a shop has something new",
+							ShopVisitAlert::isEnabled, ShopVisitAlert::setEnabled),
+					SettingRow.toggle("Only for rares", "Limit new-item alerts to rare items",
+							ShopVisitAlert::isRaresOnly, ShopVisitAlert::setRaresOnly),
+					SettingRow.toggle("Own-shop sale alerts", "Tell me when something sells from my shop",
+							OwnShopSaleTracker::isMessagesEnabled, OwnShopSaleTracker::setMessagesEnabled),
+					SettingRow.toggle("Watchlist: marketplace posts", "Include sctp.nl marketplace posts in watchlist alerts",
+							WatchlistStore::isMarketplaceAlertsEnabled, WatchlistStore::setMarketplaceAlertsEnabled));
+			case DISPLAY -> List.of(
+					SettingRow.toggle("Rare rental highlights", "Highlight rentable rares in shops",
+							RareRentalHighlighter::isEnabled, RareRentalHighlighter::setEnabled),
+					SettingRow.toggle("Highlights inside shulkers", "Also highlight rentable rares inside shulker boxes",
+							RareRentalHighlighter::isInShulkersEnabled, RareRentalHighlighter::setInShulkersEnabled),
+					SettingRow.toggle("Ender chest / backpack arrows", "Arrows beside /ec and /bp to switch between them",
+							StorageSwitcher::isEnabled, StorageSwitcher::setEnabled),
+					SettingRow.choice("Teleport beam style", "The beam that points to a shop after TP",
+							Arrays.asList(TeleportHighlight.BeamStyle.values()), TeleportHighlight::getStyle, TeleportHighlight::setStyle,
+							v -> v.label),
+					SettingRow.choice("/search opens", "Where the /search command shows results",
+							List.of(Boolean.TRUE, Boolean.FALSE), SearchPreferences::isGuiSearch, SearchPreferences::setGuiSearch,
+							v -> v ? "This menu" : "Chat"));
+			case DATA -> List.of(
+					SettingRow.action("Export to CSV + Excel", "Save all " + ShopLog.size() + " logged entries to run/shoplogger/",
+							"Export", this::exportBoth),
+					SettingRow.action("Upload to the Trading Post", "Send your scans to sctp.nl right now",
+							"Upload", () -> ShopUploader.uploadAsync(minecraft, true)));
+			case ADVANCED -> List.of(
+					SettingRow.toggle("Show scan wait (temporary)", "Show the scanner's wait time, in ms, top-right",
+							TempScanWaitOverlay::isEnabled, TempScanWaitOverlay::setEnabled));
+		};
+	}
 
-		addRenderableWidget(CycleButton.onOffBuilder(ScanChatLogger.isEnabled())
-				.create(l.leftX(), l.leftItemY()[2], l.colW(), 20, Component.literal("Print scans in chat"),
-						(btn, value) -> ScanChatLogger.setEnabled(value)));
+	private int rowsViewBottom() {
+		return contentBottom();
+	}
 
-		// ---- right column: Search & Alerts ----
-		headers.add(new HeaderLabel("Search & Alerts", rightX, l.rightHeaderY()));
+	private int maxScroll() {
+		int total = rows.size() * (SettingRow.HEIGHT + ROW_GAP) - ROW_GAP;
+		return Math.max(0, total - (rowsViewBottom() - rowsTop));
+	}
 
-		addRenderableWidget(CycleButton.onOffBuilder(ShopVisitAlert.isEnabled())
-				.create(rightX, l.rightItemY()[0], l.colW(), 20, Component.literal("New-item alerts"),
-						(btn, value) -> ShopVisitAlert.setEnabled(value)));
+	private void layoutRows() {
+		scroll = Math.max(0, Math.min(scroll, maxScroll()));
+		for (int i = 0; i < rows.size(); i++) {
+			SettingRow r = rows.get(i);
+			int ry = rowsTop + i * (SettingRow.HEIGHT + ROW_GAP) - scroll;
+			r.setX(rowsX);
+			r.setY(ry);
+			r.visible = ry >= rowsTop - 1 && ry + SettingRow.HEIGHT <= rowsViewBottom() + 1;
+		}
+	}
 
-		addRenderableWidget(CycleButton.onOffBuilder(ShopVisitAlert.isRaresOnly())
-				.create(rightX, l.rightItemY()[1], l.colW(), 20, Component.literal("New-item alerts: rares only"),
-						(btn, value) -> ShopVisitAlert.setRaresOnly(value)));
-
-		addRenderableWidget(CycleButton.onOffBuilder(RareRentalHighlighter.isEnabled())
-				.create(rightX, l.rightItemY()[2], l.colW(), 20, Component.literal("Rare rental highlights"),
-						(btn, value) -> RareRentalHighlighter.setEnabled(value)));
-
-		addRenderableWidget(CycleButton.onOffBuilder(OwnShopSaleTracker.isMessagesEnabled())
-				.create(rightX, l.rightItemY()[3], l.colW(), 20, Component.literal("Own-shop sale alerts"),
-						(btn, value) -> OwnShopSaleTracker.setMessagesEnabled(value)));
-
-		addRenderableWidget(CycleButton.onOffBuilder(WatchlistStore.isMarketplaceAlertsEnabled())
-				.create(rightX, l.rightItemY()[4], l.colW(), 20, Component.literal("Watchlist: include marketplace"),
-						(btn, value) -> WatchlistStore.setMarketplaceAlertsEnabled(value)));
-
-		// ---- bottom: actions, shared full width ----
-		addRenderableWidget(Button.builder(Component.literal("Export now (CSV + Excel)"), btn -> exportBoth())
-				.bounds(l.leftX(), l.actionY()[0], l.actionW(), 20).build());
-
-		addRenderableWidget(Button.builder(Component.literal("Upload now to Trading Post"), btn -> ShopUploader.uploadAsync(minecraft, true))
-				.bounds(l.leftX(), l.actionY()[1], l.actionW(), 20).build());
-
-		addRenderableWidget(Button.builder(Component.literal("Advanced settings..."), btn -> minecraft.setScreenAndShow(new AdvancedSettingsScreen(this)))
-				.bounds(l.leftX(), l.actionY()[2], l.actionW(), 20).build());
-
-		addRenderableWidget(Button.builder(Component.literal("Back"), btn -> onClose())
-				.bounds(l.leftX(), l.actionY()[3], l.actionW(), 20).build());
+	@Override
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		if (mouseX >= rowsX && maxScroll() > 0) {
+			scroll -= (int) Math.signum(scrollY) * (SettingRow.HEIGHT + ROW_GAP);
+			layoutRows();
+			return true;
+		}
+		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 	}
 
 	private void exportBoth() {
@@ -175,29 +194,28 @@ public class SettingsScreen extends Screen {
 			Path runDir = minecraft.gameDirectory.toPath();
 			Path csvOut = runDir.resolve("shoplogger").resolve("shops.csv");
 			Path xlsxOut = runDir.resolve("shoplogger").resolve("shops.xlsx");
-
 			CsvExporter.export(ShopLog.getAll(), csvOut);
 			ExcelExporter.export(ShopLog.getAll(), xlsxOut);
-
 			String time = new SimpleDateFormat("HH:mm:ss").format(new Date());
-			ChatFormat.send(minecraft, ChatFormat.SUCCESS,
-					"Exported " + ShopLog.size() + " entries at " + time + " -> run/shoplogger/");
+			ChatFormat.send(minecraft, ChatFormat.SUCCESS, "Exported " + ShopLog.size() + " entries at " + time + " -> run/shoplogger/");
 		} catch (Exception e) {
 			ChatFormat.send(minecraft, ChatFormat.ERROR, "Export failed: " + e.getMessage());
 		}
 	}
 
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-		super.extractRenderState(context, mouseX, mouseY, delta);
-		context.centeredText(font, title, width / 2, 20, 0xFFFFFFFF);
-		for (HeaderLabel h : headers) {
-			context.text(font, h.text(), h.x(), h.y(), 0xFFB7E23D);
+	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+		int hy = rowsTop - 24;
+		Draw.textShadow(g, font, category.label, rowsX, hy, Theme.TEXT);
+		g.text(font, Draw.trim(font, category.description, rowsW), rowsX, hy + 11, Theme.MUTED, false);
+		if (sideNav) {
+			// thin divider between the category list and the rows
+			g.fill(rowsX - 6, contentY(), rowsX - 5, contentBottom(), Theme.LINE_SOFT);
 		}
 	}
 
 	@Override
-	public void onClose() {
-		Minecraft.getInstance().setScreenAndShow(parent);
+	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+		if (scroll < maxScroll()) Draw.right(g, font, "Scroll for more ↓", rowsX + rowsW, rowsTop - 13, Theme.FAINT);
 	}
 }

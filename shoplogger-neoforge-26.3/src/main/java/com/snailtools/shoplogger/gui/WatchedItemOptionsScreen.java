@@ -3,84 +3,90 @@ package com.snailtools.shoplogger.gui;
 import com.snailtools.shoplogger.ChatFormat;
 import com.snailtools.shoplogger.WatchedItem;
 import com.snailtools.shoplogger.WatchlistStore;
+import com.snailtools.shoplogger.gui.ui.Draw;
+import com.snailtools.shoplogger.gui.ui.Section;
+import com.snailtools.shoplogger.gui.ui.SettingRow;
+import com.snailtools.shoplogger.gui.ui.Theme;
+import com.snailtools.shoplogger.gui.ui.UiButton;
+import com.snailtools.shoplogger.gui.ui.UiField;
+import com.snailtools.shoplogger.gui.ui.UiScreen;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.CycleButton;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
 /**
- * Opened by clicking an already-watched item in WatchlistScreen — set a max
- * price (entered in diamond blocks) and/or skip display/no-price listings
- * for just this item, or stop watching it entirely.
+ * Options for one watched item: a max price (entered in diamond blocks)
+ * and whether to skip display/no-price listings — or stop watching it.
  */
-public class WatchedItemOptionsScreen extends Screen {
+public class WatchedItemOptionsScreen extends UiScreen {
 
-	// The field is entered/shown in diamond blocks (the more natural unit for
-	// a price cap), but WatchedItem.maxPrice is still stored in diamonds
-	// internally, matching every price comparison elsewhere in the mod.
+	// Entered/shown in diamond blocks, stored in diamonds like every other price in the mod.
 	private static final double DIAMONDS_PER_BLOCK = 9.0;
 	private static final int[] QUICK_PRICES = {1, 5, 10, 15, 20, 25, 32, 48};
+	private static final int CARD_W = 300;
 
-	private final Screen parent;
 	private final WatchedItem item;
-	private EditBox maxPriceField;
+	private UiField maxPrice;
+	private String keepPrice;
 	private boolean excludeNoPriceOrDisplay;
+	private int cardX, cardY, cardH;
 
 	public WatchedItemOptionsScreen(Screen parent, WatchedItem item) {
-		super(Component.literal(item.itemName));
-		this.parent = parent;
+		super(item.itemName, parent, Section.WATCHLIST);
 		this.item = item;
 		this.excludeNoPriceOrDisplay = item.excludeNoPriceOrDisplay;
+		this.keepPrice = item.maxPrice != null ? formatPrice(item.maxPrice / DIAMONDS_PER_BLOCK) : "";
 	}
 
 	@Override
-	protected void init() {
-		int centerX = width / 2;
-		int w = 220;
-		int y = height / 2 - 50;
+	protected void initContent() {
+		int w = Math.min(CARD_W, contentW());
+		cardH = 164;
+		cardX = (width - w) / 2;
+		cardY = Math.max(contentY(), contentY() + (contentH() - cardH) / 2);
+		int x = cardX + 12, iw = w - 24;
+		int y = cardY + 44;
 
-		maxPriceField = new EditBox(font, centerX - w / 2, y, w, 20, Component.literal("Max price (diamond blocks)"));
-		maxPriceField.setMaxLength(10);
-		if (item.maxPrice != null) maxPriceField.setValue(formatPrice(item.maxPrice / DIAMONDS_PER_BLOCK));
-		addRenderableWidget(maxPriceField);
+		maxPrice = new UiField(font, x, y, iw, 20, "No limit", false).suffix("diamond blocks", font);
+		maxPrice.box.setMaxLength(10);
+		maxPrice.box.setValue(keepPrice);
+		maxPrice.box.setResponder(s -> keepPrice = s);
+		addRenderableOnly(maxPrice.frame());
+		addRenderableWidget(maxPrice.box);
 		y += 24;
 
-		// Quick-select row — fills the field with a common price (in diamond
-		// blocks, same unit the field itself uses) instead of typing it out.
-		int qGap = 3;
-		int qBtnW = (w - (QUICK_PRICES.length - 1) * qGap) / QUICK_PRICES.length;
-		int qx = centerX - w / 2;
+		// quick prices, in diamond blocks like the field
+		int gap = 3;
+		int qw = (iw - (QUICK_PRICES.length - 1) * gap) / QUICK_PRICES.length;
+		int qx = x;
 		for (int price : QUICK_PRICES) {
-			addRenderableWidget(Button.builder(Component.literal(Integer.toString(price)), btn -> maxPriceField.setValue(Integer.toString(price)))
-					.bounds(qx, y, qBtnW, 16).build());
-			qx += qBtnW + qGap;
+			addRenderableWidget(new UiButton(qx, y, qw, 14, Integer.toString(price), UiButton.Style.SECONDARY,
+					() -> maxPrice.box.setValue(Integer.toString(price))).tooltip(price + " diamond blocks = " + price * 9 + " diamonds"));
+			qx += qw + gap;
 		}
-		y += 16 + 16;
+		y += 22;
 
-		addRenderableWidget(CycleButton.onOffBuilder(excludeNoPriceOrDisplay)
-				.create(centerX - w / 2, y, w, 20, Component.literal("Skip display/no-price"),
-						(btn, value) -> excludeNoPriceOrDisplay = value));
-		y += 28;
+		SettingRow skip = SettingRow.toggle("Skip display / no-price listings", "Ignore signs that don't sell anything",
+				() -> excludeNoPriceOrDisplay, v -> excludeNoPriceOrDisplay = v);
+		skip.setX(x);
+		skip.setY(y);
+		skip.setWidth(iw);
+		addRenderableWidget(skip);
+		y += SettingRow.HEIGHT + 12;
 
-		addRenderableWidget(Button.builder(Component.literal("Save"), btn -> save())
-				.bounds(centerX - w / 2, y, w, 20).build());
-		y += 24;
+		int bw = (iw - 8) / 3;
+		addRenderableWidget(new UiButton(x, y, bw, 20, "Stop watching", UiButton.Style.DANGER, this::remove));
+		addRenderableWidget(new UiButton(x + bw + 4, y, bw, 20, "Cancel", UiButton.Style.SECONDARY, this::onClose));
+		addRenderableWidget(new UiButton(x + 2 * (bw + 4), y, iw - 2 * (bw + 4), 20, "Save", UiButton.Style.PRIMARY, this::save));
+		cardH = y + 20 + 12 - cardY;
 
-		addRenderableWidget(Button.builder(Component.literal("Stop watching"), btn -> remove())
-				.bounds(centerX - w / 2, y, w, 20).build());
-		y += 24;
-
-		addRenderableWidget(Button.builder(Component.literal("Back"), btn -> onClose())
-				.bounds(centerX - w / 2, y, w, 20).build());
+		setInitialFocus(maxPrice.box);
 	}
 
 	private static String formatPrice(double v) {
 		return v == Math.floor(v) ? String.valueOf((long) v) : String.valueOf(v);
 	}
 
-	/** Blank/zero/invalid all mean "no cap" rather than erroring — this is a quick in-game field, not a form with validation messages. */
+	/** Blank/zero/invalid all mean "no limit" rather than an error. */
 	private static Double parsePrice(String text) {
 		text = text == null ? "" : text.trim();
 		if (text.isEmpty()) return null;
@@ -93,9 +99,9 @@ public class WatchedItemOptionsScreen extends Screen {
 	}
 
 	private void save() {
-		Double maxPriceBlocks = parsePrice(maxPriceField.getValue());
-		Double maxPriceDiamonds = maxPriceBlocks == null ? null : maxPriceBlocks * DIAMONDS_PER_BLOCK;
-		WatchlistStore.updateOptions(item.itemName, maxPriceDiamonds, excludeNoPriceOrDisplay);
+		Double blocks = parsePrice(maxPrice.value());
+		Double diamonds = blocks == null ? null : blocks * DIAMONDS_PER_BLOCK;
+		WatchlistStore.updateOptions(item.itemName, diamonds, excludeNoPriceOrDisplay);
 		ChatFormat.send(minecraft, ChatFormat.SUCCESS, "Updated watchlist options for " + item.itemName + ".");
 		onClose();
 	}
@@ -107,20 +113,15 @@ public class WatchedItemOptionsScreen extends Screen {
 	}
 
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-		super.extractRenderState(context, mouseX, mouseY, delta);
-		context.centeredText(font, title, width / 2, height / 2 - 92, 0xFFFFFFFF);
-		context.centeredText(font, "Max price is in diamond blocks (e.g. 2 = 18 diamonds)", width / 2, height / 2 - 78, 0xFF8FA593);
-		context.centeredText(font, "This is the price per single item, not per stack", width / 2, height / 2 - 66, 0xFF8FA593);
-	}
-
-	@Override
-	public void onClose() {
-		minecraft.setScreenAndShow(parent);
-	}
-
-	@Override
-	public boolean isPauseScreen() {
-		return false;
+	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+		int w = Math.min(CARD_W, contentW());
+		Draw.shadow(g, cardX, cardY, w, cardH);
+		Draw.card(g, cardX, cardY, w, cardH, Theme.PANEL, Theme.LINE);
+		g.text(font, "WATCHING", cardX + 12, cardY + 9, Theme.FAINT, false);
+		Draw.textShadow(g, font, Draw.trim(font, item.itemName, w - 24), cardX + 12, cardY + 19, Theme.TEXT);
+		g.text(font, "MAX PRICE PER ITEM", cardX + 12, cardY + 34, Theme.FAINT, false);
+		Double blocks = parsePrice(maxPrice == null ? keepPrice : maxPrice.value());
+		String hint = blocks == null ? "Alerts for any price" : "= " + formatPrice(blocks * DIAMONDS_PER_BLOCK) + " diamonds per item";
+		Draw.right(g, font, hint, cardX + w - 12, cardY + 34, blocks == null ? Theme.FAINT : Theme.ACCENT);
 	}
 }

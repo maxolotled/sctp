@@ -1,32 +1,52 @@
 package com.snailtools.shoplogger.gui.widget;
 
-import com.snailtools.shoplogger.gui.RemoteTextureCache;
+import com.snailtools.shoplogger.gui.ui.Draw;
+import com.snailtools.shoplogger.gui.ui.Theme;
+import com.snailtools.shoplogger.gui.ui.UiLists;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSelectionList;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.Item;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Scrollable, clickable list of catalog items — used for both the vanilla
- * and rare item libraries. Vanilla entries render the real in-game item
- * icon (looked up by baseItem); rare entries render their custom texture,
- * fetched and cached the first time they're shown (see RemoteTextureCache).
+ * Scrollable list of item cards — used by both item libraries, the
+ * watchlist and the marketplace. Vanilla entries render the real in-game
+ * item icon (looked up by baseItem); rare entries render their custom
+ * texture, fetched and cached the first time they're shown (see
+ * RemoteTextureCache). Rows can carry a coloured badge and a "View" button.
  */
 public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEntry> {
 
-	private static final Identifier PLACEHOLDER_ICON = Identifier.fromNamespaceAndPath("minecraft", "textures/item/barrier.png");
+	public static final int ROW_HEIGHT = 24;
 
-	public ItemListWidget(Minecraft client, int width, int height, int y, int itemHeight) {
-		super(client, width, height, y, itemHeight);
+	public ItemListWidget(Minecraft client, int x, int y, int w, int h) {
+		super(client, w, h, y, ROW_HEIGHT);
+		updateSizeAndPosition(w, h, x, y);
 	}
 
 	@Override
 	public int getRowWidth() {
-		return Math.min(360, width - 20);
+		return Math.max(60, Math.min(520, width - 12));
+	}
+
+	@Override
+	protected int scrollBarX() {
+		return Math.min(getRowRight() + 3, getX() + width - 4);
+	}
+
+	@Override
+	protected void extractListBackground(GuiGraphicsExtractor g) {}
+
+	@Override
+	protected void extractListSeparators(GuiGraphicsExtractor g) {}
+
+	@Override
+	protected void extractSelection(GuiGraphicsExtractor g, ItemEntry entry, int color) {}
+
+	@Override
+	protected void extractScrollbar(GuiGraphicsExtractor g, int mouseX, int mouseY) {
+		if (scrollable()) UiLists.scrollbar(g, scrollBarX(), getY(), getHeight(), scrollBarY(), scrollerHeight(), mouseX, mouseY);
 	}
 
 	@Override
@@ -42,6 +62,10 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 		addEntry(entry);
 	}
 
+	public int size() {
+		return getItemCount();
+	}
+
 	public static ItemEntry forVanilla(String name, String baseItem, Runnable onClick) {
 		return forVanilla(name, baseItem, null, onClick);
 	}
@@ -52,15 +76,7 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 
 	/** onOpenPage, if given, draws a secondary "View" button at the row's right edge — see ItemEntry. */
 	public static ItemEntry forVanilla(String name, String baseItem, String subtitle, Runnable onClick, Runnable onOpenPage) {
-		ItemStack stack = ItemStack.EMPTY;
-		if (baseItem != null) {
-			Identifier id = Identifier.tryParse(baseItem);
-			if (id != null) {
-				Item item = BuiltInRegistries.ITEM.getValue(id);
-				if (item != null) stack = new ItemStack(item);
-			}
-		}
-		return new ItemEntry(name, subtitle, stack, null, onClick, onOpenPage);
+		return new ItemEntry(name, subtitle, Draw.stackFor(baseItem), null, onClick, onOpenPage);
 	}
 
 	public static ItemEntry forRare(String name, String category, String textureUrl, Runnable onClick) {
@@ -73,12 +89,10 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 	}
 
 	public static final class ItemEntry extends AbstractSelectionList.Entry<ItemEntry> {
-		// Reserved column at the row's right edge for the secondary "Search"
-		// button — jumps straight to the item's detail page (current listings,
-		// price history) instead of whatever the whole-row click does
-		// (add/remove/open options), same pattern as ListingListWidget's own
-		// [TP] button column.
-		private static final int OPEN_PAGE_BUTTON_WIDTH = 50;
+		// Secondary button at the row's right edge — jumps straight to the
+		// item's detail page (current listings, price history) instead of
+		// whatever the whole-row click does (add / options / open).
+		private static final int VIEW_W = 34;
 
 		private final String name;
 		private final String subtitle;
@@ -86,6 +100,8 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 		private final String textureUrl;
 		private final Runnable onClick;
 		private final Runnable onOpenPage;
+		private String badge;
+		private int badgeColor = Theme.ACCENT;
 
 		private ItemEntry(String name, String subtitle, ItemStack vanillaIcon, String textureUrl, Runnable onClick, Runnable onOpenPage) {
 			this.name = name;
@@ -96,50 +112,53 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 			this.onOpenPage = onOpenPage;
 		}
 
+		/** A small coloured label on the row, e.g. "Watching" or "Selling". */
+		public ItemEntry withBadge(String text, int color) {
+			this.badge = text;
+			this.badgeColor = color;
+			return this;
+		}
+
+		private int viewX() { return getX() + getWidth() - 5 - VIEW_W; }
+		private int viewY() { return getY() + (getHeight() - 14) / 2; }
+
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int index, int rowY, boolean hovered, float tickDelta) {
-			int x = getX() + 4;
-			int y = getY();
-			int iconSize = 16;
+		public void extractContent(GuiGraphicsExtractor g, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+			var font = Minecraft.getInstance().font;
+			int x = getX(), y = getY(), w = getWidth(), h = getHeight();
+			UiLists.rowCard(g, x, y, w, h, hovered);
+			Draw.iconSlot(g, x + 4, y + (h - 20) / 2, 16, vanillaIcon.isEmpty() ? null : vanillaIcon, vanillaIcon.isEmpty() ? textureUrl : null);
 
-			if (!vanillaIcon.isEmpty()) {
-				context.item(vanillaIcon, x, y + 2);
+			int right = onOpenPage != null ? viewX() - 6 : x + w - 14;
+			if (badge != null) {
+				int bw = Draw.pillWidth(font, badge);
+				right -= bw;
+				Draw.pill(g, font, badge, right, y + (h - 11) / 2, Theme.alpha(badgeColor, 0x33), badgeColor);
+				right -= 6;
+			}
+
+			int tx = x + 28;
+			int textW = right - tx;
+			if (subtitle != null && !subtitle.isEmpty()) {
+				g.text(font, Draw.trim(font, name, textW), tx, y + 3, Theme.TEXT, false);
+				g.text(font, Draw.trim(font, subtitle, textW), tx, y + 13, Theme.MUTED, false);
 			} else {
-				Identifier tex = RemoteTextureCache.get(Minecraft.getInstance(), textureUrl, () -> {});
-				if (tex != null) {
-					context.blit(RenderPipelines.GUI_TEXTURED, tex, x, y + 2, 0, 0, iconSize, iconSize, iconSize, iconSize);
-				} else {
-					context.blit(RenderPipelines.GUI_TEXTURED, PLACEHOLDER_ICON, x, y + 2, 0, 0, iconSize, iconSize, iconSize, iconSize);
-				}
-			}
-
-			int textX = x + iconSize + 6;
-			var client = Minecraft.getInstance();
-			context.text(client.font, name, textX, y + 2, 0xFFFFFFFF);
-			if (subtitle != null) {
-				context.text(client.font, subtitle, textX, y + 12, 0xFF8FA593);
-			}
-
-			if (hovered) {
-				context.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), 0x22FFFFFF);
+				g.text(font, Draw.trim(font, name, textW), tx, y + (h - 8) / 2, Theme.TEXT, false);
 			}
 
 			if (onOpenPage != null) {
-				int btnX = getX() + getWidth() - OPEN_PAGE_BUTTON_WIDTH;
-				context.fill(btnX, getY(), getX() + getWidth(), getY() + getHeight(), 0xFF2E6B45);
-				context.centeredText(client.font, "Search", btnX + OPEN_PAGE_BUTTON_WIDTH / 2, getY() + getHeight() / 2 - 4, 0xFFFFFFFF);
+				boolean over = UiLists.rowButton(g, viewX(), viewY(), VIEW_W, 14, "View", Theme.PANEL_ALT, Theme.ACCENT_DIM, Theme.TEXT, mouseX, mouseY);
+				if (over) g.setTooltipForNextFrame(font, Component.literal("Open this item's page: listings and price history"), mouseX, mouseY);
+			} else {
+				g.text(font, "›", x + w - 10, y + (h - 8) / 2, hovered ? Theme.ACCENT : Theme.FAINT, false);
 			}
 		}
 
 		@Override
 		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
-			if (onOpenPage != null) {
-				int btnX = getX() + getWidth() - OPEN_PAGE_BUTTON_WIDTH;
-				if (event.x() >= btnX && event.x() < getX() + getWidth()
-						&& event.y() >= getY() && event.y() < getY() + getHeight()) {
-					onOpenPage.run();
-					return true;
-				}
+			if (onOpenPage != null && UiLists.over(viewX(), viewY(), VIEW_W, 14, event.x(), event.y())) {
+				onOpenPage.run();
+				return true;
 			}
 			if (onClick != null) onClick.run();
 			return true;

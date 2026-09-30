@@ -14,6 +14,6 @@ public class MouseHandlerMixin {
 
     @Inject(method = "onButton", at = @At("HEAD"), cancellable = true)
     private void onMousePress(long window, MouseButtonInfo mouseButtonInfo, int action, CallbackInfo ci) {
-        QolHookManager.onMouseEvent(window, mouseButtonInfo, action);
+        if (QolHookManager.onMouseEvent(window, mouseButtonInfo, action)) ci.cancel();
     }
 }

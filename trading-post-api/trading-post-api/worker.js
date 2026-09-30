@@ -205,6 +205,7 @@
 //   POST /marketplace/listings/create             body: {type: "selling"|"lookingFor", itemName, baseItem?, world: "Firefly"|"Honeybee"|"Cross-world", quantity, notes?, askingPrice?, askingCurrency?, startingBid?, startingBidCurrency?, budget?, budgetCurrency?}
 //     -> currency fields must be one of MARKETPLACE_CURRENCIES ("diamond"|"diamondblock"|"diamondstack" — dia/db/stx in the UI)
 //   POST /marketplace/listings/cancel             body: {id} -> owner only
+//   POST /marketplace/listings/renew              body: {id} -> owner only; active or expired -> active, expiresAt = now + 14 days
 //   POST /marketplace/bids/place                  body: {listingId, amount, currency, message?} -> currency must be one of MARKETPLACE_CURRENCIES
 //     works on both "selling" (a buyer's bid) and "lookingFor" (a seller offering to sell at that price) listings
 //   POST /marketplace/bids/withdraw                body: {bidId} -> bidder only
@@ -228,7 +229,9 @@
 //   POST /marketplace/jobs/create                  body: {type: "hiring"|"forHire", title, description?, world, rewardAmount?, rewardCurrency?, deadline?}
 //   POST /marketplace/jobs/interest                body: {jobId, message?} -> records interest, returns {contactInfo} for the poster, notifies the poster with the responder's contact info
 //   POST /marketplace/jobs/close                   body: {id, status: "fulfilled"|"cancelled"} -> poster only
-//   POST /marketplace/jobs/review                  body: {jobId, vote: 1|-1|0} -> thumbs up/down on someone else's job post, 0 removes your vote; GET /marketplace/jobs returns each job's {thumbsUp, thumbsDown}, GET /marketplace/mine returns your own votes as {myJobReviews: {jobId: vote}}
+//   POST /marketplace/jobs/review                  body: {jobId, vote: 1|-1|0, comment?} -> thumbs up/down (+ optional text, max 500) on someone else's job post, 0 removes your review; GET /marketplace/jobs returns each job's {thumbsUp, thumbsDown}, GET /marketplace/mine returns your own as {myJobReviews: {jobId: vote}, myJobReviewComments: {jobId: comment}}
+//   GET  /marketplace/jobs/reviews?jobId=          -> public list of {reviewer, vote, comment, createdAt}, newest first
+//   POST /marketplace/jobs/renew                   body: {id} -> poster only; active or expired -> active, expiresAt = now + 14 days
 //   GET  /marketplace/mine also returns {jobs, myJobInterests, jobInterestsReceived} (the last one includes contactInfo directly — see handleGetMyMarketplace)
 // Active selling/lookingFor listings are also merged straight into GET
 // /listings (see handleGetListings) — tagged marketplace/marketplaceType/
@@ -1554,8 +1557,9 @@ async function handleExpressJobInterest(request, env) {
 	return json({ ok: true, contactInfo: poster ? contactInfoText(poster) : null });
 }
 
-// POST /marketplace/jobs/review — thumbs up/down on a job post. One vote per
-// (job, reviewer); posting again just changes it, vote: 0 removes it.
+// POST /marketplace/jobs/review — thumbs up/down on a job post, with an
+// optional written comment. One review per (job, reviewer); posting again
+// just changes it, vote: 0 removes it (comment included).
 // Anyone with an account can review any job except their own.
 async function handleReviewMarketplaceJob(request, env) {
 	const auth = await requireAnyAdmin(request, env);
@@ -1564,6 +1568,7 @@ async function handleReviewMarketplaceJob(request, env) {
 	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
 	const jobId = String(body.jobId || "");
 	const vote = Number(body.vote);
+	const comment = body.comment ? String(body.comment).trim().slice(0, 500) || null : null;
 	if (!jobId) return json({ error: "jobId is required" }, 400);
 	if (![1, -1, 0].includes(vote)) return json({ error: "vote must be 1, -1, or 0" }, 400);
 
@@ -1575,11 +1580,63 @@ async function handleReviewMarketplaceJob(request, env) {
 		await env.DB.prepare("DELETE FROM marketplaceJobReviews WHERE jobId = ? AND reviewerAccountId = ?").bind(jobId, auth.admin.id).run();
 	} else {
 		await env.DB.prepare(
-			`INSERT INTO marketplaceJobReviews (id, jobId, reviewerAccountId, vote, createdAt) VALUES (?, ?, ?, ?, ?)
-			 ON CONFLICT(jobId, reviewerAccountId) DO UPDATE SET vote = excluded.vote, createdAt = excluded.createdAt`
-		).bind(newId(), jobId, auth.admin.id, vote, new Date().toISOString()).run();
+			`INSERT INTO marketplaceJobReviews (id, jobId, reviewerAccountId, vote, comment, createdAt) VALUES (?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(jobId, reviewerAccountId) DO UPDATE SET vote = excluded.vote, comment = excluded.comment, createdAt = excluded.createdAt`
+		).bind(newId(), jobId, auth.admin.id, vote, comment, new Date().toISOString()).run();
 	}
 	return json({ ok: true });
+}
+
+// GET /marketplace/jobs/reviews?jobId= — public. Every review on one job,
+// newest first, with the reviewer's name. Not cached, so your own review
+// shows up right after posting it.
+async function handleGetMarketplaceJobReviews(request, env) {
+	const jobId = new URL(request.url).searchParams.get("jobId") || "";
+	if (!jobId) return json({ error: "jobId is required" }, 400);
+	const { results } = await env.DB.prepare(
+		`SELECT r.vote, r.comment, r.createdAt, a.username AS accountUsername, a.mcUsername AS accountMcUsername
+		 FROM marketplaceJobReviews r JOIN admins a ON a.id = r.reviewerAccountId
+		 WHERE r.jobId = ? ORDER BY r.createdAt DESC LIMIT 200`
+	).bind(jobId).all();
+	return json({
+		reviews: results.map((r) => ({
+			reviewer: r.accountMcUsername || r.accountUsername,
+			vote: r.vote, comment: r.comment || null, createdAt: r.createdAt,
+		})),
+	});
+}
+
+// POST /marketplace/listings/renew and /marketplace/jobs/renew — body {id}.
+// Owner only. Pushes expiresAt a full lifetime (14 days) out from now, so a
+// post that's still relevant doesn't have to be deleted and posted again.
+// Also revives a post the daily sweep already flipped to 'expired' — but
+// never one that was sold, fulfilled or cancelled. createdAt is untouched,
+// so renewing doesn't bump a post to the top of "newest".
+async function renewMarketplacePost(request, env, table, notYours) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const id = String(body.id || "");
+	if (!id) return json({ error: "id is required" }, 400);
+
+	const post = await env.DB.prepare(`SELECT id, accountId, status FROM ${table} WHERE id = ?`).bind(id).first();
+	if (!post) return json({ error: "Not found" }, 404);
+	if (post.accountId !== auth.admin.id) return json({ error: notYours }, 403);
+	if (post.status !== "active" && post.status !== "expired") return json({ error: "Only active or expired posts can be renewed" }, 400);
+
+	const expiresAt = new Date(Date.now() + MARKETPLACE_LISTING_LIFETIME_MS).toISOString();
+	await env.DB.prepare(`UPDATE ${table} SET status = 'active', expiresAt = ?, closedAt = NULL, closedReason = NULL WHERE id = ?`)
+		.bind(expiresAt, id).run();
+	return json({ ok: true, expiresAt });
+}
+
+async function handleRenewMarketplaceListing(request, env) {
+	return renewMarketplacePost(request, env, "marketplaceListings", "Not your listing");
+}
+
+async function handleRenewMarketplaceJob(request, env) {
+	return renewMarketplacePost(request, env, "marketplaceJobs", "Not your job listing");
 }
 
 async function handleCloseMarketplaceJob(request, env) {
@@ -1785,11 +1842,15 @@ async function handleGetMyMarketplace(request, env) {
 	// The caller's own thumbs up/down votes, keyed by jobId, so the marketplace
 	// page can show their existing vote as already-selected on any job (not
 	// just their own) without a round trip per card.
-	const { results: myReviewRows } = await env.DB.prepare("SELECT jobId, vote FROM marketplaceJobReviews WHERE reviewerAccountId = ?").bind(auth.admin.id).all();
+	const { results: myReviewRows } = await env.DB.prepare("SELECT jobId, vote, comment FROM marketplaceJobReviews WHERE reviewerAccountId = ?").bind(auth.admin.id).all();
 	const myJobReviews = {};
-	for (const r of myReviewRows) myJobReviews[r.jobId] = r.vote;
+	const myJobReviewComments = {};
+	for (const r of myReviewRows) {
+		myJobReviews[r.jobId] = r.vote;
+		if (r.comment) myJobReviewComments[r.jobId] = r.comment;
+	}
 
-	return json({ listings, myBids, bidsReceived, jobs, myJobInterests, jobInterestsReceived, myJobReviews });
+	return json({ listings, myBids, bidsReceived, jobs, myJobInterests, jobInterestsReceived, myJobReviews, myJobReviewComments });
 }
 
 async function handleGetMarketplaceNotifications(request, env) {
@@ -6662,6 +6723,7 @@ const ROUTES = [
 	["GET", "/marketplace/listings", handleGetMarketplaceListings],
 	["POST", "/marketplace/listings/create", handleCreateMarketplaceListing],
 	["POST", "/marketplace/listings/cancel", handleCancelMarketplaceListing],
+	["POST", "/marketplace/listings/renew", handleRenewMarketplaceListing],
 	["POST", "/marketplace/bids/place", handlePlaceBid],
 	["POST", "/marketplace/bids/withdraw", handleWithdrawBid],
 	["POST", "/marketplace/bids/accept", handleAcceptBid],
@@ -6670,6 +6732,8 @@ const ROUTES = [
 	["POST", "/marketplace/jobs/create", handleCreateMarketplaceJob],
 	["POST", "/marketplace/jobs/interest", handleExpressJobInterest],
 	["POST", "/marketplace/jobs/review", handleReviewMarketplaceJob],
+	["GET", "/marketplace/jobs/reviews", handleGetMarketplaceJobReviews],
+	["POST", "/marketplace/jobs/renew", handleRenewMarketplaceJob],
 	["POST", "/marketplace/jobs/close", handleCloseMarketplaceJob],
 	["GET", "/marketplace/mine", handleGetMyMarketplace],
 	["GET", "/marketplace/notifications", handleGetMarketplaceNotifications],

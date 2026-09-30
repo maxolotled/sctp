@@ -6,80 +6,76 @@ import com.snailtools.shoplogger.WatchlistStore;
 import com.snailtools.shoplogger.gui.data.RareItem;
 import com.snailtools.shoplogger.gui.data.VanillaItem;
 import com.snailtools.shoplogger.gui.data.WebDataClient;
+import com.snailtools.shoplogger.gui.ui.Draw;
+import com.snailtools.shoplogger.gui.ui.Section;
+import com.snailtools.shoplogger.gui.ui.Theme;
+import com.snailtools.shoplogger.gui.ui.UiField;
+import com.snailtools.shoplogger.gui.ui.UiScreen;
 import com.snailtools.shoplogger.gui.widget.ItemListWidget;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.Locale;
 
 /**
- * X menu -> Watchlist. Type to search either catalog (vanilla and rare items
- * both — same two catalogs as the website's Item Library) and click a result
- * to add it; clear the search box to see (and click to remove) your current
- * watchlist instead — one list, two modes, rather than squeezing a second
- * scrollable widget into the same screen. See WatchlistAlert for what
- * actually happens once an item is being watched.
+ * Your watchlist. Type to search both catalogs (vanilla and rare) and click
+ * a result to add it; clear the search to see (and click to edit) what
+ * you're watching — one list, two modes. See WatchlistAlert for what happens
+ * once an item is being watched.
  */
-public class WatchlistScreen extends Screen {
+public class WatchlistScreen extends UiScreen {
 
-	private final Screen parent;
-	private EditBox searchBox;
+	private static final long SEARCH_DEBOUNCE_MS = 300;
+	// maxPrice is stored in diamonds, but shown in diamond blocks everywhere in the UI.
+	private static final double DIAMONDS_PER_BLOCK = 9.0;
+
+	private UiField search;
 	private ItemListWidget list;
+	private int listX, listY, listW, listH;
 
 	private List<VanillaItem> vanillaItems = List.of();
 	private List<RareItem> rareItems = List.of();
 	private boolean vanillaLoaded = false;
 	private boolean rareLoaded = false;
 	private boolean loadFailed = false;
+	private boolean requested = false;
 	private long searchChangedAtMillis = -1;
-	// Scroll position to restore once the list is populated again — see init().
+	// Search text and scroll position survive a trip to a child screen (options, item page).
+	private String keepSearch = "";
 	private double pendingScroll = -1;
-	private static final long SEARCH_DEBOUNCE_MS = 300;
-	// Matches WatchedItemOptionsScreen's own unit — maxPrice is stored in
-	// diamonds, but shown in diamond blocks everywhere in the UI.
-	private static final double DIAMONDS_PER_BLOCK = 9.0;
 
 	public WatchlistScreen(Screen parent) {
-		super(Component.literal("Watchlist"));
-		this.parent = parent;
+		super("Watchlist", parent, Section.WATCHLIST);
 	}
 
 	@Override
-	protected void init() {
-		// init() runs again every time this screen is shown — including when a
-		// child screen (the options page after adding an item, an item's detail
-		// page, ...) hands control back — and it builds brand-new widgets. Carry
-		// the previous search text and scroll position over so you land back in
-		// the same search results at the same spot, not on the watchlist home.
-		// (The old widgets are still referenced here; they're only replaced below.)
-		String keepSearch = searchBox != null ? searchBox.getValue() : "";
+	protected void initContent() {
 		double keepScroll = list != null ? list.scrollAmount() : 0;
+		int x = contentX(), y = contentY(), w = contentW();
 
-		int top = 30;
-		searchBox = new EditBox(font, 10, top, width - 20, 20,
-				Component.literal("Search to add, clear to view watchlist..."));
-		// Set BEFORE the responder is attached, so restoring it doesn't count as a fresh edit.
-		searchBox.setValue(keepSearch);
-		searchBox.setResponder(s -> searchChangedAtMillis = System.currentTimeMillis());
-		addRenderableWidget(searchBox);
-		top += 24;
+		search = new UiField(font, x, y, w, 20, "Search items to add to your watchlist…", true);
+		// set BEFORE the responder, so restoring it doesn't count as a fresh edit
+		search.box.setValue(keepSearch);
+		search.box.setResponder(s -> { keepSearch = s; searchChangedAtMillis = System.currentTimeMillis(); });
+		addRenderableOnly(search.frame());
+		addRenderableWidget(search.box);
+		y += 26;
 
-		list = new ItemListWidget(minecraft, width, height - top - 30, top, 22);
+		listX = x - 6;
+		listY = y + 14;
+		listW = w + 12;
+		listH = contentBottom() - listY;
+		list = new ItemListWidget(minecraft, listX, listY, listW, listH);
 		addRenderableWidget(list);
 
-		addRenderableWidget(Button.builder(Component.literal("Back"), btn -> onClose())
-				.bounds(10, height - 26, 60, 20).build());
-
 		pendingScroll = keepScroll;
-		if (vanillaLoaded && rareLoaded && !loadFailed) {
-			refreshList(); // catalogs are already in memory from the first visit — no reload needed
-		} else {
+		setInitialFocus(search.box);
+		if (!requested) {
+			requested = true;
 			loadData();
+		} else {
+			refreshList(); // catalogs are already in memory from the first visit
 		}
 	}
 
@@ -88,6 +84,7 @@ public class WatchlistScreen extends Screen {
 		super.tick();
 		if (searchChangedAtMillis > 0 && System.currentTimeMillis() - searchChangedAtMillis >= SEARCH_DEBOUNCE_MS) {
 			searchChangedAtMillis = -1;
+			pendingScroll = 0;
 			refreshList();
 		}
 	}
@@ -116,23 +113,24 @@ public class WatchlistScreen extends Screen {
 		return !vanillaLoaded || !rareLoaded;
 	}
 
+	private boolean searching() {
+		return search != null && !search.value().trim().isEmpty();
+	}
+
 	private VanillaItem findVanillaItem(String name) {
-		for (VanillaItem it : vanillaItems) {
-			if (it.name.equalsIgnoreCase(name)) return it;
-		}
+		for (VanillaItem it : vanillaItems) if (it.name.equalsIgnoreCase(name)) return it;
 		return null;
 	}
 
 	private RareItem findRareItem(String name) {
-		for (RareItem it : rareItems) {
-			if (it.name.equalsIgnoreCase(name)) return it;
-		}
+		for (RareItem it : rareItems) if (it.name.equalsIgnoreCase(name)) return it;
 		return null;
 	}
 
 	private void refreshList() {
+		if (list == null) return;
 		populateList();
-		// Only once both catalogs are in — an early refresh has nothing to scroll through yet.
+		// only once both catalogs are in — an early refresh has nothing to scroll through yet
 		if (pendingScroll >= 0 && !isLoading()) {
 			list.setScrollAmount(pendingScroll);
 			pendingScroll = -1;
@@ -141,7 +139,7 @@ public class WatchlistScreen extends Screen {
 
 	private void populateList() {
 		list.clearAllEntries();
-		String q = searchBox.getValue().trim().toLowerCase(Locale.ROOT);
+		String q = search.value().trim().toLowerCase(Locale.ROOT);
 
 		if (q.isEmpty()) {
 			for (WatchedItem watched : WatchlistStore.getAll()) {
@@ -164,32 +162,25 @@ public class WatchlistScreen extends Screen {
 			return;
 		}
 
-		// Searching also surfaces (and lets you re-open the options for)
-		// anything you're already watching that matches — clicking one of
-		// those opens its options instead of re-adding it, so this one search
-		// box doubles as "find something new to watch" AND "find something you
-		// already watch", instead of needing a separate filter for the latter.
+		// Searching also surfaces items you already watch — clicking one of those
+		// opens its options instead of re-adding it.
 		for (VanillaItem it : vanillaItems) {
 			if (!it.name.toLowerCase(Locale.ROOT).contains(q)) continue;
 			WatchedItem existing = WatchlistStore.find(it.name);
 			list.addItemEntry(existing != null
-					? ItemListWidget.forVanilla(labelFor(it.name), it.baseItem, watchedSubtitle(existing), () -> openOptions(existing))
-					: ItemListWidget.forVanilla(labelFor(it.name), it.baseItem, () -> addWatched(it.name)));
+					? ItemListWidget.forVanilla(it.name, it.baseItem, watchedSubtitle(existing), () -> openOptions(existing)).withBadge("Watching", Theme.TEAL)
+					: ItemListWidget.forVanilla(it.name, it.baseItem, "Vanilla item", () -> addWatched(it.name)).withBadge("+ Add", Theme.ACCENT));
 		}
 		for (RareItem it : rareItems) {
 			if (!it.name.toLowerCase(Locale.ROOT).contains(q)) continue;
 			WatchedItem existing = WatchlistStore.find(it.name);
 			list.addItemEntry(existing != null
-					? ItemListWidget.forRare(labelFor(it.name), watchedSubtitle(existing), it.texture, () -> openOptions(existing))
-					: ItemListWidget.forRare(labelFor(it.name), it.category, it.texture, () -> addWatched(it.name)));
+					? ItemListWidget.forRare(it.name, watchedSubtitle(existing), it.texture, () -> openOptions(existing)).withBadge("Watching", Theme.TEAL)
+					: ItemListWidget.forRare(it.name, it.category, it.texture, () -> addWatched(it.name)).withBadge("+ Add", Theme.ACCENT));
 		}
 	}
 
-	private String labelFor(String name) {
-		return WatchlistStore.isWatching(name) ? name + " (watching)" : name;
-	}
-
-	/** "Max 2 DB · Skips display/no-price" — shown under an item's name in the watchlist. */
+	/** "Max 2 DB · Skips display/no-price" — shown under a watched item's name. */
 	private String watchedSubtitle(WatchedItem watched) {
 		StringBuilder sb = new StringBuilder();
 		if (watched.maxPrice != null) {
@@ -200,47 +191,49 @@ public class WatchlistScreen extends Screen {
 			if (sb.length() > 0) sb.append(" · ");
 			sb.append("Skips display/no-price");
 		}
-		return sb.length() > 0 ? sb.toString() : "No limits set";
+		return sb.length() > 0 ? sb.toString() : "Any price · click to set a limit";
 	}
 
 	private void addWatched(String name) {
 		WatchlistStore.add(name);
 		ChatFormat.send(minecraft, ChatFormat.SUCCESS, "Added " + name + " to your watchlist.");
-		// Immediately offer the max-price/display options for the item that
-		// was just added, rather than making a second trip back into the
-		// (now-empty-search) watchlist view to configure it.
+		// Go straight to the new item's options instead of making a second trip.
 		WatchedItem justAdded = WatchlistStore.find(name);
-		if (justAdded != null) {
-			openOptions(justAdded);
-		} else {
-			refreshList();
-		}
+		if (justAdded != null) openOptions(justAdded);
+		else refreshList();
 	}
 
 	private void openOptions(WatchedItem watched) {
 		minecraft.setScreenAndShow(new WatchedItemOptionsScreen(this, watched));
 	}
 
-	/** The [Search] button on a watched item — jumps straight to its detail page (current listings, price history) instead of the options screen. */
+	/** The [View] button on a watched item — its page (current listings, price history). */
 	private void openItemPage(String name, String baseItem, String textureUrl, boolean isRare, RareItem rareData) {
 		minecraft.setScreenAndShow(new ItemDetailScreen(this, name, baseItem, textureUrl, isRare, rareData));
 	}
 
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-		super.extractRenderState(context, mouseX, mouseY, delta);
-		context.centeredText(font, title, width / 2, 10, 0xFFFFFFFF);
-		if (isLoading()) {
-			context.centeredText(font, "Loading...", width / 2, height / 2, 0xFF8FA593);
-		} else if (loadFailed) {
-			context.centeredText(font, "Failed to load — check your connection and reopen this screen.", width / 2, height / 2, 0xFFE2A33D);
-		} else if (searchBox.getValue().isBlank() && WatchlistStore.getAll().isEmpty()) {
-			context.centeredText(font, "Not watching anything yet — search above to add an item.", width / 2, height / 2, 0xFF8FA593);
+	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+		int y = contentY() + 28;
+		if (searching()) {
+			g.text(font, "SEARCH RESULTS", contentX(), y, Theme.FAINT, false);
+			if (list != null) Draw.right(g, font, "Click an item to add it", contentX() + contentW(), y, Theme.FAINT);
+		} else {
+			int n = WatchlistStore.getAll().size();
+			g.text(font, "YOUR WATCHLIST · " + n + " item" + (n == 1 ? "" : "s"), contentX(), y, Theme.FAINT, false);
+			if (n > 0) Draw.right(g, font, "Click to edit · View for listings", contentX() + contentW(), y, Theme.FAINT);
 		}
 	}
 
 	@Override
-	public void onClose() {
-		minecraft.setScreenAndShow(parent);
+	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+		if (isLoading() || loadFailed) {
+			listState(g, listX, listY, listW, listH, isLoading(), loadFailed, false, null, null);
+		} else if (!searching() && WatchlistStore.getAll().isEmpty()) {
+			Draw.emptyState(g, font, listX, listY, listW, listH, "You're not watching anything yet",
+					"Search above to add an item. You'll get a chat alert when it's listed.", Theme.MUTED);
+		} else if (searching() && list != null && list.size() == 0) {
+			Draw.emptyState(g, font, listX, listY, listW, listH, "No items match that", "Try a shorter search.", Theme.MUTED);
+		}
 	}
 }

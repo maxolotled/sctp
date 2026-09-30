@@ -294,10 +294,23 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 		if (client.gameMode == null || client.player == null) return;
 		// Became a double chest since discovery (a second chest placed next to
 		// it): never scan it. forgetGoneShops() drops it on its next pass.
-		if (ShopContainers.isDoubleChest(client.level.getBlockState(containerPos))) {
+		BlockState state = client.level.getBlockState(containerPos);
+		if (ShopContainers.isDoubleChest(state)) {
 			markScanned(containerPos);
 			return;
 		}
+		// Re-read the sign right now instead of trusting the copy from when the
+		// shop was first discovered: sellers change prices (and items) on the
+		// sign all the time, and a stale copy meant scans kept reporting the old
+		// price — in watchlist alerts and in what got uploaded — until the shop
+		// happened to be forgotten and rediscovered.
+		ShopSign fresh = SignFinder.find(client.level, containerPos, state);
+		if (fresh == null) {
+			markScanned(containerPos); // sign gone or unreadable right now; forgetGoneShops() decides if it's really gone
+			return;
+		}
+		knownShops.put(containerPos, fresh);
+		sign = fresh;
 		if (!SilentScreenCoordinator.arm(this)) return; // something else is mid-silent-open; try again later
 
 		Vec3 center = Vec3.atCenterOf(containerPos);
@@ -453,12 +466,12 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 			BlockEntity be = world.getBlockEntity(pos);
 			BlockState state = world.getBlockState(pos);
-			boolean stillValid = ShopContainers.isShopContainer(be)
-					&& !ShopContainers.isDoubleChest(state)
-					&& SignFinder.find(world, pos, state) != null;
+			ShopSign current = ShopContainers.isShopContainer(be) && !ShopContainers.isDoubleChest(state)
+					? SignFinder.find(world, pos, state) : null;
 
-			if (stillValid) {
+			if (current != null) {
 				invalidStreak.remove(pos);
+				entry.setValue(current); // keep the remembered sign (price, item) up to date
 				continue;
 			}
 

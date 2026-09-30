@@ -3,58 +3,64 @@ package com.snailtools.shoplogger.gui;
 import com.snailtools.shoplogger.gui.data.Listing;
 import com.snailtools.shoplogger.gui.data.SharedShop;
 import com.snailtools.shoplogger.gui.data.WebDataClient;
+import com.snailtools.shoplogger.gui.ui.Draw;
+import com.snailtools.shoplogger.gui.ui.Section;
+import com.snailtools.shoplogger.gui.ui.Theme;
+import com.snailtools.shoplogger.gui.ui.UiButton;
+import com.snailtools.shoplogger.gui.ui.UiChip;
+import com.snailtools.shoplogger.gui.ui.UiLinks;
+import com.snailtools.shoplogger.gui.ui.UiScreen;
 import com.snailtools.shoplogger.gui.widget.ListingListWidget;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-/** In-game equivalent of a /s/&lt;world&gt;/&lt;username&gt; seller page: avatar, bio/shops if set, and their current listings. */
-public class SellerProfileScreen extends Screen {
+/** In-game equivalent of a seller's profile page: avatar, bio if set, and their current listings. */
+public class SellerProfileScreen extends UiScreen {
 
-	private static final String ALL_WORLDS = "All";
+	private static final String ALL_WORLDS = "All worlds";
 
-	private final Screen parent;
 	private final String username;
 	private String worldFilter;
 
 	private List<Listing> allListings = List.of();
 	private SharedShop profile;
 	private ListingListWidget listingList;
+	private boolean loading = true;
+	private boolean loadFailed = false;
+	private boolean requested = false;
+	private int listY;
 
 	public SellerProfileScreen(Screen parent, String username, String defaultWorld) {
-		super(Component.literal(username));
-		this.parent = parent;
+		super(username, parent, Section.LISTINGS);
 		this.username = username;
 		this.worldFilter = defaultWorld != null ? defaultWorld : ALL_WORLDS;
 	}
 
 	@Override
-	protected void init() {
-		int top = 34;
+	protected void initContent() {
+		int x = contentX(), y = contentY(), w = contentW();
+		int chipW = Math.min(140, w / 3);
+		addRenderableWidget(new UiChip<>(x + w - chipW - 8, y + 6, chipW, 18, "World", List.of(ALL_WORLDS, "Firefly", "Honeybee"), worldFilter,
+				v -> v, v -> { worldFilter = v; refreshListingList(); }));
+		String url = "https://sctp.nl/s/" + URLEncoder.encode(username, StandardCharsets.UTF_8);
+		addRenderableWidget(new UiButton(x + w - chipW - 8, y + 28, chipW, 16, "Profile on sctp.nl ↗", UiButton.Style.GHOST, () -> UiLinks.open(url))
+				.tooltip(url));
 
-		addRenderableWidget(CycleButton.builder((String v) -> Component.literal("World: " + v), worldFilter)
-				.withValues(ALL_WORLDS, "Firefly", "Honeybee")
-				.displayOnlyValue()
-				.create(width - 170, 6, 160, 20, Component.empty(), (btn, value) -> {
-					worldFilter = value;
-					refreshListingList();
-				}));
-
-		addRenderableWidget(Button.builder(Component.literal("Back"), btn -> onClose())
-				.bounds(10, height - 26, 60, 20).build());
-
-		listingList = new ListingListWidget(minecraft, width, height - top - 34, top, 22);
+		listY = y + 56;
+		listingList = new ListingListWidget(minecraft, x - 6, listY, w + 12, contentBottom() - listY);
 		addRenderableWidget(listingList);
+		refreshListingList();
 
-		loadData();
+		if (!requested) {
+			requested = true;
+			loadData();
+		}
 	}
 
 	private void loadData() {
@@ -64,8 +70,12 @@ public class SellerProfileScreen extends Screen {
 				if (username.equalsIgnoreCase(l.seller)) mine.add(l);
 			}
 			allListings = mine;
+			loading = false;
 			refreshListingList();
-		})).exceptionally(ex -> null);
+		})).exceptionally(ex -> {
+			minecraft.execute(() -> { loading = false; loadFailed = true; });
+			return null;
+		});
 
 		WebDataClient.fetchSharedShops().thenAccept(shops -> minecraft.execute(() -> {
 			for (SharedShop s : shops) {
@@ -78,39 +88,39 @@ public class SellerProfileScreen extends Screen {
 	}
 
 	private void refreshListingList() {
+		if (listingList == null) return;
 		listingList.clearAllEntries();
 		for (Listing l : allListings) {
 			if (!ALL_WORLDS.equals(worldFilter) && !worldFilter.equalsIgnoreCase(l.world)) continue;
-			listingList.addListingEntry(ListingListWidget.of(l, seller -> {}));
+			listingList.addListingEntry(ListingListWidget.withItemName(l, seller -> {}));
 		}
 	}
 
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+		int x = contentX(), y = contentY(), w = contentW();
+		Draw.card(g, x, y, w, 48, Theme.PANEL, Theme.LINE_SOFT);
+		Draw.round(g, x + 6, y + 6, 36, 36, Theme.SLOT);
+		Draw.remoteTexture(g, "https://mc-heads.net/avatar/" + username + "/32", x + 8, y + 8, 32);
 
-		String avatarUrl = "https://mc-heads.net/avatar/" + username + "/32";
-		Identifier avatar = RemoteTextureCache.get(Minecraft.getInstance(), avatarUrl, () -> {});
-		if (avatar != null) {
-			context.blit(RenderPipelines.GUI_TEXTURED, avatar, 10, 6, 0, 0, 32, 32, 32, 32);
-		}
-		context.text(font, username, 48, 6, 0xFFFFFFFF);
+		int chipW = Math.min(140, w / 3);
+		int textW = w - 52 - chipW - 16;
+		Draw.scaled(g, font, Draw.trim(font, username, (int) (textW / 1.25f)), x + 50, y + 8, Theme.TEXT, 1.25f, true);
+		int sy = y + 23;
 		if (profile != null && profile.bio != null && !profile.bio.isEmpty()) {
-			context.text(font, trimToWidth(profile.bio, width - 220), 48, 18, 0xFF8FA593);
+			var lines = font.split(Component.literal(profile.bio), textW);
+			for (int i = 0; i < Math.min(2, lines.size()); i++) g.text(font, lines.get(i), x + 50, sy + i * 10, Theme.MUTED, false);
+		} else {
+			String count = loading ? "Loading listings…" : fmtNum(allListings.size()) + " listing" + (allListings.size() == 1 ? "" : "s") + " across both worlds";
+			g.text(font, Draw.trim(font, count, textW), x + 50, sy + 2, Theme.MUTED, false);
 		}
-
-		super.extractRenderState(context, mouseX, mouseY, delta);
-	}
-
-	private String trimToWidth(String s, int maxWidth) {
-		if (font.width(s) <= maxWidth) return s;
-		while (s.length() > 3 && font.width(s + "...") > maxWidth) {
-			s = s.substring(0, s.length() - 1);
-		}
-		return s + "...";
 	}
 
 	@Override
-	public void onClose() {
-		minecraft.setScreenAndShow(parent);
+	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+		listState(g, contentX() - 6, listY, contentW() + 12, contentBottom() - listY, loading, loadFailed,
+				listingList != null && listingList.size() == 0,
+				username + " has no listings " + (ALL_WORLDS.equals(worldFilter) ? "right now" : "on " + worldFilter),
+				ALL_WORLDS.equals(worldFilter) ? null : "Try All worlds with the World filter.");
 	}
 }

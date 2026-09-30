@@ -4,13 +4,15 @@ import com.snailtools.shoplogger.ShopWorld;
 import com.snailtools.shoplogger.WorldSelection;
 import com.snailtools.shoplogger.gui.data.Listing;
 import com.snailtools.shoplogger.gui.data.WebDataClient;
+import com.snailtools.shoplogger.gui.ui.Draw;
+import com.snailtools.shoplogger.gui.ui.Section;
+import com.snailtools.shoplogger.gui.ui.Theme;
+import com.snailtools.shoplogger.gui.ui.UiChip;
+import com.snailtools.shoplogger.gui.ui.UiField;
+import com.snailtools.shoplogger.gui.ui.UiScreen;
 import com.snailtools.shoplogger.gui.widget.ListingListWidget;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.CycleButton;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -21,88 +23,82 @@ import java.util.Locale;
  * In-game equivalent of the website homepage's listings browser
  * (index.html) — every current listing across the whole marketplace, with
  * the same search/world/type/sort filters, rather than scoped to one item
- * like ItemDetailScreen's table. Also what /search opens now (with the
- * query pre-filled), replacing that command's old chat-output behavior.
+ * like ItemDetailScreen's table. Also what /search opens (with the query
+ * pre-filled).
  */
-public class ListingsScreen extends Screen {
+public class ListingsScreen extends UiScreen {
 
-	private static final String ALL_WORLDS = "All";
-	private static final String ANY_TYPE = "Any type";
-	private static final String[] SORTS = { "Most recent", "Price low-high", "Price high-low", "Stock high-low", "Item A-Z" };
-	// The real dataset can be ~18,000 rows — re-filtering/re-sorting that on
-	// every single keystroke was the "it's slow" complaint. Wait for a short
-	// pause in typing instead of reacting to every character.
+	private static final String ALL_WORLDS = "All worlds";
+	private static final String ANY_TYPE = "Any";
+	private static final List<String> SORTS = List.of("Most recent", "Price low-high", "Price high-low", "Stock high-low", "Item A-Z");
+	// The real dataset can be ~18,000+ rows — re-filtering/re-sorting that on
+	// every keystroke felt slow. Wait for a short pause in typing instead.
 	private static final long SEARCH_DEBOUNCE_MS = 300;
-	// Building a real interactive widget per row is much heavier than a
-	// chat-printed text line (which is why /search felt so much faster) —
-	// capping how many we ever construct is what actually fixes that, not
-	// trying to make the widgets themselves cheaper.
+	// Building an interactive row per listing is heavy; cap how many exist.
 	private static final int MAX_RESULTS = 200;
 
-	private final Screen parent;
-	private final String initialQuery;
-
-	private EditBox searchBox;
-	private CycleButton<String> worldFilter;
-	private CycleButton<String> typeFilter;
-	private CycleButton<String> sortMode;
+	private UiField search;
+	private UiChip<String> worldFilter;
+	private UiChip<String> typeFilter;
+	private UiChip<String> sortMode;
 	private ListingListWidget list;
+	private int listX, listY, listW, listH;
+
+	// kept across rebuilds (resizing the window re-runs initContent)
+	private String keepQuery;
+	private String keepWorld;
+	private String keepType = ANY_TYPE;
+	private String keepSort = SORTS.get(0);
 
 	private List<Listing> allListings = List.of();
 	private boolean loading = true;
 	private boolean loadFailed = false;
+	private boolean requested = false;
 	private long searchChangedAtMillis = -1;
 	private int totalMatches = 0;
 	private boolean truncated = false;
 
 	public ListingsScreen(Screen parent, String initialQuery) {
-		super(Component.literal("Trading Post Listings"));
-		this.parent = parent;
-		this.initialQuery = initialQuery;
+		super("Listings", parent, Section.LISTINGS);
+		this.keepQuery = initialQuery;
+		ShopWorld detected = WorldSelection.get();
+		this.keepWorld = detected != null ? detected.label() : ALL_WORLDS;
 	}
 
 	@Override
-	protected void init() {
-		int top = 30;
-		searchBox = new EditBox(font, 10, top, width - 20, 20, Component.literal("Search item or seller..."));
-		if (initialQuery != null && !initialQuery.isBlank()) {
-			searchBox.setValue(initialQuery);
-		}
-		searchBox.setResponder(s -> searchChangedAtMillis = System.currentTimeMillis());
-		addRenderableWidget(searchBox);
-		top += 24;
+	protected void initContent() {
+		int x = contentX(), y = contentY(), w = contentW();
 
-		String defaultWorld = ALL_WORLDS;
-		ShopWorld detected = WorldSelection.get();
-		if (detected != null) defaultWorld = detected.label();
+		search = new UiField(font, x, y, w, 20, "Search item or seller…", true);
+		if (keepQuery != null) search.box.setValue(keepQuery);
+		search.box.setResponder(s -> { keepQuery = s; searchChangedAtMillis = System.currentTimeMillis(); });
+		addRenderableOnly(search.frame());
+		addRenderableWidget(search.box);
+		y += 26;
 
-		int colW = (width - 20 - 16) / 3;
-		worldFilter = CycleButton.builder((String v) -> Component.literal("World: " + v), defaultWorld)
-				.withValues(ALL_WORLDS, "Firefly", "Honeybee")
-				.displayOnlyValue()
-				.create(10, top, colW, 20, Component.empty(), (btn, value) -> refreshList());
-		addRenderableWidget(worldFilter);
+		int chipW = Math.min(130, (w - 12 - 90) / 3);
+		worldFilter = addRenderableWidget(new UiChip<>(x, y, chipW, 18, "World", List.of(ALL_WORLDS, "Firefly", "Honeybee"), keepWorld,
+				v -> v, v -> { keepWorld = v; refreshList(); }));
+		typeFilter = addRenderableWidget(new UiChip<>(x + chipW + 6, y, chipW, 18, "Type", List.of(ANY_TYPE, "Bulk", "Bundled", "Single"), keepType,
+				v -> v, v -> { keepType = v; refreshList(); }));
+		sortMode = addRenderableWidget(new UiChip<>(x + 2 * (chipW + 6), y, chipW, 18, "Sort", SORTS, keepSort,
+				v -> v, v -> { keepSort = v; refreshList(); }));
+		y += 24;
 
-		typeFilter = CycleButton.builder((String v) -> Component.literal(v), ANY_TYPE)
-				.withValues(ANY_TYPE, "Bulk", "Bundled", "Single")
-				.displayOnlyValue()
-				.create(10 + colW + 8, top, colW, 20, Component.empty(), (btn, value) -> refreshList());
-		addRenderableWidget(typeFilter);
-
-		sortMode = CycleButton.builder((String v) -> Component.literal(v), SORTS[0])
-				.withValues(SORTS)
-				.displayOnlyValue()
-				.create(10 + 2 * (colW + 8), top, colW, 20, Component.empty(), (btn, value) -> refreshList());
-		addRenderableWidget(sortMode);
-		top += 24;
-
-		list = new ListingListWidget(minecraft, width, height - top - 30, top, 22);
+		listX = x - 6;
+		listY = y;
+		listW = w + 12;
+		listH = contentBottom() - y - 10; // room for the footnote under the list
+		list = new ListingListWidget(minecraft, listX, listY, listW, listH);
 		addRenderableWidget(list);
 
-		addRenderableWidget(Button.builder(Component.literal("Back"), btn -> onClose())
-				.bounds(10, height - 26, 60, 20).build());
-
-		loadData();
+		setInitialFocus(search.box);
+		if (!requested) {
+			requested = true;
+			loadData();
+		} else {
+			refreshList();
+		}
 	}
 
 	@Override
@@ -129,23 +125,21 @@ public class ListingsScreen extends Screen {
 	}
 
 	private boolean isUnfiltered() {
-		return searchBox.getValue().trim().isEmpty()
+		return search.value().trim().isEmpty()
 				&& ALL_WORLDS.equals(worldFilter.getValue())
 				&& ANY_TYPE.equals(typeFilter.getValue());
 	}
 
 	private void refreshList() {
+		if (list == null) return;
 		list.clearAllEntries();
 		totalMatches = 0;
 		truncated = false;
 
-		// Never bulk-render the entire ~18,000-row dataset — that's exactly
-		// the "too many heavy widgets at once" cost that made this feel slow.
-		// Require an actual search or filter first, same as how /search only
-		// ever showed you a handful of matches, never everything.
-		if (isUnfiltered()) return;
+		// Never bulk-render the whole dataset — require a search or filter first.
+		if (loading || isUnfiltered()) return;
 
-		String q = searchBox.getValue().trim().toLowerCase(Locale.ROOT);
+		String q = search.value().trim().toLowerCase(Locale.ROOT);
 		String world = worldFilter.getValue();
 		String type = typeFilter.getValue();
 
@@ -175,6 +169,7 @@ public class ListingsScreen extends Screen {
 			Listing l = filtered.get(i);
 			list.addListingEntry(ListingListWidget.withItemName(l, seller -> minecraft.setScreenAndShow(new SellerProfileScreen(this, seller, l.world))));
 		}
+		list.setScrollAmount(0);
 	}
 
 	private static Instant parseInstant(String s) {
@@ -186,30 +181,30 @@ public class ListingsScreen extends Screen {
 	}
 
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-		super.extractRenderState(context, mouseX, mouseY, delta);
-
+	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+		// result count, right of the filter chips
 		String status;
-		if (loading) {
-			status = "Loading listings...";
-		} else if (loadFailed) {
-			status = "Failed to load — check your connection and reopen this screen.";
-		} else if (isUnfiltered()) {
-			status = "Search or filter to browse " + fmtNum(allListings.size()) + " listings";
-		} else if (truncated) {
-			status = "Showing first " + MAX_RESULTS + " of " + fmtNum(totalMatches) + " matches — refine your search to narrow it down";
-		} else {
-			status = fmtNum(totalMatches) + " match" + (totalMatches == 1 ? "" : "es");
-		}
-		context.centeredText(font, status, width / 2, 10, 0xFFFFFFFF);
-	}
-
-	private static String fmtNum(int n) {
-		return String.format(Locale.US, "%,d", n);
+		int color = Theme.MUTED;
+		if (loading) status = "Loading…";
+		else if (loadFailed) { status = "Couldn't load"; color = Theme.WARN; }
+		else if (isUnfiltered()) status = fmtNum(allListings.size()) + " listings";
+		else if (truncated) { status = "First " + MAX_RESULTS + " of " + fmtNum(totalMatches); color = Theme.WARN; }
+		else status = fmtNum(totalMatches) + " match" + (totalMatches == 1 ? "" : "es");
+		Draw.right(g, font, status, contentX() + contentW(), contentY() + 31, color);
 	}
 
 	@Override
-	public void onClose() {
-		minecraft.setScreenAndShow(parent);
+	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+		if (loading || loadFailed) {
+			listState(g, listX, listY, listW, listH, loading, loadFailed, false, null, null);
+		} else if (isUnfiltered()) {
+			Draw.emptyState(g, font, listX, listY, listW, listH,
+					"Search or pick a world to browse " + fmtNum(allListings.size()) + " listings",
+					"Tip: click a row to see that seller's shop · TP takes you there", Theme.MUTED);
+		} else if (totalMatches == 0) {
+			Draw.emptyState(g, font, listX, listY, listW, listH, "No listings match that", "Try a shorter search or another world.", Theme.MUTED);
+		} else if (truncated) {
+			Draw.centered(g, font, "Showing the first " + MAX_RESULTS + " — refine your search to narrow it down", listX + listW / 2, listY + listH + 2, Theme.FAINT);
+		}
 	}
 }

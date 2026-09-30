@@ -11,11 +11,13 @@ public class QolHookManager {
     //lil place I can declare a bunch of hooks and just slot new standalone addons into them
     private static ButterflyGarden butterflyGarden;
     private static QuestHelper questHelper;
+    private static StorageSwitcher storageSwitcher;
 
 
     public static void onInit(){
         butterflyGarden = new ButterflyGarden();
         questHelper = new QuestHelper();
+        storageSwitcher = new StorageSwitcher();
 
     }
 
@@ -23,10 +25,12 @@ public class QolHookManager {
         if(butterflyGarden != null) butterflyGarden.tick();
     }
 
-    public static void onMouseEvent(long window, MouseButtonInfo mouseButtonInfo, int action){
+    /** Returns true if an addon used the click, so the game shouldn't also get it. */
+    public static boolean onMouseEvent(long window, MouseButtonInfo mouseButtonInfo, int action){
+        if(storageSwitcher != null && storageSwitcher.onMouseEvent(window, mouseButtonInfo, action)) return true;
         if(butterflyGarden != null) butterflyGarden.onMouseEvent(window, mouseButtonInfo, action);
         if(questHelper != null) questHelper.onMouseEvent(window, mouseButtonInfo, action);
-
+        return false;
     }
 
     public static void onHudRender(GuiGraphicsExtractor guiGraphics, DeltaTracker tickDelta){
@@ -39,6 +43,7 @@ public class QolHookManager {
     public static void onScreenRender(Screen screen, GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a){
         if(butterflyGarden != null) butterflyGarden.onScreenRender(screen, graphics, mouseX, mouseY, a);
         if(questHelper != null) questHelper.onScreenRender(screen, graphics, mouseX, mouseY, a);
+        if(storageSwitcher != null) storageSwitcher.onScreenRender(screen, graphics, mouseX, mouseY, a);
     }
 
     public static void onKeyEvent(){

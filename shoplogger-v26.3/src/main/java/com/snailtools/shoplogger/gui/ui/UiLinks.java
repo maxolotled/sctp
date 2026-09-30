@@ -1,0 +1,19 @@
+package com.snailtools.shoplogger.gui.ui;
+
+import com.mojang.blaze3d.Blaze3D;
+
+import java.net.URI;
+
+/**
+ * Opens a web page in the player's browser. The one piece of UI code that
+ * differs between Minecraft versions (26.3 moved this to Blaze3D.openUri),
+ * kept here so every screen can stay identical across the builds.
+ */
+public final class UiLinks {
+
+	private UiLinks() {}
+
+	public static void open(String url) {
+		Blaze3D.openUri(URI.create(url));
+	}
+}
