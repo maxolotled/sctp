@@ -40,6 +40,8 @@ public class MapartPreviewScreen extends UiScreen {
 	private final Map<String, byte[]> textureSource = new HashMap<>();
 	private int nextTextureId = 0;
 
+	public static final String CAPTURE_NOTICE = "Enabling this feature will capture all maps in item frames visible to you.";
+
 	public MapartPreviewScreen(Screen parent) {
 		super("Mapart scanner", parent, Section.MAPART);
 	}
@@ -57,7 +59,7 @@ public class MapartPreviewScreen extends UiScreen {
 		addRenderableWidget(new UiButton(x + w - btnW, y + 4, btnW, 22, "Re-send nearby", UiButton.Style.SECONDARY,
 				() -> MapartScanner.getInstance().resendAll()).tooltip("Upload every piece in range again"));
 
-		gridTop = y + SettingRow.HEIGHT + 22;
+		gridTop = y + SettingRow.HEIGHT + 36;
 		gridBottom = contentBottom() - 24;
 
 		int by = contentBottom() - 18;
@@ -81,7 +83,13 @@ public class MapartPreviewScreen extends UiScreen {
 
 		// stats
 		int sx = contentX();
-		int sy = contentY() + SettingRow.HEIGHT + 6;
+		// Required notice (CurseForge): always visible, whether scanning is on or off.
+		int ny = contentY() + SettingRow.HEIGHT + 3;
+		for (var line : font.split(net.minecraft.network.chat.Component.literal(CAPTURE_NOTICE), contentW())) {
+			g.text(font, line, contentX(), ny, Theme.WARN, false);
+			ny += 10;
+		}
+		int sy = Math.max(contentY() + SettingRow.HEIGHT + 17, ny + 2);
 		if (scanner.isEnabled()) {
 			sx += Draw.dotPill(g, font, scanner.lastFrameCount() + " framed maps in range", sx, sy, Theme.TEAL, Theme.PANEL_ALT, Theme.TEXT) + 4;
 			sx += Draw.dotPill(g, font, scanner.queuedCount() + " uploading", sx, sy, Theme.WARN, Theme.PANEL_ALT, Theme.TEXT) + 4;

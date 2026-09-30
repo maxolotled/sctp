@@ -1,6 +1,9 @@
 package com.snailtools.shoplogger.gui;
 
+import com.snailtools.shoplogger.ChatFormat;
 import com.snailtools.shoplogger.ShopWorld;
+import com.snailtools.shoplogger.WatchedItem;
+import com.snailtools.shoplogger.WatchlistStore;
 import com.snailtools.shoplogger.WorldSelection;
 import com.snailtools.shoplogger.gui.data.HistoryMerge;
 import com.snailtools.shoplogger.gui.data.HistoryPoint;
@@ -83,7 +86,13 @@ public class ItemDetailScreen extends UiScreen {
 		int tx = x;
 		tx += tab(tx, ty, Tab.LISTINGS, "Listings") + 4;
 		tx += tab(tx, ty, Tab.HISTORY, "Price history") + 4;
-		if (isRare && rareData != null) tab(tx, ty, Tab.DETAILS, "Details");
+		if (isRare && rareData != null) tx += tab(tx, ty, Tab.DETAILS, "Details") + 4;
+		// watchlist: a tab-styled button that opens the same options popup as the Watchlist page
+		boolean watching = WatchlistStore.find(name) != null;
+		String watchText = watching ? "Watchlist settings" : "+ Add to watchlist";
+		int ww = font.width(watchText) + 16;
+		addRenderableWidget(new UiButton(Math.max(tx, x + w - ww), ty, ww, 18, watchText, watching ? UiButton.Style.TAB : UiButton.Style.SECONDARY, this::openWatchOptions)
+				.tooltip(watching ? "Change the max price or stop watching this item" : "Get a chat alert when this item is listed"));
 		bodyY = ty + 24;
 
 		if (tab == Tab.LISTINGS) {
@@ -106,6 +115,16 @@ public class ItemDetailScreen extends UiScreen {
 		addRenderableWidget(new UiButton(x, y, w, 18, text, UiButton.Style.TAB, () -> { tab = t; rebuild(); })
 				.selected(() -> tab == t));
 		return w;
+	}
+
+	private void openWatchOptions() {
+		WatchedItem watched = WatchlistStore.find(name);
+		if (watched == null) {
+			WatchlistStore.add(name);
+			ChatFormat.send(minecraft, ChatFormat.SUCCESS, "Added " + name + " to your watchlist.");
+			watched = WatchlistStore.find(name);
+		}
+		if (watched != null) minecraft.setScreenAndShow(new WatchedItemOptionsScreen(this, watched));
 	}
 
 	private int countForWorld() {

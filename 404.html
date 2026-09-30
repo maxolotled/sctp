@@ -314,6 +314,7 @@
 <script src="/mapart-report.js" defer></script>
 <script src="/collection.js" defer></script>
 <script src="/collection-toggle.js" defer></script>
+<script src="/mapart-like.js" defer></script>
 <script src="/share-studio.js" defer></script>
 <script>
 (function(){
@@ -751,6 +752,7 @@
 								'<dt>Size</dt><dd>' + m.width + ' &times; ' + m.height + (m.width * m.height > 1 ? ' maps' : ' map') + '</dd>' +
 								(m.mapType ? '<dt>Type</dt><dd>' + (m.mapType === "staircased" ? "Staircased" : "Flat") + '</dd>' : '') +
 							'</dl>' +
+							'<span id="mapartLikeHost">' + (window.sctpLike ? window.sctpLike.button(m, true) : '') + '</span> ' +
 							'<button type="button" class="share-item-btn" style="margin-left:0;" data-share-url="' + esc(location.origin + "/mapart/" + encodeURIComponent(m.slug)) + '">Share</button> ' +
 							'<span id="mapartCollectHost"></span> ' +
 							(isAdminSession() ? '<button type="button" class="share-item-btn" id="mapartImgBtn" style="margin-left:0;">Make image</button> ' : '') +
@@ -829,9 +831,14 @@
 			window.sctpCol.bind(host);
 			window.sctpCol.ready(draw);
 		}
+		// your own like shows once your likes are loaded
+		var likeHost = document.getElementById("mapartLikeHost");
+		function drawLike(){ if(window.sctpLike) likeHost.innerHTML = window.sctpLike.button(m, true); }
+		if(window.sctpLike) window.sctpLike.ready(drawLike);
 		window.sctpOnAccountChange = function(){
 			refreshLabel();
 			if(window.sctpCol){ window.sctpCol.reload(); window.sctpCol.ready(draw); }
+			if(window.sctpLike){ window.sctpLike.reload(); window.sctpLike.ready(drawLike); }
 		};
 	}
 

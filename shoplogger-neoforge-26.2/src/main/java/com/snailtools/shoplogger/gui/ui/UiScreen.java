@@ -38,6 +38,9 @@ public abstract class UiScreen extends Screen {
 	protected int contentBottom() { return height - 8; }
 	protected int contentH() { return contentBottom() - contentY(); }
 
+	/** The section tab this screen lights up. */
+	public Section section() { return section; }
+
 	/** Page title shown in the breadcrumb; defaults to the screen title. */
 	protected String crumb() { return title.getString(); }
 

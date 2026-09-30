@@ -75,7 +75,7 @@ public class HomeScreen extends UiScreen {
 			Section s = tiles[i];
 			int tx = x + (i % cols) * (tileW + gap);
 			int ty = y + (i / cols) * (tileH + gap);
-			addRenderableWidget(new Tile(tx, ty, tileW, tileH, s.icon(), s.label, blurb(s), () -> badge(s), () -> badgeColor(s),
+			addRenderableWidget(new Tile(tx, ty, tileW, tileH, s.icon(), s.label, blurb(s), () -> badge(s), () -> shortBadge(s), () -> badgeColor(s),
 					() -> minecraft.setScreenAndShow(s.open(this))));
 		}
 
@@ -118,6 +118,18 @@ public class HomeScreen extends UiScreen {
 			case MAPART -> MapartScanner.getInstance().isEnabled() ? "On" : "Off";
 			case SETTINGS -> ShopAutoScanner.getInstance().isEnabled() ? null : "Scanning off";
 			default -> null;
+		};
+	}
+
+	/** Compact badge for narrow tiles (the full text shows as a tooltip). */
+	private static String shortBadge(Section s) {
+		return switch (s) {
+			case WATCHLIST -> {
+				int n = WatchlistStore.getAll().size();
+				yield n == 0 ? null : String.valueOf(n);
+			}
+			case SETTINGS -> ShopAutoScanner.getInstance().isEnabled() ? null : "Off";
+			default -> badge(s);
 		};
 	}
 

@@ -12,6 +12,7 @@
 <script src="/site-nav.js" defer></script>
 <script src="/account-widget.js" defer></script>
 <script src="/mapart-report.js" defer></script>
+<script src="/mapart-like.js" defer></script>
 <style>
 	:root{
 		--bg:#101B14; --bg-rgb:16,27,20;
@@ -400,6 +401,7 @@
 	.promo-motd .promo-title a:hover{color:var(--accent);}
 	.motd-by{color:var(--shell);font-size:14px;margin:0 0 4px;overflow-wrap:anywhere;}
 	.motd-meta{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px;}
+	#motdLike{display:inline-flex;align-items:center;}
 	.motd-pill{font-size:11.5px;font-family:var(--font-mono);color:var(--muted);background:var(--panel-alt);border:1px solid var(--line);border-radius:999px;padding:2px 10px;}
 	.promo-raredle{background:linear-gradient(160deg,rgba(255,122,89,0.13),rgba(240,80,143,0.05) 55%,transparent),var(--panel);border-color:rgba(255,122,89,0.35);}
 	.promo-raredle .promo-kicker{color:#FF9466;}
@@ -2913,7 +2915,9 @@
 				'<div class="motd-by">' + by + '</div>' +
 				(m.commissioned && m.commissionedBy ? '<div class="motd-by" style="color:var(--muted);font-size:12.5px;">commissioned by ' + esc(m.commissionedBy) + '</div>' : '') +
 				'<div class="motd-meta">' + pills + '</div>' +
-				'<div class="promo-actions"><a class="promo-btn primary" href="' + href + '">View this piece &rarr;</a><a class="promo-btn" href="/mapart/">All mapart</a></div></div>';
+				'<div class="promo-actions"><a class="promo-btn primary" href="' + href + '">View this piece &rarr;</a><a class="promo-btn" href="/mapart/">All mapart</a>' +
+				'<span id="motdLike">' + (window.sctpLike ? window.sctpLike.button(m, true) : '') + '</span></div></div>';
+			if(window.sctpLike) window.sctpLike.ready(function(){ var h = document.getElementById("motdLike"); if(h) h.innerHTML = window.sctpLike.button(m, true); });
 		}).catch(function(){ document.getElementById("motd").innerHTML = '<div class="promo-loading">Couldn\'t load today\'s mapart.</div>'; });
 
 		// Marketplace: show how many listings are open right now

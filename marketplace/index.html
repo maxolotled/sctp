@@ -254,7 +254,16 @@
 	function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 	function fmtNum(n){ return Number(n).toLocaleString(); }
 	function alphaOnly(s){ return String(s||"").toLowerCase().replace(/[^a-z]/g, ""); }
-	function session(){ return window.sctpAccount ? window.sctpAccount.getSession() : null; }
+	// account-widget.js is deferred, so on first load (e.g. arriving on #mine)
+	// this script runs before window.sctpAccount exists. Read the same stored
+	// session directly then, instead of treating the visitor as logged out.
+	function session(){
+		if(window.sctpAccount) return window.sctpAccount.getSession();
+		try {
+			var s = JSON.parse(localStorage.getItem("sctp_session") || "null");
+			return s && s.token && Date.parse(s.expiresAt) >= Date.now() ? s : null;
+		} catch(e){ return null; }
+	}
 
 	// Reuses the same vanilla-items.json/rare-items.json textures the Item
 	// Library uses — no separate image storage for marketplace posts.

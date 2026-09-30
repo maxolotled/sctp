@@ -85,6 +85,8 @@
 //   POST /mapart/claim | /mapart/abandon     (verified account) body: {id}
 //   POST /mapart/update                      (owner, head admin, or "manageMapart") body: {id, title?, artist?, whereToBuy?, notForSale?, category?, keywords? (array or comma string, max 5), mapType? ("flat"|"staircased"|""), world?} — "manageMapart" holders may only touch artist/world/category
 //   POST /mapart/report                      (API_KEY, like POST /reports) body: {id, reason: "wrong_artist"|"wrong_world"|"wrong_category"|"inappropriate_image", details?} -> lands in the `reports` queue as listingKey "mapart:<id>", handled by "manageMapart"
+//   POST /mapart/like                        (any account) body: {id, like: true|false} -> {likes}; every public mapart response carries `likes`
+//   GET  /mapart/my-likes                    (any account) -> {ids: [...]} the pieces you liked
 //   GET  /collection/mine, POST /collection/set {kind: "rare"|"mapart", world, ids[], owned}, POST /collection/privacy {private}   (any account) — personal collections, per world
 //   GET  /collection/public?username=        (public) -> {username, private, items?}
 //   GET  /raredle/state, POST /raredle/guess {itemId}, POST /raredle/practice/new + mode=practice on state/guess (any account), GET /raredle/leaderboard (public) — the daily Rare-dle game; the answer never leaves the Worker until a game is finished. POST /raredle/reset exists but is QA-only (RAREDLE_ALLOW_RESET is false live).
@@ -3674,6 +3676,9 @@ function resolveMapartWhereToBuy(m) {
 }
 
 
+// Joined into every public mapart query so each piece carries its like count.
+const MAPART_LIKES_SQL = "(SELECT COUNT(*) FROM mapartLikes ml WHERE ml.mapartId = m.id) AS likes";
+
 function mapartPublic(m) {
 	return {
 		id: m.id, slug: m.slug, title: m.title, artist: m.artist || null,
@@ -3688,6 +3693,7 @@ function mapartPublic(m) {
 		// by an unverified account isn't enough.
 		verified: !!m.claimedByAccountId && !!(m.claimantVerified || m.claimedManually || m.ownerEdited || m.category || m.whereToBuy || m.notForSale),
 		updatedAt: m.updatedAt, lastSeen: m.lastSeen,
+		likes: m.likes || 0,
 	};
 }
 
@@ -3699,6 +3705,7 @@ async function deleteMapartRow(env, id) {
 	await env.DB.batch([
 		env.DB.prepare("DELETE FROM mapartParts WHERE mapartId = ?").bind(id),
 		env.DB.prepare("DELETE FROM mapartSlugs WHERE mapartId = ?").bind(id),
+		env.DB.prepare("DELETE FROM mapartLikes WHERE mapartId = ?").bind(id),
 		env.DB.prepare("DELETE FROM maparts WHERE id = ?").bind(id),
 	]);
 	try { await env.SNAPSHOTS.delete(`mapart/${id}.png`); } catch (e) { /* image already gone */ }
@@ -3923,7 +3930,7 @@ async function processMapartGroup(env, world, g, knownNames) {
 async function handleGetMapart(request, env, ctx) {
 	return cachedGet(request, ctx, CACHE_TTL_SECONDS, async () => {
 		const { results } = await env.DB.prepare(
-			"SELECT m.*, a.mcVerified AS claimantVerified FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId ORDER BY m.title COLLATE NOCASE"
+			`SELECT m.*, a.mcVerified AS claimantVerified, ${MAPART_LIKES_SQL} FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId ORDER BY m.title COLLATE NOCASE`
 		).all();
 		return results.map(mapartPublic);
 	});
@@ -3936,7 +3943,7 @@ async function handleGetMapartBySlug(request, env, ctx) {
 		const link = await env.DB.prepare("SELECT mapartId FROM mapartSlugs WHERE slug = ?").bind(slug).first();
 		if (!link) return { error: "Not found" };
 		const m = await env.DB.prepare(
-			"SELECT m.*, a.mcVerified AS claimantVerified FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId WHERE m.id = ?"
+			`SELECT m.*, a.mcVerified AS claimantVerified, ${MAPART_LIKES_SQL} FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId WHERE m.id = ?`
 		).bind(link.mapartId).first();
 		return m ? mapartPublic(m) : { error: "Not found" };
 	});
@@ -4109,6 +4116,34 @@ async function moveMapartToWorld(env, m, world) {
 
 // POST /mapart/report — anyone (same shared site key as POST /reports).
 // body: {id (mapart id), reason, details?}. One open report per piece + reason.
+// POST /mapart/like — body {id, like: true|false}. Any logged-in account,
+// one like per piece. Returns the piece's new like count.
+async function handleLikeMapart(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const id = String(body.id || "");
+	if (!id) return json({ error: "id is required" }, 400);
+	if (!(await env.DB.prepare("SELECT 1 AS x FROM maparts WHERE id = ?").bind(id).first())) return json({ error: "Mapart not found" }, 404);
+	if (body.like === false) {
+		await env.DB.prepare("DELETE FROM mapartLikes WHERE mapartId = ? AND accountId = ?").bind(id, auth.admin.id).run();
+	} else {
+		await env.DB.prepare("INSERT OR IGNORE INTO mapartLikes (mapartId, accountId, createdAt) VALUES (?, ?, ?)")
+			.bind(id, auth.admin.id, new Date().toISOString()).run();
+	}
+	const row = await env.DB.prepare("SELECT COUNT(*) AS c FROM mapartLikes WHERE mapartId = ?").bind(id).first();
+	return json({ ok: true, liked: body.like !== false, likes: row ? row.c : 0 });
+}
+
+// GET /mapart/my-likes — ids of every piece the caller has liked.
+async function handleGetMyMapartLikes(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare("SELECT mapartId FROM mapartLikes WHERE accountId = ?").bind(auth.admin.id).all();
+	return json({ ids: results.map((r) => r.mapartId) });
+}
+
 async function handleSubmitMapartReport(request, env) {
 	if (!isAuthorized(request, env.API_KEY)) return json({ error: "Unauthorized" }, 401);
 	let body;
@@ -5021,7 +5056,7 @@ async function handleGetProfile(request, env, ctx) {
 
 		const artistName = acct && acct.mcUsername ? String(acct.mcUsername).replace(/^\./, "").toLowerCase() : low;
 		const { results: mapartRows } = await env.DB.prepare(
-			`SELECT m.*, a.mcVerified AS claimantVerified FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId
+			`SELECT m.*, a.mcVerified AS claimantVerified, ${MAPART_LIKES_SQL} FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId
 			 WHERE instr(' & ' || lower(m.artist) || ' & ', ' & ' || ? || ' & ') > 0 OR lower(m.commissionedBy) = ? OR (? != '' AND m.claimedByAccountId = ?)
 			 ORDER BY m.title COLLATE NOCASE`
 		).bind(artistName, artistName, acct ? acct.id : "", acct ? acct.id : "").all();
@@ -5071,7 +5106,7 @@ const MOTD_KEY = "mapartOfTheDay";
 
 async function pickRandomMapart(env, excludeId) {
 	const { results } = await env.DB.prepare(
-		"SELECT m.*, a.mcVerified AS claimantVerified FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId WHERE m.id != ?"
+		`SELECT m.*, a.mcVerified AS claimantVerified, ${MAPART_LIKES_SQL} FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId WHERE m.id != ?`
 	).bind(excludeId || "").all();
 	const verified = results.filter((m) => mapartPublic(m).verified);
 	if (!verified.length) return null;
@@ -5085,7 +5120,7 @@ async function getOrPickMapartOfTheDay(env) {
 	try { cur = row ? JSON.parse(row.value) : null; } catch (e) { cur = null; }
 	if (cur && cur.date === today) {
 		const existing = await env.DB.prepare(
-			"SELECT m.*, a.mcVerified AS claimantVerified FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId WHERE m.id = ?"
+			`SELECT m.*, a.mcVerified AS claimantVerified, ${MAPART_LIKES_SQL} FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId WHERE m.id = ?`
 		).bind(cur.id).first();
 		// Re-checked (not just "does it still exist") so a piece picked before
 		// this restriction existed, or one that's lost its verified status since,
@@ -5101,7 +5136,7 @@ async function getOrPickMapartOfTheDay(env) {
 
 async function loadMotdPayload(env, cur) {
 	const m = await env.DB.prepare(
-		"SELECT m.*, a.mcVerified AS claimantVerified FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId WHERE m.id = ?"
+		`SELECT m.*, a.mcVerified AS claimantVerified, ${MAPART_LIKES_SQL} FROM maparts m LEFT JOIN admins a ON a.id = m.claimedByAccountId WHERE m.id = ?`
 	).bind(cur.id).first();
 	return m ? { date: cur.date, mapart: mapartPublic(m) } : { error: "none" };
 }
@@ -6676,6 +6711,8 @@ const ROUTES = [
 	["POST", "/store/listings/delete", handleStoreDeleteListing],
 	["POST", "/mapart/update", handleUpdateMapart],
 	["POST", "/mapart/report", handleSubmitMapartReport],
+	["POST", "/mapart/like", handleLikeMapart],
+	["GET", "/mapart/my-likes", handleGetMyMapartLikes],
 	["GET", "/mapart/of-the-day", handleGetMapartOfTheDay],
 	["POST", "/admin/mapart/otd/reroll", handleAdminRerollMapartOfTheDay],
 	["POST", "/mapart/search-image", handleSearchMapartImage],

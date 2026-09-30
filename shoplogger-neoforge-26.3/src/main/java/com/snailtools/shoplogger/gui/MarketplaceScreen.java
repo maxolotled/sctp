@@ -1,5 +1,7 @@
 package com.snailtools.shoplogger.gui;
 
+import com.snailtools.shoplogger.ShopWorld;
+import com.snailtools.shoplogger.WorldSelection;
 import com.snailtools.shoplogger.gui.data.MarketplaceListing;
 import com.snailtools.shoplogger.gui.data.RareItem;
 import com.snailtools.shoplogger.gui.data.VanillaItem;
@@ -8,6 +10,7 @@ import com.snailtools.shoplogger.gui.ui.Draw;
 import com.snailtools.shoplogger.gui.ui.Section;
 import com.snailtools.shoplogger.gui.ui.Theme;
 import com.snailtools.shoplogger.gui.ui.UiButton;
+import com.snailtools.shoplogger.gui.ui.UiChip;
 import com.snailtools.shoplogger.gui.ui.UiField;
 import com.snailtools.shoplogger.gui.ui.UiLinks;
 import com.snailtools.shoplogger.gui.ui.UiScreen;
@@ -33,10 +36,18 @@ public class MarketplaceScreen extends UiScreen {
 			"diamond", "Dia", "diamondblock", "DB", "diamondstack", "STX"
 	);
 	private static final long SEARCH_DEBOUNCE_MS = 300;
+	private static final String BOTH_WORLDS = "Both";
+	private static final String ANY_TYPE = "All posts";
+	private static final String SELLING = "Selling";
+	private static final String LOOKING_FOR = "Looking for";
+
+	// remembered for the rest of the session, like the website's filters
+	private static String keepWorld = null;
+	private static String keepType = ANY_TYPE;
 
 	private UiField search;
 	private ItemListWidget list;
-	private int listX, listY, listW, listH;
+	private int listX, listY, listW, listH, hintY;
 	private String keepQuery = "";
 
 	private List<MarketplaceListing> listings = List.of();
@@ -50,6 +61,10 @@ public class MarketplaceScreen extends UiScreen {
 
 	public MarketplaceScreen(Screen parent) {
 		super("Marketplace", parent, Section.MARKET);
+		if (keepWorld == null) {
+			ShopWorld detected = WorldSelection.get();
+			keepWorld = detected != null ? detected.label() : BOTH_WORLDS;
+		}
 	}
 
 	@Override
@@ -65,6 +80,14 @@ public class MarketplaceScreen extends UiScreen {
 				() -> UiLinks.open("https://sctp.nl/marketplace/")).tooltip("Posting and bidding happen on the website"));
 		y += 26;
 
+		int chipW = Math.min(150, (w - 6) / 2);
+		addRenderableWidget(new UiChip<>(x, y, chipW, 18, "World", List.of(BOTH_WORLDS, "Firefly", "Honeybee"), keepWorld,
+				v -> v, v -> { keepWorld = v; refreshList(); }));
+		addRenderableWidget(new UiChip<>(x + chipW + 6, y, chipW, 18, "Show", List.of(ANY_TYPE, SELLING, LOOKING_FOR), keepType,
+				v -> v, v -> { keepType = v; refreshList(); }));
+		y += 24;
+
+		hintY = y + 1;
 		listX = x - 6;
 		listY = y + 14;
 		listW = w + 12;
@@ -138,8 +161,12 @@ public class MarketplaceScreen extends UiScreen {
 
 		for (MarketplaceListing l : listings) {
 			if (!q.isEmpty() && !l.itemName.toLowerCase(Locale.ROOT).contains(q)) continue;
-			String subtitle = subtitleFor(l);
 			boolean selling = "selling".equals(l.type);
+			// Cross-world posts show up under either world
+			if (!BOTH_WORLDS.equals(keepWorld) && !keepWorld.equalsIgnoreCase(l.world) && !"Cross-world".equalsIgnoreCase(l.world)) continue;
+			if (SELLING.equals(keepType) && !selling) continue;
+			if (LOOKING_FOR.equals(keepType) && selling) continue;
+			String subtitle = subtitleFor(l);
 			String baseItem = baseItemFor(l.itemName);
 			ItemListWidget.ItemEntry entry;
 			if (baseItem != null) {
@@ -173,7 +200,7 @@ public class MarketplaceScreen extends UiScreen {
 
 	@Override
 	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-		int y = contentY() + 27;
+		int y = hintY;
 		Draw.glyph(g, Draw.GLYPH_LINK, contentX(), y, Theme.FAINT);
 		g.text(font, Draw.trim(font, "Click a post to open it on sctp.nl, where you can bid or reply", contentW() - 110), contentX() + 11, y, Theme.FAINT, false);
 		if (!isLoading() && list != null) {
@@ -187,6 +214,6 @@ public class MarketplaceScreen extends UiScreen {
 		boolean empty = !isLoading() && list != null && list.size() == 0;
 		listState(g, listX, listY, listW, listH, isLoading(), loadFailed, empty,
 				listings.isEmpty() ? "No marketplace posts right now" : "No posts match that",
-				listings.isEmpty() ? "Be the first: post one on sctp.nl." : "Try a shorter search.");
+				listings.isEmpty() ? "Be the first: post one on sctp.nl." : "Try a shorter search or other filters.");
 	}
 }

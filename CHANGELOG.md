@@ -11,17 +11,28 @@
 - **Listings** show item icons, a coloured world dot, and rounded TP / Report buttons with tooltips.
 - **Watchlist:** "Watching" and "+ Add" badges, a clearer options card with the price shown in diamonds too, and your search and scroll position are kept.
 - **Marketplace:** "Selling" / "Looking for" badges and a button to post on sctp.nl. **Seller profiles** show the item name on each listing and link to the profile on sctp.nl.
-- **Mapart scanner:** proper on/off switch, stats at a glance, cards with coloured upload status.
+- **Mapart scanner:** proper on/off switch, stats at a glance, cards with coloured upload status. It's now **off by default for everyone** (uploads are paused server-side), including players who had it on, and the screen shows "Enabling this feature will capture all maps in item frames visible to you."
+- **Filters open a pick list:** clicking any filter chip (Listings, Items, Rares, Item pages, Marketplace) opens a popup with every option, the current one highlighted, and a search box for long lists. Shift+click still steps to the next option.
+- **Watchlist from item pages:** every item page has "+ Add to watchlist" (adds it and opens its options) or "Watchlist settings" next to its tabs.
+- **Items / Rares keep your place:** going back from an item page returns the list to where you were scrolled.
+- **In-game marketplace filters:** World (Firefly, Honeybee or both; starts on your current world, cross-world posts show under either) and Show (all, Selling, Looking for).
+- **Glowing chest outline:** a new teleport highlight style that outlines the shop's chest instead of drawing a beam toward it.
+- **No more cut-off names on the dashboard:** tile badges ("Scanning off", "12 watched") shrink or move down instead of squeezing the tile's name, and Settings rows show their full text on hover when it doesn't fit.
 - **Ender chest ⇄ backpack:** arrows on either side of your ender chest and backpack screens: left opens your backpack (`/bp`), right your ender chest (`/ec`); the one for the screen you're on is greyed out. They can be turned off in Settings › Highlights & tools.
 - **Rare items: filter by release date.** The "Dyeable" filter on the Rares tab is replaced by "Released": All, a year (2025, 2026) or a single month (Jan 2025 … Sep 2026), oldest first. Items released in two periods show up under both.
 - **Fixed scans reporting an old price.** The auto-scanner remembered each shop's sign from when it first found the shop, so after a seller changed the price (say 25db → 20db) scans kept using the old one, both in watchlist alerts and in what was uploaded. The sign is now re-read right before every scan and kept up to date in the background.
 
 ### Website
 - **Written job reviews:** besides 👍 / 👎 you can now write a review (up to 500 characters) on someone's job post. Reviews show in the job's detail view, and you can edit or remove your own.
+- **Mapart likes:** a heart on every mapart (catalog, mapart pages and the home page's mapart of the day), one like per account, and a "Most liked" sort in the catalog.
+- **Fixed "Mine" on the marketplace** saying you needed to log in while you were logged in (when the page was opened straight on the Mine tab).
+- **Rare release dates cleaned up:** every rare now has one plain month, so none go missing from the month filters. Summerfest items count as Aug 2026, crate keys only show their original month (not the birthday-crate re-release), "- Present" was dropped, and the Spawner and Quest Crate Keys are Jan 2025. Rares with no date stay under "All".
+- **Fixed Rare-dle's release date hint** for rares released in a season ("Summer 2026"): it now shows older / more recent again.
 - **Renew listings and job posts:** a "Renew 14 days" button under your own posts in "Mine" pushes the expiry date 14 days out, so a post that's still relevant doesn't have to be posted again. It also brings back a post that just expired. Your posts now show when they expire.
 
 ### Backend
 - Migration 0038: `comment` column on job reviews. New endpoints `GET /marketplace/jobs/reviews`, `POST /marketplace/jobs/renew` and `POST /marketplace/listings/renew`.
+- Migration 0039: `mapartLikes`. New endpoints `POST /mapart/like` and `GET /mapart/my-likes`; every public mapart response includes `likes`.
 
 ## 2.2.1 (mod 2.2.1, September 2026)
 

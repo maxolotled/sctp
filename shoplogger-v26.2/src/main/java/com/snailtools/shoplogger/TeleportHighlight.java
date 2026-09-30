@@ -20,7 +20,8 @@ public final class TeleportHighlight {
 	public enum BeamStyle {
 		LINE("Full line"),
 		SPARSE("Sparse line"),
-		DESTINATION_ONLY("Destination marker only");
+		DESTINATION_ONLY("Destination marker only"),
+		CHEST_GLOW("Glowing chest outline");
 
 		public final String label;
 		BeamStyle(String label) { this.label = label; }
@@ -49,6 +50,9 @@ public final class TeleportHighlight {
 	private static final int SPARSE_MAX_POINTS = 12;
 	private static final int SPARSE_INTERVAL_TICKS = 4; // ~5 updates/sec instead of 20
 	private static final int MARKER_INTERVAL_TICKS = 5;
+	private static final int OUTLINE_INTERVAL_TICKS = 6;
+	private static final int OUTLINE_POINTS_PER_EDGE = 4;
+	private static final float OUTLINE_SCALE = 0.8f;
 	private static final double ARRIVAL_DISTANCE = 2.0;
 	private static final long TIMEOUT_MS = 5 * 60 * 1000L;
 
@@ -102,6 +106,7 @@ public final class TeleportHighlight {
 
 		switch (getStyle()) {
 			case DESTINATION_ONLY -> renderMarker(client);
+			case CHEST_GLOW -> renderOutline(client);
 			case SPARSE -> {
 				if (tickCounter % SPARSE_INTERVAL_TICKS == 0) renderLine(client, eye, target, dist, SPARSE_SPACING, SPARSE_MAX_POINTS);
 			}
@@ -131,6 +136,26 @@ public final class TeleportHighlight {
 			double y = targetPos.getY() + 0.3 + i * 0.4;
 			double z = targetPos.getZ() + 0.5;
 			client.level.addParticle(effect, x, y, z, 0.0, 0.0, 0.0);
+		}
+	}
+
+	/** Traces the 12 edges of the chest's block in particles — the chest itself lights up, nothing points back at you. */
+	private void renderOutline(Minecraft client) {
+		if (tickCounter % OUTLINE_INTERVAL_TICKS != 0) return;
+		double pad = 0.03; // just outside the block, so the particles aren't hidden inside it
+		double x0 = targetPos.getX() - pad, y0 = targetPos.getY() - pad, z0 = targetPos.getZ() - pad;
+		double size = 1 + 2 * pad;
+		DustParticleOptions effect = new DustParticleOptions(COLOR, OUTLINE_SCALE);
+		for (int i = 0; i <= OUTLINE_POINTS_PER_EDGE; i++) {
+			double t = size * i / OUTLINE_POINTS_PER_EDGE;
+			for (int a = 0; a < 2; a++) {
+				for (int b = 0; b < 2; b++) {
+					double da = a * size, db = b * size;
+					client.level.addParticle(effect, x0 + t, y0 + da, z0 + db, 0.0, 0.0, 0.0); // edges along x
+					client.level.addParticle(effect, x0 + da, y0 + t, z0 + db, 0.0, 0.0, 0.0); // along y
+					client.level.addParticle(effect, x0 + da, y0 + db, z0 + t, 0.0, 0.0, 0.0); // along z
+				}
+			}
 		}
 	}
 }

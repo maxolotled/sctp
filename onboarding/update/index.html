@@ -5,7 +5,7 @@
 <title>What's New - SCTP</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="What's new in SCTP 2.0 — mapart, collections, Rare-dle, marketplace reviews and more.">
+<meta name="description" content="What's new in SCTP 2.3: all-new mod menus, easier filters, watchlist from item pages, mapart likes, written job reviews and renewable marketplace posts.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -90,6 +90,15 @@
 	.seller-rating{font-size:11.5px;border-radius:999px;padding:2px 10px;border:1px solid rgba(var(--accent-rgb),0.5);color:var(--accent);font-weight:600;}
 	.seller-rating .n{color:var(--muted);font-weight:400;}
 
+	.like-demo{display:inline-flex;align-items:center;gap:5px;background:rgba(226,100,122,0.16);border:1px solid #E2647A;color:#F08A9C;border-radius:999px;padding:6px 14px 6px 12px;font-size:14px;font-weight:700;}
+	.like-demo .hrt{color:#F0647E;font-size:16px;line-height:1;}
+	.review-demo{background:var(--panel-alt);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:8px 10px;width:100%;}
+	.review-demo .head{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;}
+	.review-demo p{margin:4px 0 0;font-size:13px;}
+	.pick-demo{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;width:100%;max-width:260px;font-size:13px;}
+	.pick-demo .lbl{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:2px 6px 6px;}
+	.pick-demo div.opt{padding:4px 8px;border-radius:6px;color:var(--muted);}
+	.pick-demo div.opt.on{background:rgba(var(--accent-rgb),0.14);color:var(--accent);box-shadow:inset 2px 0 0 var(--accent);}
 	.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
 	.minichip{font-size:12px;font-weight:600;background:var(--panel-alt);border:1px solid var(--line);border-radius:999px;padding:4px 11px;color:var(--shell);}
 
@@ -108,7 +117,7 @@
 	<div class="wrap header-row">
 		<div class="brand-row">
 			<div class="brand-mark">✨</div>
-			<div><h1>SCTP 2.0</h1><p class="tag">What's new</p></div>
+			<div><h1>SCTP 2.3</h1><p class="tag">What's new</p></div>
 		</div>
 		<nav id="siteNavMount"></nav>
 	</div>
@@ -117,170 +126,138 @@
 <div class="wrap hero">
 	<p class="kicker">Onboarding &middot; What's new</p>
 	<h2>What's new in SCTP 2.3</h2>
-	<p>If you've used the Trading Post before, this is the fast version: just what's new since 1.6, in the order you'll actually run into it. Already know the basics? Skip straight to a section below. New here entirely? The <a href="/onboarding/web">full website walkthrough</a> and <a href="/onboarding/mod">mod walkthrough</a> cover everything, old and new.</p>
+	<p>The fast version: everything new since 2.2, in the order you'll run into it. Update the mod from the Download button on the site (or CurseForge) to get the in-game parts. New here entirely? The <a href="/onboarding/web">website walkthrough</a> and <a href="/onboarding/mod">mod walkthrough</a> cover everything.</p>
 	<div class="hero-actions">
 		<a class="btn" href="/">Open the Trading Post &rarr;</a>
 		<a class="btn-ghost" href="/docs/changelog">Full changelog &rarr;</a>
 	</div>
 	<div class="hero-meta">
 		<span><b>Released</b> September 2026</span>
-		<span><b>Mod</b> now on 2.3 — all-new menus, on top of 2.0's overhaul and 2.1's <code>/preview</code></span>
+		<span><b>Mod 2.3</b> for Fabric &amp; NeoForge, Minecraft 26.2 &amp; 26.3</span>
 	</div>
 </div>
 
 <div class="wrap layout">
 	<nav class="toc" id="toc">
-		<a href="#v23"><span class="toc-num">01</span>Mod 2.3: new menus</a>
-		<a href="#mapart"><span class="toc-num">02</span>Mapart catalog</a>
-		<a href="#collections"><span class="toc-num">03</span>Collections</a>
-		<a href="#profiles"><span class="toc-num">04</span>Public profiles</a>
-		<a href="#jobs"><span class="toc-num">05</span>Job reviews</a>
-		<a href="#raredle"><span class="toc-num">06</span>Rare-dle</a>
-		<a href="#site-qol"><span class="toc-num">07</span>Site QOL</a>
-		<a href="#mod-qol"><span class="toc-num">08</span>Mod QOL</a>
-		<a href="#preview"><span class="toc-num">09</span>/preview (2.1)</a>
-		<a href="#downloads"><span class="toc-num">10</span>New download flow</a>
+		<a href="#menus"><span class="toc-num">01</span>All-new menus</a>
+		<a href="#filters"><span class="toc-num">02</span>Easier filters</a>
+		<a href="#watchlist"><span class="toc-num">03</span>Watch from item pages</a>
+		<a href="#mod-market"><span class="toc-num">04</span>In-game marketplace</a>
+		<a href="#extras"><span class="toc-num">05</span>Handy extras</a>
+		<a href="#likes"><span class="toc-num">06</span>Mapart likes</a>
+		<a href="#site-market"><span class="toc-num">07</span>Marketplace on the site</a>
+		<a href="#mapart-scanner"><span class="toc-num">08</span>Mapart scanner</a>
 	</nav>
 
 	<div class="steps">
 
-		<section class="step" id="v23">
-			<div class="step-head"><div class="step-num">1</div><h3>All-new mod menus</h3><span class="new-pill">NEW IN 2.3</span></div>
-			<p class="step-lede">Every Shop Logger screen was redesigned to look and feel like the website, and it's much easier to get around. Press <b>X</b> in-game to open it.</p>
+		<section class="step" id="menus">
+			<div class="step-head"><div class="step-num">1</div><h3>All-new mod menus</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">Every Shop Logger screen was redesigned to look and feel like the website, and it's much easier to get around. Press <b>X</b> in-game to open it. Every feature from before is still there.</p>
 			<div class="notes">
 				<ul>
 					<li><b>A dashboard home</b>: your world, scanner and watchlist at a glance, a search box that jumps straight to the listings, and a tile for every section.</li>
-					<li><b>Tabs on every screen</b> to jump between Listings, Items, Rares, Watchlist, Marketplace, Mapart and Settings, without backing out through menus.</li>
-					<li><b>One Settings screen</b> with categories and a short explanation under every option (Advanced settings is folded in).</li>
+					<li><b>Tabs on every screen</b> to jump between Listings, Items, Rares, Watchlist, Marketplace, Mapart and Settings without backing out through menus.</li>
+					<li><b>One Settings screen</b> with categories and a short explanation under every option (Advanced settings is folded in). If a line gets cut off on a small window, hover it to read the whole thing.</li>
 					<li><b>Item pages with tabs</b> for current listings, price history and rare details.</li>
-					<li>Cleaner listings, watchlist, marketplace and mapart scanner: same features, easier to read.</li>
-					<li><b>Ender chest ⇄ backpack</b>: arrows on either side of your ender chest and backpack screens flip between them.</li>
-					<li><b>Always the current price</b>: scans re-read the shop sign every time, so a lowered price shows up right away in alerts and on the site.</li>
-					<li><b>Marketplace</b>: write a real review on job posts, and renew your own listings and job posts for another 14 days instead of posting them again.</li>
-					<li>Also since 2.1: smarter scanning that can't mix up two chests, plus mapart <b>keywords</b>, a <b>flat / staircased</b> type and a <b>Games</b> category on the website.</li>
 				</ul>
 			</div>
 		</section>
 
-		<section class="step" id="mapart">
-			<div class="step-head"><div class="step-num">2</div><h3>Mapart catalog</h3><span class="new-pill">ALL NEW</span></div>
-			<p class="step-lede">Snailcraft's mapart, all in one searchable place: title, artist, world, category, where to buy it, and a picture — sourced from the gallery and now scanned automatically by the mod too.</p>
-			<div class="step-body">
-				<div class="shot"><img src="img/mapart-catalog.png" alt="Mapart catalog grid with search, category filter, search-by-image, and world toggle." loading="lazy"><div class="shot-cap">/mapart/</div></div>
-				<div class="shot"><img src="img/mapart-detail.png" alt="A mapart detail page with artist, tags, verified badge, where-to-buy, Share and Report." loading="lazy"><div class="shot-cap">/mapart/&lt;slug&gt;</div></div>
-			</div>
-			<div class="chiprow">
-				<span class="minichip">Search by image</span>
-				<span class="minichip">Collab artists</span>
-				<span class="minichip">Commission info</span>
-				<span class="minichip">Price field</span>
-				<span class="minichip">Artist verification</span>
-				<span class="minichip">Report queue</span>
-				<span class="minichip">In-game scanner</span>
-			</div>
-		</section>
-
-		<section class="step" id="collections">
-			<div class="step-head"><div class="step-num">3</div><h3>Collections</h3><span class="new-pill">ALL NEW</span></div>
-			<p class="step-lede">A personal checklist for rare items and mapart, per world — tick things off as you get them, and share your progress on a public profile page if you want to.</p>
-			<div class="demo-row">
-				<span class="demo-label">Example toggle — collection chip on a rare/mapart page</span>
-				<button type="button" class="col-chip on">✓ Firefly</button>
-				<button type="button" class="col-chip">+ Honeybee</button>
-			</div>
-			<p style="font-size:13.5px;color:var(--muted);margin-top:10px;">Toggle from any card or detail page; view everything at <code>/collection/</code>, public by default at <code>/collection/&lt;username&gt;</code> unless you make it private.</p>
-		</section>
-
-		<section class="step" id="profiles">
-			<div class="step-head"><div class="step-num">4</div><h3>Public profiles</h3><span class="new-pill">ALL NEW</span></div>
-			<p class="step-lede">The old seller page is now a full tabbed profile — Shop, Mapart (with open commissions), Collection, and Marketplace history, all in one place at each player's own URL.</p>
-			<div class="step-body wide">
-				<div class="shot"><img src="img/profile.png" alt="A tabbed profile page with Shop and Mapart tabs, stats, and a filterable listings table." loading="lazy"><div class="shot-cap">/s/ff/&lt;username&gt; or /s/hb/&lt;username&gt;</div></div>
-			</div>
-		</section>
-
-		<section class="step" id="jobs">
-			<div class="step-head"><div class="step-num">5</div><h3>Job listing reviews</h3><span class="new-pill">ALL NEW</span></div>
-			<p class="step-lede">Marketplace job posts (hiring or for-hire) can now be rated thumbs up or down by anyone who isn't the poster — and every rating rolls up into a seller rating shown right on that player's profile.</p>
-			<div class="step-body">
-				<div class="shot"><img src="img/marketplace-jobs.png" alt="Marketplace Jobs tab with Hiring/For Hire filters." loading="lazy"><div class="shot-cap">/marketplace/#jobs</div></div>
-				<div class="notes">
-					<div class="demo-row">
-						<span class="demo-label">Example — rating shown on a job card</span>
-						<span class="job-rating"><span class="up">👍 12</span><span class="down">👎 1</span></span>
-					</div>
-					<div class="demo-row" style="margin-top:10px;">
-						<span class="demo-label">Example — seller rating on a profile</span>
-						<span class="seller-rating">92% positive <span class="n">(13 ratings)</span></span>
-					</div>
-				</div>
-			</div>
-		</section>
-
-		<section class="step" id="raredle">
-			<div class="step-head"><div class="step-num">6</div><h3>Rare-dle</h3><span class="new-pill">ALL NEW</span></div>
-			<p class="step-lede">A daily Wordle-style guessing game built around Snailcraft's own rare items — one secret rare a day, 8 tries, per-attribute feedback, streaks, and a sharpening pixel hint the longer you're stuck.</p>
-			<div class="step-body wide">
-				<div class="shot"><img src="img/raredle.png" alt="The Rare-dle page with leaderboard tabs and how-to-play rules." loading="lazy"><div class="shot-cap">/rare-dle/</div></div>
-			</div>
-			<div class="chiprow">
-				<span class="minichip">8 guesses a day</span>
-				<span class="minichip">Streaks &amp; scoring</span>
-				<span class="minichip">+125 no-peek bonus</span>
-				<span class="minichip">Unlimited practice mode</span>
-				<span class="minichip">Public leaderboards</span>
-			</div>
-		</section>
-
-		<section class="step" id="site-qol">
-			<div class="step-head"><div class="step-num">7</div><h3>Smaller website upgrades</h3></div>
-			<p class="step-lede">A pile of quality-of-life changes across the main table and item pages.</p>
+		<section class="step" id="filters">
+			<div class="step-head"><div class="step-num">2</div><h3>Easier filters</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">Filters no longer make you click through a long list one option at a time.</p>
 			<div class="step-body">
 				<div class="notes">
 					<ul>
-						<li><b>Hide any column</b> in the results table, bring it back from "Columns ▾".</li>
-						<li><b>Diamond-equivalent pricing</b> everywhere, on by default — see raw currency any time with one toggle.</li>
-						<li><b>"Did you mean…?"</b> suggestions when a search comes up nearly empty.</li>
-						<li><b>Price check</b> on every rare item page — a general value per world, from every active listing.</li>
-						<li><b>Undercut alerts</b> and reprice/restock hints on My Shop Statistics.</li>
-						<li>Redesigned nav with <b>More</b> and <b>Info</b> menus, and a home page featured strip for mapart of the day, Rare-dle and the marketplace.</li>
+						<li><b>Click any filter to pick from a list.</b> Long lists (categories, months) get a search box too. Shift+click still steps to the next option.</li>
+						<li><b>Rares: filter by release date</b> instead of dyeable. Pick a year or a single month, oldest first.</li>
+						<li><b>Your place is kept</b>: open a rare or item, go back, and the list is scrolled right where you left it.</li>
 					</ul>
 				</div>
-				<div class="shot"><img src="img/home.png" alt="The redesigned home page with the featured strip and search bar." loading="lazy"><div class="shot-cap">sctp.nl</div></div>
+				<div class="demo-row">
+					<span class="demo-label">Example: the Released filter</span>
+					<div class="pick-demo">
+						<div class="lbl">Pick Released</div>
+						<div class="opt">All</div><div class="opt">2025</div><div class="opt">2026</div>
+						<div class="opt">Jul 2026</div><div class="opt on">Aug 2026</div><div class="opt">Sep 2026</div>
+					</div>
+				</div>
 			</div>
 		</section>
 
-		<section class="step" id="mod-qol">
-			<div class="step-head"><div class="step-num">8</div><h3>Mod 2.0</h3></div>
-			<p class="step-lede">The mod got just as big an update — full details on the <a href="/onboarding/mod">mod walkthrough</a>, short version here.</p>
+		<section class="step" id="watchlist">
+			<div class="step-head"><div class="step-num">3</div><h3>Watch items from their page</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">Looking at a rare or item and want an alert when it's listed? No more going back to the Watchlist to search for it.</p>
 			<div class="notes">
 				<ul>
-					<li><b>Mapart scanner</b>, built right in — finds and uploads mapart automatically, no separate tool.</li>
-					<li><b>Ignore this listing</b> on watchlist alerts, without losing the rest of your watchlist for that item.</li>
-					<li><b>Advanced Settings</b> screen for scan log format, per-shop cooldown, teleport beam style and more.</li>
-					<li>Now ships <b>four builds</b>: Fabric 26.2/26.3 and NeoForge 26.2/26.3.</li>
+					<li>Every item page has a <b>+ Add to watchlist</b> button next to its tabs. It adds the item and opens its watchlist options (max price, skip display/no-price listings) right there.</li>
+					<li>Already watching it? The button says <b>Watchlist settings</b> and takes you straight to its options.</li>
 				</ul>
 			</div>
 		</section>
 
-		<section class="step" id="preview">
-			<div class="step-head"><div class="step-num">9</div><h3>/preview</h3><span class="new-pill">NEW IN 2.1</span></div>
-			<p class="step-lede">Live-preview a colored, styled rename on the item in your hand before you commit to it for real — type the name with <code>&amp;#RRGGBB</code> hex color blocks and see it applied instantly.</p>
+		<section class="step" id="mod-market">
+			<div class="step-head"><div class="step-num">4</div><h3>In-game marketplace filters</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">The in-game Marketplace screen can now narrow down posts.</p>
 			<div class="notes">
 				<ul>
-					<li>Hold the item, then run <code>/preview &amp;#FF0000Cool &amp;#00FF00Sword</code> — the color blocks apply to whatever text follows them, and you can mix as many colors in one name as you like.</li>
-					<li>It's a <b>client-side-only</b> preview — nothing is actually renamed on the server, so there's no cost and no commitment either way.</li>
-					<li>Move or drop the item (or just wait for the next server sync) and the preview clears itself automatically.</li>
+					<li><b>World</b>: Firefly, Honeybee or both. It starts on the world you're in; cross-world posts show under either.</li>
+					<li><b>Show</b>: all posts, only Selling, or only Looking for.</li>
 				</ul>
 			</div>
 		</section>
 
-		<section class="step" id="downloads">
-			<div class="step-head"><div class="step-num">10</div><h3>New download flow</h3></div>
-			<p class="step-lede">The download popup was rebuilt around a simple loader + version picker instead of a flat list of files.</p>
-			<div class="step-body wide">
-				<div class="shot" style="max-width:520px;"><img src="img/download-modal.png" alt="The redesigned Download Shop Logger modal with loader and version toggles." loading="lazy"><div class="shot-cap">Download mod button, any page</div></div>
+		<section class="step" id="extras">
+			<div class="step-head"><div class="step-num">5</div><h3>Handy extras</h3><span class="new-pill">MOD</span></div>
+			<div class="notes">
+				<ul>
+					<li><b>Ender chest &#8644; backpack</b>: arrows beside your ender chest and backpack screens. Left opens your backpack (<code>/bp</code>), right your ender chest (<code>/ec</code>). Don't want them? Turn them off in Settings.</li>
+					<li><b>Glowing chest outline</b>: a new teleport highlight style that outlines the shop's chest instead of drawing a beam across your screen. Settings &rsaquo; Highlights &amp; tools &rsaquo; Teleport beam style.</li>
+					<li><b>Always the current price</b>: scans re-read the shop sign every time, so a lowered price shows up right away in watchlist alerts and on the site.</li>
+					<li>Dashboard tiles no longer cut their names short when a badge like "Scanning off" is showing.</li>
+				</ul>
 			</div>
+		</section>
+
+		<section class="step" id="likes">
+			<div class="step-head"><div class="step-num">6</div><h3>Mapart likes</h3><span class="new-pill">WEBSITE</span></div>
+			<p class="step-lede">Show some appreciation: every mapart now has a heart. Liking needs an account, one like per piece.</p>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li>Like from the <a href="/mapart/">mapart catalog</a>, a mapart's own page, or the <b>mapart of the day</b> on the home page.</li>
+						<li>Sort the catalog by <b>Most liked</b> to see the community's favourites.</li>
+					</ul>
+				</div>
+				<div class="demo-row">
+					<span class="demo-label">Example: the like button</span>
+					<span class="like-demo"><span class="hrt">&#9829;</span>24</span>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="site-market">
+			<div class="step-head"><div class="step-num">7</div><h3>Marketplace on the site</h3><span class="new-pill">WEBSITE</span></div>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li><b>Written job reviews</b>: besides &#128077; / &#128078;, write how it went (up to 500 characters). Reviews show on the job, and you can edit or remove your own.</li>
+						<li><b>Renew your posts</b>: a "Renew 14 days" button under your own listings and job posts in <b>Mine</b> pushes the expiry date out, even right after a post expired. Each post shows when it expires.</li>
+						<li>Fixed <b>Mine</b> sometimes saying you had to log in while you were already logged in.</li>
+					</ul>
+				</div>
+				<div class="demo-row">
+					<span class="demo-label">Example: a written review</span>
+					<div class="review-demo"><div class="head"><span>&#128077; <b>Steve</b></span><span style="color:var(--muted);">30/09/2026</span></div><p>Built the whole storage room in two days, would hire again!</p></div>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="mapart-scanner">
+			<div class="step-head"><div class="step-num">8</div><h3>Mapart scanner is off for now</h3></div>
+			<p class="step-lede">Mapart uploads are paused while we fix a few things, so the in-game scanner now starts switched off for everyone. You can still open the Mapart screen and turn it on yourself.</p>
+			<div class="tip"><b>Good to know:</b> enabling this feature will capture all maps in item frames visible to you.</div>
 		</section>
 
 	</div>

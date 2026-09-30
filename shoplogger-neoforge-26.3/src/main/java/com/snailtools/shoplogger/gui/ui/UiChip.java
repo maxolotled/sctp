@@ -13,8 +13,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * A filter chip that cycles through a list of values: "World  Honeybee ▾".
- * Click for the next value, Shift+click for the previous one.
+ * A filter chip: "World  Honeybee ▾". Click to pick from a popup list of
+ * every value (UiPickerScreen); Shift+click cycles to the next one in place.
  */
 public class UiChip<T> extends AbstractButton {
 
@@ -31,7 +31,7 @@ public class UiChip<T> extends AbstractButton {
 		this.format = format;
 		this.onChange = onChange;
 		this.index = Math.max(0, this.values.indexOf(initial));
-		setTooltip(Tooltip.create(Component.literal("Click for the next option, Shift+click for the previous one")));
+		setTooltip(Tooltip.create(Component.literal("Click to pick · Shift+click for the next one")));
 	}
 
 	public T getValue() {
@@ -42,8 +42,20 @@ public class UiChip<T> extends AbstractButton {
 	public void onPress(InputWithModifiers input) {
 		int n = values.size();
 		if (n == 0) return;
-		index = (index + (input.hasShiftDown() ? -1 : 1) + n) % n;
-		if (onChange != null) onChange.accept(getValue());
+		var screen = Minecraft.getInstance().gui.screen();
+		if (!input.hasShiftDown() && screen instanceof UiScreen owner) {
+			Minecraft.getInstance().setScreenAndShow(new UiPickerScreen<>(owner, label, values, getValue(), format, this::set));
+			return;
+		}
+		set(values.get((index + 1) % n));
+	}
+
+	/** Selects a value (from the picker or cycling) and reports it. */
+	private void set(T value) {
+		int i = values.indexOf(value);
+		if (i < 0) return;
+		index = i;
+		if (onChange != null) onChange.accept(value);
 	}
 
 	@Override

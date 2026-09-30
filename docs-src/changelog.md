@@ -20,11 +20,23 @@ Thank you for using the SCTP! Download the newest mod files via the website. New
 ::: details Ender chest ⇄ backpack
 - Arrows on either side of your ender chest and backpack screens switch between them (/ec and /bp). Don't want them? Turn them off in Settings.
 :::
-::: details Release date filter
+::: details Easier filters
+- Click any filter to pick from a list (with a search box for long lists) instead of clicking through every option.
 - Rare items can now be filtered by release year or month, instead of by dyeable.
+- Going back from an item page keeps your scroll position.
+:::
+::: details More in-game
+- Add an item to your watchlist, or change its watchlist settings, straight from its item page.
+- The in-game marketplace can be filtered by world and by Selling / Looking for.
+- New teleport highlight: a glowing outline around the shop's chest instead of a beam.
+- The mapart scanner is off by default for now. Enabling this feature will capture all maps in item frames visible to you.
 :::
 ::: details Fixes
 - Scans no longer report a shop's old price after the seller changed the sign.
+:::
+::: details Website
+- Like your favourite mapart, and sort the catalog by most liked.
+- Fixed "Mine" on the marketplace sometimes asking you to log in while you were logged in.
 :::
 ::: details Marketplace
 - You can now write a review on job posts, not just give a thumbs up or down.

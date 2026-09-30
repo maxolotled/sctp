@@ -71,6 +71,8 @@
 	.mapart-img img{max-width:100%;max-height:100%;image-rendering:pixelated;display:block;border-radius:4px;box-shadow:0 6px 22px rgba(0,0,0,0.5);}
 	.mapart-info{padding:12px 14px 14px;display:flex;flex-direction:column;gap:4px;}
 	.mapart-title{font-family:var(--font-display);font-weight:600;font-size:17px;line-height:1.25;}
+	.mapart-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+	.mapart-title-row .like-btn{flex:0 0 auto;margin-top:1px;}
 	.mapart-artist{color:var(--shell);font-size:13.5px;}
 	.mapart-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
 	.pill{display:inline-block;font-size:11px;font-family:var(--font-mono);color:var(--muted);background:var(--panel-alt);border:1px solid var(--line);border-radius:999px;padding:1px 8px;}
@@ -135,6 +137,10 @@
 			<option value="Firefly">Firefly</option>
 			<option value="Honeybee">Honeybee</option>
 		</select>
+		<select id="fSort" aria-label="Sort">
+			<option value="">A–Z</option>
+			<option value="liked">Most liked</option>
+		</select>
 	</div>
 	<p class="count" id="count"></p>
 	<div class="mapart-grid" id="grid"></div>
@@ -150,6 +156,7 @@
 <script src="/mapart-report.js" defer></script>
 <script src="/mapart-search.js" defer></script>
 <script src="/collection-toggle.js" defer></script>
+<script src="/mapart-like.js" defer></script>
 <script>
 (function(){
 	"use strict";
@@ -196,6 +203,10 @@
 			if(q && (m.title || "").toLowerCase().indexOf(q) === -1 && (m.artist || "").toLowerCase().indexOf(q) === -1 && (m.keywords || []).join(" ").toLowerCase().indexOf(q) === -1) return false;
 			return true;
 		});
+		if(document.getElementById("fSort").value === "liked"){
+			var likes = function(m){ return window.sctpLike ? window.sctpLike.count(m.id, m.likes || 0) : (m.likes || 0); };
+			rows = rows.slice().sort(function(a, b){ return likes(b) - likes(a) || (a.title || "").localeCompare(b.title || ""); });
+		}
 		document.getElementById("count").textContent = rows.length + " mapart" + (rows.length === 1 ? "" : "s");
 		document.getElementById("empty").hidden = rows.length > 0;
 		document.getElementById("grid").innerHTML = rows.map(function(m){
@@ -205,7 +216,7 @@
 				(window.sctpCol ? window.sctpCol.circle("mapart", m.id, m.world) : '') +
 				'<div class="mapart-img"><img src="' + esc(imageUrl(m)) + '" alt="' + esc(m.title) + '" loading="lazy"><button type="button" class="mapart-flag" data-flag="' + esc(m.id) + '">' + (window.sctpMapartReport ? window.sctpMapartReport.label() : 'Report') + '</button></div>' +
 				'<div class="mapart-info">' +
-					'<div class="mapart-title">' + esc(m.title) + '</div>' +
+					'<div class="mapart-title-row"><div class="mapart-title">' + esc(m.title) + '</div>' + (window.sctpLike ? window.sctpLike.button(m) : '') + '</div>' +
 					'<div class="mapart-artist">' + artistHtml(m) + '</div>' +
 					'<div class="mapart-meta">' +
 						(m.category ? '<span class="pill cat">' + esc(m.category) + '</span>' : '<span class="pill nocat">no category</span>') +
@@ -263,13 +274,15 @@
 	catSel.addEventListener("change", render);
 	document.getElementById("fWorld").addEventListener("change", render);
 	document.getElementById("fType").addEventListener("change", render);
+	document.getElementById("fSort").addEventListener("change", render);
 	// /mapart/?q=<keyword> (keyword chips on mapart pages link here)
 	var initialQ = new URLSearchParams(location.search).get("q");
 	if(initialQ) document.getElementById("search").value = initialQ;
 
 	fetch(API_BASE + "/mapart").then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }).then(function(rows){
 		all = rows;
-		if(window.sctpCol){ window.sctpCol.bind(document.getElementById("grid")); window.sctpCol.ready(render); } else render();
+		var go = function(){ if(window.sctpCol){ window.sctpCol.bind(document.getElementById("grid")); window.sctpCol.ready(render); } else render(); };
+		if(window.sctpLike) window.sctpLike.ready(go); else go();
 	});
 })();
 </script>

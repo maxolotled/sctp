@@ -165,6 +165,11 @@ public class SettingRow extends AbstractButton {
 		int textW = cx - x - 18;
 		g.text(font, Draw.trim(font, label, textW), x + 10, y + 6, Theme.TEXT, false);
 		g.text(font, Draw.trim(font, description, textW), x + 10, y + 17, Theme.MUTED, false);
+		// cut off on a narrow window / big GUI scale: show the whole thing on hover
+		boolean clipped = font.width(label) > textW || font.width(description) > textW;
+		if (clipped && mouseX >= x && mouseX < cx && mouseY >= y && mouseY < y + h) {
+			g.setTooltipForNextFrame(font, Component.literal(label + ": " + description), mouseX, mouseY);
+		}
 
 		int midY = y + h / 2;
 		switch (kind) {

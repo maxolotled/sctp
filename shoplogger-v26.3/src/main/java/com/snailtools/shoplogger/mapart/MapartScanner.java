@@ -65,7 +65,9 @@ public final class MapartScanner {
 	private static final String API_URL = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev/mapart/upload";
 	// Same shared key every other mod upload uses (see ShopUploader).
 	private static final String API_KEY = "JjabYIfRtghvBJNoy6857TFVHbjknlMOi6754E5dcfvhgBHNI6b564";
-	private static final String CONFIG_ENABLED = "mapart/enabled";
+	// New key in 2.3 so the scanner starts OFF for everyone (uploads are paused
+	// server-side for now), including players who had switched it on before.
+	private static final String CONFIG_ENABLED = "mapart/enabledV2";
 
 	private static final int SCAN_INTERVAL_TICKS = 100;   // every 5 s
 	private static final double SCAN_RADIUS = 48.0;
@@ -124,7 +126,7 @@ public final class MapartScanner {
 	// ---------------- public state (for the preview screen) ----------------
 
 	public boolean isEnabled() {
-		return Config.getOrDefault(CONFIG_ENABLED, Boolean.class, Boolean.TRUE);
+		return Config.getOrDefault(CONFIG_ENABLED, Boolean.class, Boolean.FALSE);
 	}
 
 	public void setEnabled(boolean on) {

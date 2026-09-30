@@ -203,6 +203,22 @@ function normalizeWhitespace(s) {
 	return s == null ? s : s.replace(/\s+/g, " ").trim();
 }
 
+// Every release date should be one "Mon YYYY", so the site's, the mod's and
+// Rare-dle's month filters/hints can place it: keep only the first date of
+// "Apr 2025 / Jan 2026" (a later re-release, e.g. in a birthday crate), drop
+// "- Present", Summerfest ("Summer YYYY") counts as August, a bare year as
+// January. Anything else (e.g. "Ongoing") is left for a human to decide.
+function normalizeReleaseDate(v) {
+	if (v == null) return v;
+	let s = String(v).trim();
+	s = s.split(/\s*\/\s*/)[0];
+	s = s.replace(/\s*-\s*present$/i, "");
+	s = s.replace(/^sept\b/i, "Sep");
+	s = s.replace(/^summer\s+(\d{4})$/i, "Aug $1");
+	s = s.replace(/^(\d{4})$/, "Jan $1");
+	return s;
+}
+
 function parseCellValue(attrs, inner, sharedStrings) {
 	const inlineMatch = /<is>.*?<t[^>]*>([^<]*)<\/t>/s.exec(inner);
 	if (inlineMatch) return normalizeWhitespace(decodeXmlEntities(inlineMatch[1]));
@@ -466,7 +482,7 @@ function main() {
 			category: e.category,
 			texture,
 			effect: e.effect || null,
-			releaseDate: e.releaseDate || null,
+			releaseDate: normalizeReleaseDate(e.releaseDate) || null,
 			obtainedFrom: e.obtainedFrom || null,
 			glowParticles: e.glowParticles || null,
 			typeSlot: e.typeSlot || null,

@@ -18,16 +18,18 @@ public class Tile extends AbstractButton {
 	private final String title;
 	private final String description;
 	private final Supplier<String> badge;
+	private final Supplier<String> shortBadge; // used when the full badge would squeeze the title
 	private final Supplier<Integer> badgeColor;
 	private final Runnable onPress;
 
 	public Tile(int x, int y, int w, int h, ItemStack icon, String title, String description,
-			Supplier<String> badge, Supplier<Integer> badgeColor, Runnable onPress) {
+			Supplier<String> badge, Supplier<String> shortBadge, Supplier<Integer> badgeColor, Runnable onPress) {
 		super(x, y, w, h, Component.literal(title));
 		this.icon = icon;
 		this.title = title;
 		this.description = description;
 		this.badge = badge;
+		this.shortBadge = shortBadge;
 		this.badgeColor = badgeColor;
 		this.onPress = onPress;
 	}
@@ -63,19 +65,30 @@ public class Tile extends AbstractButton {
 		}
 
 		int tx = ix + iconSize + 12;
-		String b = badge == null ? null : badge.get();
-		int bw = b == null ? 0 : Draw.pillWidth(font, b) + 6;
 		int textW = x + w - 8 - tx;
+		int titleW = font.width(title);
+		// The title always gets its full width: the badge shrinks to its short
+		// form first, then (tall tiles) drops down to the description line.
+		String full = badge == null ? null : badge.get();
+		String b = full;
+		if (b != null && titleW + Draw.pillWidth(font, b) + 6 > textW && shortBadge != null) b = shortBadge.get();
+		boolean onTitleLine = b != null && titleW + Draw.pillWidth(font, b) + 6 <= textW;
+		boolean onDescLine = b != null && !onTitleLine && tall;
+		int bw = b == null ? 0 : Draw.pillWidth(font, b) + 6;
+		int color = badgeColor == null ? Theme.ACCENT : badgeColor.get();
 		if (tall) {
-			g.text(font, Draw.trim(font, title, textW - bw), tx, y + h / 2 - 10, Theme.TEXT, true);
-			g.text(font, Draw.trim(font, description, textW), tx, y + h / 2 + 3, Theme.MUTED, false);
+			g.text(font, Draw.trim(font, title, textW - (onTitleLine ? bw : 0)), tx, y + h / 2 - 10, Theme.TEXT, true);
+			g.text(font, Draw.trim(font, description, textW - (onDescLine ? bw : 0)), tx, y + h / 2 + 3, Theme.MUTED, false);
 		} else {
-			g.text(font, Draw.trim(font, title, textW - bw), tx, y + (h - 8) / 2, Theme.TEXT, true);
+			g.text(font, Draw.trim(font, title, textW - (onTitleLine ? bw : 0)), tx, y + (h - 8) / 2, Theme.TEXT, true);
 		}
-		if (b != null) {
-			int color = badgeColor == null ? Theme.ACCENT : badgeColor.get();
-			int by = tall ? y + h / 2 - 12 : y + (h - 11) / 2;
+		if (onTitleLine || onDescLine) {
+			int by = !tall ? y + (h - 11) / 2 : onTitleLine ? y + h / 2 - 12 : y + h / 2 + 1;
 			Draw.pill(g, font, b, x + w - 8 - Draw.pillWidth(font, b), by, Theme.alpha(color, 0x33), color);
+		}
+		boolean shownInFull = full != null && full.equals(b) && (onTitleLine || onDescLine);
+		if (hover && full != null && !shownInFull) {
+			g.setTooltipForNextFrame(font, Component.literal(full), mouseX, mouseY);
 		}
 	}
 

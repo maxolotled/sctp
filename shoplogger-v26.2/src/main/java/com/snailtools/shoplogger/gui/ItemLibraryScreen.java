@@ -65,6 +65,8 @@ public class ItemLibraryScreen extends UiScreen {
 	private boolean loadFailed = false;
 	private boolean requested = false;
 	private long searchChangedAtMillis = -1;
+	// scroll position to put back when returning from an item page (0 = top)
+	private double restoreScroll = 0;
 
 	public ItemLibraryScreen(Screen parent, Catalog catalog) {
 		super(catalog == Catalog.VANILLA ? "Vanilla items" : "Rare items", parent, catalog == Catalog.VANILLA ? Section.VANILLA : Section.RARES);
@@ -209,7 +211,7 @@ public class ItemLibraryScreen extends UiScreen {
 			for (VanillaItem it : vanillaItems) {
 				if (!q.isEmpty() && !it.name.toLowerCase(Locale.ROOT).contains(q)) continue;
 				list.addItemEntry(ItemListWidget.forVanilla(it.name, it.baseItem, () ->
-						minecraft.setScreenAndShow(new ItemDetailScreen(this, it.name, it.baseItem, it.texture, false, null))));
+						openDetail(new ItemDetailScreen(this, it.name, it.baseItem, it.texture, false, null))));
 			}
 		} else {
 			for (RareItem it : rareItems) {
@@ -219,10 +221,17 @@ public class ItemLibraryScreen extends UiScreen {
 				RareItem captured = it;
 				String sub = (it.category == null ? "Rare" : it.category) + (it.typeSlot != null && !it.typeSlot.isEmpty() ? " · " + it.typeSlot : "");
 				list.addItemEntry(ItemListWidget.forRare(it.name, sub, it.texture, () ->
-						minecraft.setScreenAndShow(new ItemDetailScreen(this, captured.name, null, captured.texture, true, captured))));
+						openDetail(new ItemDetailScreen(this, captured.name, null, captured.texture, true, captured))));
 			}
 		}
-		list.setScrollAmount(0);
+		list.setScrollAmount(restoreScroll);
+		restoreScroll = 0;
+	}
+
+	/** Opens an item page, remembering where the list was scrolled to for when you come back. */
+	private void openDetail(ItemDetailScreen detail) {
+		restoreScroll = list != null ? list.scrollAmount() : 0;
+		minecraft.setScreenAndShow(detail);
 	}
 
 	private static boolean matchesSearch(RareItem it, String q) {
