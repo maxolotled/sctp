@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Auction Admin - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D; --gold:#F2C14E;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	[hidden]{display:none !important;}
+	body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:1240px;margin:0 auto;padding:0 20px;}
+	header.site{border-bottom:1px solid var(--line);padding:22px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--gold);color:#2A1E05;display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:22px;margin:0;}
+	.tag{color:var(--muted);font-size:13px;margin:2px 0 0;}
+	main{padding:22px 0 70px;}
+	.layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;align-items:start;}
+	@media (max-width:900px){.layout{grid-template-columns:1fr;}}
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;}
+	.card h2{font-family:var(--font-display);font-size:18px;margin:0 0 12px;}
+	.side{display:flex;flex-direction:column;gap:8px;}
+	.a-item{display:block;width:100%;text-align:left;background:var(--panel-alt);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);cursor:pointer;font-family:inherit;}
+	.a-item:hover{border-color:var(--accent-dim);}
+	.a-item.active{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent);}
+	.a-item b{display:block;font-size:14px;}
+	.a-item span{font-size:12px;color:var(--muted);}
+	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit;}
+	.btn:hover{background:var(--accent-dim);}
+	.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 11px;font-size:12.5px;cursor:pointer;font-family:inherit;}
+	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.btn-bad{background:transparent;border:1px solid var(--bad);color:var(--bad);border-radius:8px;padding:6px 11px;font-size:12.5px;cursor:pointer;font-family:inherit;}
+	.form{display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:12px;}
+	.form .wide{grid-column:span 2;}
+	.form .full{grid-column:1/-1;}
+	@media (max-width:700px){.form{grid-template-columns:1fr 1fr;}}
+	label.lbl{display:block;font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+	input,select{width:100%;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13.5px;font-family:inherit;}
+	input:focus,select:focus{outline:none;border-color:var(--accent-dim);}
+	.err{color:var(--bad);font-size:13px;margin:8px 0 0;}
+	.ok{color:var(--accent);font-size:13px;margin:8px 0 0;}
+	.stats{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:13px;color:var(--muted);margin:4px 0 14px;}
+	.stats b{color:var(--text);font-family:var(--font-mono);}
+	.player{border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden;}
+	.player-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel-alt);padding:9px 14px;font-size:13.5px;}
+	.player-head code{font-family:var(--font-mono);color:var(--gold);}
+	.player-head .pay{color:var(--muted);}
+	.player-head .pay b{color:var(--accent);font-family:var(--font-mono);}
+	.tbl-wrap{overflow-x:auto;}
+	table{width:100%;border-collapse:collapse;font-size:13px;}
+	th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
+	td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+	tr:last-child td{border-bottom:none;}
+	td.num{font-family:var(--font-mono);white-space:nowrap;}
+	.it{display:flex;align-items:center;gap:8px;}
+	.ico{width:28px;height:28px;image-rendering:pixelated;object-fit:contain;background:#0C140F;border-radius:6px;padding:2px;flex:0 0 auto;}
+	.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap;}
+	.pill.entered{background:var(--panel);color:var(--shell);}
+	.pill.sold{background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
+	.pill.unsold{background:rgba(226,100,61,0.16);color:var(--bad);}
+	.pill.removed{background:var(--panel);color:var(--muted);text-decoration:line-through;}
+	.sell{display:flex;gap:4px;align-items:center;}
+	.sell input{width:80px;}
+	.sell select{width:64px;padding:8px 4px;}
+	.preview{font-size:11.5px;color:var(--muted);white-space:nowrap;}
+	.acts{display:flex;gap:4px;flex-wrap:wrap;}
+	.empty{color:var(--muted);font-size:14px;text-align:center;padding:24px 0;}
+	tr.removed td{opacity:.5;}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">&#128296;</div>
+			<div><h1>Auction Admin</h1><p class="tag">Create auctions and record results · <a href="/auction/">public page</a></p></div>
+		</div>
+		<nav id="siteNavMount"></nav>
+	</div>
+</header>
+
+<main class="wrap" id="app"><p class="empty">Loading…</p></main>
+
+<script src="/site-nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+	var API = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var app = document.getElementById("app");
+	var auctions = [], selectedId = null, items = [];
+
+	function $(id){ return document.getElementById(id); }
+	function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+	function session(){
+		if(window.sctpAccount) return window.sctpAccount.getSession();
+		try { var s = JSON.parse(localStorage.getItem("sctp_session") || "null"); return s && s.token && Date.parse(s.expiresAt) >= Date.now() ? s : null; } catch(e){ return null; }
+	}
+	function canRun(s){ return s && (s.isHeadAdmin || (s.permissions || []).indexOf("auctions") !== -1); }
+	function api(path, opts){
+		opts = opts || {};
+		var headers = { Authorization: "Bearer " + session().token };
+		if(opts.body) headers["Content-Type"] = "application/json";
+		return fetch(API + path, { method: opts.method || "GET", headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined })
+			.then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); });
+	}
+	function fmtDia(d){
+		if(d == null) return "–";
+		if(Math.round(d) !== d) return d >= 9 ? (Math.round(d / 9 * 10) / 10) + " DB" : (Math.round(d * 10) / 10) + " dia";
+		var db = Math.floor(d / 9), dia = d % 9;
+		if(!db) return dia + " dia";
+		return dia ? db + " DB " + dia + " dia" : db + " DB";
+	}
+	// same rule as the Worker's auctionCut()
+	function cutFor(soldDia, pct){
+		var c = Math.max(Math.ceil(soldDia * pct / 100), soldDia > 32 * 9 ? 9 : 3);
+		return Math.min(soldDia, c);
+	}
+	function toLocalInput(iso){
+		var d = new Date(iso), p = function(n){ return String(n).padStart(2, "0"); };
+		return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes());
+	}
+	function selected(){ return auctions.filter(function(a){ return a.id === selectedId; })[0] || null; }
+
+	// ---------------- shell ----------------
+	function boot(){
+		var s = session();
+		if(!s){
+			app.innerHTML = '<div class="card empty"><p>Log in with an account that has the Auctions permission.</p><button type="button" class="btn" id="loginBtn">Log in</button></div>';
+			$("loginBtn").onclick = function(){ if(window.sctpAccount && window.sctpAccount.openLogin) window.sctpAccount.openLogin(); };
+			return;
+		}
+		if(!canRun(s)){ app.innerHTML = '<div class="card empty">You don\'t have the Auctions permission. Ask a head admin to grant it in the Admin Panel.</div>'; return; }
+		app.innerHTML = '<div class="layout"><aside class="side"><button type="button" class="btn" id="newBtn">+ New auction</button><div id="auctionList" class="side"></div></aside><div id="detail"></div></div>';
+		$("newBtn").onclick = function(){ selectedId = null; items = []; renderDetail(); };
+		loadAuctions();
+	}
+
+	function loadAuctions(keepId){
+		return api("/admin/auctions").then(function(res){
+			if(!res.ok){ app.innerHTML = '<div class="card empty">' + esc(res.d.error || "Couldn't load auctions") + '</div>'; return; }
+			auctions = res.d.auctions || [];
+			if(keepId) selectedId = keepId;
+			else if(!selectedId && auctions.length) selectedId = auctions[0].id;
+			renderList();
+			if(selectedId) loadItems(); else renderDetail();
+		});
+	}
+
+	function renderList(){
+		$("auctionList").innerHTML = auctions.length ? auctions.map(function(a){
+			return '<button type="button" class="a-item' + (a.id === selectedId ? " active" : "") + '" data-id="' + esc(a.id) + '"><b>' + esc(a.title) + '</b><span>' +
+				esc(new Date(a.auctionAt).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + ' · ' + esc(a.status) + ' · ' + a.itemCount + ' items' + (a.soldCount ? ', ' + a.soldCount + ' sold' : '') + '</span></button>';
+		}).join("") : '<p class="empty" style="padding:8px 0;">No auctions yet.</p>';
+		$("auctionList").querySelectorAll("[data-id]").forEach(function(b){
+			b.onclick = function(){ selectedId = b.getAttribute("data-id"); renderList(); loadItems(); };
+		});
+	}
+
+	function loadItems(){
+		$("detail").innerHTML = '<p class="empty">Loading…</p>';
+		api("/admin/auctions/items?auctionId=" + encodeURIComponent(selectedId)).then(function(res){
+			items = res.ok ? (res.d.items || []) : [];
+			renderDetail();
+		});
+	}
+
+	// ---------------- auction form ----------------
+	function formHtml(a){
+		var next = new Date(Date.now() + 7 * 864e5); next.setHours(20, 0, 0, 0);
+		return '<section class="card"><h2>' + (a ? "Auction settings" : "New auction") + '</h2><div class="form">' +
+			'<div class="wide"><label class="lbl" for="fTitle">Title</label><input type="text" id="fTitle" maxlength="100" value="' + esc(a ? a.title : "") + '" placeholder="e.g. Spooky Rares Auction"></div>' +
+			'<div><label class="lbl" for="fWorld">World</label><select id="fWorld"><option>Firefly</option><option>Honeybee</option></select></div>' +
+			'<div><label class="lbl" for="fAt">Date &amp; time (your time)</label><input type="datetime-local" id="fAt" value="' + esc(toLocalInput(a ? a.auctionAt : next.toISOString())) + '"></div>' +
+			'<div><label class="lbl" for="fStatus">Status</label><select id="fStatus"><option value="open">Open: taking entries</option><option value="closed">Closed: no new entries</option><option value="finished">Finished</option></select></div>' +
+			'<div><label class="lbl" for="fPer">Items per person</label><input type="number" id="fPer" min="1" value="' + (a ? a.perPersonLimit : 5) + '"></div>' +
+			'<div><label class="lbl" for="fTotal">Items in auction</label><input type="number" id="fTotal" min="1" value="' + (a ? a.totalLimit : 50) + '"></div>' +
+			'<div><label class="lbl" for="fCut">Our cut (%)</label><input type="number" id="fCut" min="0" max="100" step="0.1" value="' + (a ? a.cutPercent : 2.5) + '"></div>' +
+			'<div class="full"><label class="lbl" for="fNotes">Note shown on the page (optional)</label><input type="text" id="fNotes" maxlength="500" value="' + esc(a && a.notes ? a.notes : "") + '" placeholder="e.g. Held at the Spawn amphitheatre"></div>' +
+			'</div><div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button type="button" class="btn" id="fSave">' + (a ? "Save changes" : "Create auction") + '</button><span id="fMsg"></span></div></section>';
+	}
+
+	function wireForm(a){
+		if(a){ $("fWorld").value = a.world; $("fStatus").value = a.status; }
+		$("fSave").onclick = function(){
+			var at = new Date($("fAt").value);
+			api("/admin/auctions/save", { method: "POST", body: {
+				id: a ? a.id : undefined, title: $("fTitle").value, world: $("fWorld").value,
+				auctionAt: isNaN(at.getTime()) ? "" : at.toISOString(), status: $("fStatus").value,
+				perPersonLimit: $("fPer").value, totalLimit: $("fTotal").value, cutPercent: $("fCut").value, notes: $("fNotes").value
+			} }).then(function(res){
+				if(!res.ok){ $("fMsg").innerHTML = '<span class="err">' + esc(res.d.error || "Couldn't save") + '</span>'; return; }
+				loadAuctions(res.d.id);
+			});
+		};
+	}
+
+	// ---------------- entries ----------------
+	function renderDetail(){
+		var a = selected();
+		var html = formHtml(a);
+		if(a){
+			var live = items.filter(function(i){ return i.status !== "removed"; });
+			var sold = live.filter(function(i){ return i.status === "sold"; });
+			var sum = function(arr, k){ return arr.reduce(function(s, i){ return s + (i[k] || 0); }, 0); };
+			var players = {};
+			live.forEach(function(i){ players[i.mcUsername.toLowerCase()] = true; });
+			html += '<section class="card" style="margin-top:18px;"><h2>Entries</h2>' +
+				'<div class="stats"><span><b>' + live.length + '</b> items from <b>' + Object.keys(players).length + '</b> players</span>' +
+				'<span><b>' + sold.length + '</b> sold · <b>' + live.filter(function(i){ return i.status === "unsold"; }).length + '</b> unsold</span>' +
+				'<span>Sales <b>' + fmtDia(sum(sold, "soldDia")) + '</b></span><span>Our cut <b>' + fmtDia(sum(sold, "cutDia")) + '</b></span><span>Payouts <b>' + fmtDia(sum(sold, "payoutDia")) + '</b></span></div>' +
+				(items.length ? groupsHtml(a) : '<p class="empty">No entries yet. Players enter items on <a href="/auction/">/auction</a>.</p>') +
+				'</section>';
+		}
+		$("detail").innerHTML = html;
+		wireForm(a);
+		if(a) wireEntries(a);
+	}
+
+	function groupsHtml(a){
+		var groups = [], byName = {};
+		items.forEach(function(i){
+			var k = i.mcUsername.toLowerCase();
+			if(!byName[k]){ byName[k] = { name: i.mcUsername, items: [] }; groups.push(byName[k]); }
+			byName[k].items.push(i);
+		});
+		return groups.map(function(g){
+			var payout = g.items.filter(function(i){ return i.status === "sold"; }).reduce(function(s, i){ return s + i.payoutDia; }, 0);
+			return '<div class="player"><div class="player-head"><span>Shulker: <code>Registered ' + esc(g.name) + '</code> · ' + g.items.filter(function(i){ return i.status !== "removed"; }).length + ' item(s)</span>' +
+				'<span class="pay">Pay out <b>' + fmtDia(payout) + '</b></span></div><div class="tbl-wrap"><table><thead><tr>' +
+				'<th>Item</th><th>Start</th><th>Lowest</th><th>SCTP value</th><th>Status</th><th>Sold for</th><th>Cut / payout</th><th></th></tr></thead><tbody>' +
+				g.items.map(function(i){
+					var soldVal = i.soldDia ? (i.soldDia % 9 === 0 ? i.soldDia / 9 : i.soldDia) : "";
+					var soldUnit = i.soldDia && i.soldDia % 9 !== 0 ? "dia" : "db";
+					return '<tr data-row="' + esc(i.id) + '" class="' + esc(i.status) + '"><td><div class="it"><img class="ico" src="' + esc(i.texture || "") + '" alt="">' + esc(i.itemName) + '</div></td>' +
+						'<td class="num">' + fmtDia(i.startDia) + '</td><td class="num">' + fmtDia(i.minDia) + '</td><td class="num">' + (i.estimateDia != null ? "≈ " + fmtDia(i.estimateDia) : "–") + '</td>' +
+						'<td><span class="pill ' + esc(i.status) + '">' + esc(i.status) + '</span></td>' +
+						'<td><div class="sell"><input type="number" min="0" step="any" data-amt value="' + soldVal + '"><select data-unit><option value="db"' + (soldUnit === "db" ? " selected" : "") + '>DB</option><option value="dia"' + (soldUnit === "dia" ? " selected" : "") + '>dia</option></select></div></td>' +
+						'<td class="preview" data-preview>' + (i.status === "sold" ? "cut " + fmtDia(i.cutDia) + " · gets " + fmtDia(i.payoutDia) : "") + '</td>' +
+						'<td><div class="acts"><button type="button" class="btn-ghost" data-act="sold">Sold</button><button type="button" class="btn-ghost" data-act="unsold">Unsold</button>' +
+						(i.status !== "entered" ? '<button type="button" class="btn-ghost" data-act="entered" title="Back to not-yet-auctioned">Reset</button>' : '') +
+						(i.status !== "removed" ? '<button type="button" class="btn-bad" data-act="removed" title="Remove this entry (e.g. never handed in)">Remove</button>' : '') + '</div></td></tr>';
+				}).join("") + '</tbody></table></div></div>';
+		}).join("");
+	}
+
+	function rowAmount(tr){
+		var v = Number(tr.querySelector("[data-amt]").value);
+		if(!(v > 0)) return null;
+		return Math.round(tr.querySelector("[data-unit]").value === "db" ? v * 9 : v);
+	}
+
+	function wireEntries(a){
+		$("detail").querySelectorAll("tr[data-row]").forEach(function(tr){
+			var preview = tr.querySelector("[data-preview]");
+			var update = function(){
+				var d = rowAmount(tr);
+				if(d){ var c = cutFor(d, a.cutPercent); preview.textContent = "cut " + fmtDia(c) + " · gets " + fmtDia(d - c); }
+			};
+			tr.querySelector("[data-amt]").addEventListener("input", update);
+			tr.querySelector("[data-unit]").addEventListener("change", update);
+			tr.querySelector("[data-amt]").addEventListener("keydown", function(e){ if(e.key === "Enter") tr.querySelector('[data-act="sold"]').click(); });
+			tr.querySelectorAll("[data-act]").forEach(function(btn){
+				btn.onclick = function(){
+					var status = btn.getAttribute("data-act");
+					var body = { itemId: tr.getAttribute("data-row"), status: status };
+					if(status === "sold"){
+						body.soldDia = rowAmount(tr);
+						if(!body.soldDia){ preview.innerHTML = '<span class="err" style="margin:0">Enter the sale price first</span>'; return; }
+					}
+					if(status === "removed" && !confirm("Remove this entry? It won't count toward the auction anymore.")) return;
+					btn.disabled = true;
+					api("/admin/auctions/result", { method: "POST", body: body }).then(function(res){
+						btn.disabled = false;
+						if(!res.ok){ preview.innerHTML = '<span class="err" style="margin:0">' + esc(res.d.error || "Couldn't save") + '</span>'; return; }
+						var it = items.filter(function(i){ return i.id === body.itemId; })[0];
+						if(it){ it.status = status; it.soldDia = res.d.soldDia; it.cutDia = res.d.cutDia; it.payoutDia = res.d.payoutDia; }
+						renderDetail();
+						var a2 = selected(); if(a2){ a2.soldCount = items.filter(function(i){ return i.status === "sold"; }).length; a2.itemCount = items.filter(function(i){ return i.status !== "removed"; }).length; renderList(); }
+					});
+				};
+			});
+		});
+	}
+
+	window.sctpOnAccountChange = boot;
+	boot();
+})();
+</script>
+</body>
+</html>

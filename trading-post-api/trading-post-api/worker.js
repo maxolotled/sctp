@@ -556,7 +556,7 @@ async function getBlockedSellerSet(env, sellers) {
 // accounts existed — see requireAnyAdmin.
 const ADMIN_PERMISSION_BUCKETS = new Set([
 	"reports", "sharedShopRequests", "faq", "worldMap", "manualListings", "blockedSellers", "marketplaceListings", "updateNotice",
-	"suggestions", "bugReports", "playerReports", "manageMapart",
+	"suggestions", "bugReports", "playerReports", "manageMapart", "manageForms", "auctions",
 ]);
 
 // Ranks bids for a seller's convenience using the shared CURRENCY_VALUE
@@ -6688,6 +6688,300 @@ async function handleSubmitForm(request, env) {
 	return json({ ok: true, confirmationMessage: form.confirmationMessage || "Thanks — your response has been recorded.", updated: false });
 }
 
+// ---------------- auctions ----------------
+// Rare-item auctions: /auction (entry form), /auction/me (your entries and
+// results), /auction/admin ("auctions" permission). Players enter rares on
+// the site, then hand them in as a shulker renamed "Registered <username>"
+// at /pw auction. All prices are whole diamonds (1 DB = 9). See migration 0041.
+//   GET  /auction/current?mcUsername=       (public) the auction taking entries, else the next upcoming one, + entry counts
+//   GET  /auction/estimate?rareId=&world=   (public, cached 10 min) SCTP's value for a rare + suggested starting bid / lowest limit
+//   POST /auction/submit                    (public, login optional) {auctionId, mcUsername, items: [{rareId, startDia, minDia}]} — start must be above min; SCTP's value is advice only
+//   GET  /auction/lineup?auctionId=         (public, cached 1 min) what's entered so far: item + count, no prices or sellers
+//   GET  /auction/mine                      (any account) your entries across every auction
+//   GET  /admin/auctions                    ("auctions") every auction, with entry counts
+//   POST /admin/auctions/save               ("auctions") create/edit {id?, title, world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes?}
+//   GET  /admin/auctions/items?auctionId=   ("auctions") every entry in one auction
+//   POST /admin/auctions/result             ("auctions") {itemId, status: "sold"|"unsold"|"entered"|"removed", soldDia?}
+
+const AUCTION_DEFAULT_CUT_PERCENT = 2.5;
+const AUCTION_WORLDS = new Set(["Firefly", "Honeybee"]);
+const AUCTION_STATUSES = new Set(["open", "closed", "finished"]);
+const AUCTION_ITEM_STATUSES = new Set(["entered", "sold", "unsold", "removed"]);
+const MC_USERNAME = /^[.*]?[A-Za-z0-9_]{2,16}$/; // Bedrock (Geyser) players carry a "." prefix
+
+/** Our cut: the auction's percentage of the sale rounded up to a whole diamond; at least 1 DB on sales over 32 DB, at least 3 dia otherwise. */
+function auctionCut(soldDia, cutPercent) {
+	const pct = Math.ceil(soldDia * (cutPercent == null ? AUCTION_DEFAULT_CUT_PERCENT : cutPercent) / 100);
+	const floor = soldDia > 32 * 9 ? 9 : 3;
+	return Math.min(soldDia, Math.max(pct, floor));
+}
+
+/** 351 -> "39 DB", 352 -> "39 DB 1 dia", 4 -> "4 dia"; estimates (not whole) -> "12.4 DB". */
+function fmtDia(d) {
+	if (!Number.isInteger(d)) return d >= 9 ? `${Math.round((d / 9) * 10) / 10} DB` : `${Math.round(d * 10) / 10} dia`;
+	const db = Math.floor(d / 9), dia = d % 9;
+	if (!db) return `${dia} dia`;
+	return dia ? `${db} DB ${dia} dia` : `${db} DB`;
+}
+
+function auctionPublic(a) {
+	return {
+		id: a.id, title: a.title, world: a.world, auctionAt: a.auctionAt, status: a.status,
+		perPersonLimit: a.perPersonLimit, totalLimit: a.totalLimit, notes: a.notes || null,
+		cutPercent: a.cutPercent == null ? AUCTION_DEFAULT_CUT_PERCENT : a.cutPercent,
+		accepting: a.status === "open" && Date.parse(a.auctionAt) > Date.now(),
+	};
+}
+
+/** Suggestion rounding: whole DB once it's worth a block or more, whole diamonds below that. */
+function auctionRound(dia, up) {
+	if (dia >= 9) return Math.max(1, up ? Math.ceil(dia / 9) : Math.floor(dia / 9)) * 9;
+	return Math.max(1, up ? Math.ceil(dia) : Math.floor(dia));
+}
+
+/**
+ * SCTP's value for a rare, per item in diamonds: the median of its current
+ * shop listings on the auction's world (or both worlds if it isn't listed
+ * there), averaged with the median of its last auction sales when there are
+ * any. Same name rule as the site's price check (letters, digits and
+ * apostrophes only), so decorated listing names still match. Suggestions are
+ * ~1.5x for the starting bid and ~0.3x for the lowest limit, rounded.
+ */
+async function auctionEstimate(env, rare, world) {
+	const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9']/g, "");
+	const target = norm(rare.name);
+	if (!target) return { value: null, basis: null };
+	const median = (a) => (a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2);
+	const perItem = (rows) => rows.map((r) => priceInDiamonds(r) / (r.stackSize || 1)).filter((p) => isFinite(p) && p > 0).sort((a, b) => a - b);
+
+	// LIKE on the name's longest word narrows the scan; the normalized match decides
+	const word = String(rare.name).split(/[^A-Za-z0-9']+/).sort((a, b) => b.length - a.length)[0] || rare.name;
+	const { results } = await env.DB.prepare(
+		"SELECT itemName, price, currency, stackSize, world FROM listings WHERE itemName LIKE ? AND lower(currency) != 'display'"
+	).bind(`%${word}%`).all();
+	const matches = results.filter((r) => norm(r.itemName) === target);
+	const here = perItem(matches.filter((r) => r.world === world));
+	const both = perItem(matches);
+
+	const { results: soldRows } = await env.DB.prepare(
+		"SELECT soldDia FROM auctionItems WHERE rareId = ? AND status = 'sold' ORDER BY updatedAt DESC LIMIT 10"
+	).bind(rare.id).all();
+	const sold = soldRows.map((r) => r.soldDia).filter((d) => d > 0).sort((a, b) => a - b);
+
+	const parts = [];
+	let value = null;
+	if (here.length) { value = median(here); parts.push(`${here.length} listing${here.length === 1 ? "" : "s"} on ${world}`); }
+	else if (both.length) { value = median(both); parts.push(`${both.length} listing${both.length === 1 ? "" : "s"} across both worlds`); }
+	if (sold.length) {
+		const s = median(sold);
+		value = value == null ? s : (value + s) / 2;
+		parts.push(`${sold.length} past auction sale${sold.length === 1 ? "" : "s"}`);
+	}
+	if (value == null) return { value: null, basis: null, suggestedStartDia: null, suggestedMinDia: null };
+
+	value = Math.round(value * 100) / 100;
+	let start = auctionRound(value * 1.5, true);
+	let min = auctionRound(value * 0.3, false);
+	if (start <= value) start = Math.floor(value) + 1;
+	if (min >= value && value > 1) min = Math.max(1, Math.ceil(value) - 1);
+	return { value, basis: parts.join(" and "), suggestedStartDia: start, suggestedMinDia: min };
+}
+
+async function handleGetCurrentAuction(request, env) {
+	const now = new Date().toISOString();
+	let auction = await env.DB.prepare("SELECT * FROM auctions WHERE status = 'open' AND auctionAt > ? ORDER BY auctionAt LIMIT 1").bind(now).first();
+	if (!auction) auction = await env.DB.prepare("SELECT * FROM auctions WHERE status != 'finished' AND auctionAt > ? ORDER BY auctionAt LIMIT 1").bind(now).first();
+	if (!auction) return json({ auction: null });
+	const user = new URL(request.url).searchParams.get("mcUsername") || "";
+	const counts = await env.DB.prepare(
+		"SELECT COUNT(*) AS total, SUM(CASE WHEN lower(mcUsername) = lower(?) THEN 1 ELSE 0 END) AS mine FROM auctionItems WHERE auctionId = ? AND status != 'removed'"
+	).bind(user, auction.id).first();
+	return json({ auction: auctionPublic(auction), entered: counts.total || 0, enteredByUser: counts.mine || 0 });
+}
+
+async function handleAuctionEstimate(request, env, ctx) {
+	return cachedGet(request, ctx, 600, async () => {
+		const params = new URL(request.url).searchParams;
+		const world = AUCTION_WORLDS.has(params.get("world")) ? params.get("world") : "Firefly";
+		const catalog = await getRareCatalog();
+		const rare = catalog.byId.get(params.get("rareId") || "");
+		if (!rare) return { error: "Unknown rare" };
+		return { rareId: rare.id, name: rare.name, world, ...(await auctionEstimate(env, rare, world)) };
+	});
+}
+
+async function handleAuctionSubmit(request, env) {
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+
+	const auction = await env.DB.prepare("SELECT * FROM auctions WHERE id = ?").bind(String(body.auctionId || "")).first();
+	if (!auction || !auctionPublic(auction).accepting) return json({ error: "This auction isn't taking entries right now." }, 400);
+
+	const mcUsername = String(body.mcUsername || "").trim();
+	if (!MC_USERNAME.test(mcUsername)) return json({ error: "That doesn't look like a Minecraft username." }, 400);
+	const items = Array.isArray(body.items) ? body.items : [];
+	if (items.length === 0) return json({ error: "Add at least one item first." }, 400);
+
+	// Logging in is optional: it links the entries to the account for /auction/me and result notifications.
+	let accountId = null;
+	if ((request.headers.get("Authorization") || "").startsWith("Bearer ")) {
+		const auth = await requireAnyAdmin(request, env);
+		if (auth.ok) accountId = auth.admin.id;
+	}
+
+	const counts = await env.DB.prepare(
+		"SELECT COUNT(*) AS total, SUM(CASE WHEN lower(mcUsername) = lower(?) THEN 1 ELSE 0 END) AS mine FROM auctionItems WHERE auctionId = ? AND status != 'removed'"
+	).bind(mcUsername, auction.id).first();
+	const mine = counts.mine || 0, total = counts.total || 0;
+	if (mine + items.length > auction.perPersonLimit) {
+		return json({ error: `You can enter at most ${auction.perPersonLimit} item${auction.perPersonLimit === 1 ? "" : "s"} in this auction${mine ? ` (you've already entered ${mine})` : ""}.` }, 400);
+	}
+	if (total + items.length > auction.totalLimit) {
+		const left = Math.max(0, auction.totalLimit - total);
+		return json({ error: left ? `This auction only has room for ${left} more item${left === 1 ? "" : "s"}.` : "This auction is full." }, 400);
+	}
+
+	const catalog = await getRareCatalog();
+	const estimates = new Map();
+	const now = new Date().toISOString();
+	const batchId = newId();
+	const stmts = [];
+	const saved = [];
+	for (const it of items) {
+		const rare = catalog.byId.get(String(it.rareId || ""));
+		if (!rare) return json({ error: "One of the items isn't a known rare." }, 400);
+		const startDia = Math.round(Number(it.startDia));
+		const minDia = Math.round(Number(it.minDia));
+		if (!(startDia > 0) || !(minDia > 0)) return json({ error: `Set a starting bid and lowest limit for ${rare.name}.` }, 400);
+		if (minDia >= startDia) return json({ error: `The starting bid for ${rare.name} must be higher than its lowest limit.` }, 400);
+		// SCTP's value is only advice for the player; it's stored so admins can see it next to the entry
+		if (!estimates.has(rare.id)) estimates.set(rare.id, await auctionEstimate(env, rare, auction.world));
+		const est = estimates.get(rare.id);
+		const id = newId();
+		stmts.push(env.DB.prepare(
+			`INSERT INTO auctionItems (id, auctionId, batchId, mcUsername, accountId, rareId, itemName, texture, estimateDia, startDia, minDia, status, createdAt, updatedAt)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'entered', ?, ?)`
+		).bind(id, auction.id, batchId, mcUsername, accountId, rare.id, rare.name, rare.texture || null, est.value, startDia, minDia, now, now));
+		saved.push({ id, rareId: rare.id, itemName: rare.name, texture: rare.texture || null, startDia, minDia });
+	}
+	await env.DB.batch(stmts);
+	return json({ ok: true, batchId, shulkerName: `Registered ${mcUsername}`, linkedToAccount: !!accountId, items: saved, auction: auctionPublic(auction) });
+}
+
+// What's been entered so far, for bidders to look forward to: item and count
+// only, no prices and no sellers.
+async function handleGetAuctionLineup(request, env, ctx) {
+	return cachedGet(request, ctx, 60, async () => {
+		const auctionId = new URL(request.url).searchParams.get("auctionId") || "";
+		const { results } = await env.DB.prepare(
+			`SELECT rareId, itemName, texture, COUNT(*) AS count FROM auctionItems
+			 WHERE auctionId = ? AND status != 'removed' GROUP BY rareId ORDER BY lower(itemName)`
+		).bind(auctionId).all();
+		return { items: results };
+	});
+}
+
+async function handleGetMyAuctionItems(request, env) {
+	const auth = await requireAnyAdmin(request, env);
+	if (!auth.ok) return auth.response;
+	// Your own entries, plus anything entered under your Minecraft name once that name is verified as yours.
+	const verifiedName = auth.admin.mcVerified && auth.admin.mcUsername ? auth.admin.mcUsername : "";
+	const { results } = await env.DB.prepare(
+		`SELECT i.*, a.title AS auctionTitle, a.auctionAt, a.world, a.status AS auctionStatus
+		 FROM auctionItems i JOIN auctions a ON a.id = i.auctionId
+		 WHERE i.status != 'removed' AND (i.accountId = ? OR (? != '' AND lower(i.mcUsername) = lower(?)))
+		 ORDER BY a.auctionAt DESC, i.createdAt`
+	).bind(auth.admin.id, verifiedName, verifiedName).all();
+	return json({ items: results });
+}
+
+async function handleAdminListAuctions(request, env) {
+	const auth = await requireAdminAuth(request, env, "auctions");
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare(
+		`SELECT a.*,
+		   (SELECT COUNT(*) FROM auctionItems i WHERE i.auctionId = a.id AND i.status != 'removed') AS itemCount,
+		   (SELECT COUNT(*) FROM auctionItems i WHERE i.auctionId = a.id AND i.status = 'sold') AS soldCount
+		 FROM auctions a ORDER BY a.auctionAt DESC`
+	).all();
+	return json({ auctions: results });
+}
+
+async function handleAdminSaveAuction(request, env) {
+	const auth = await requireAdminAuth(request, env, "auctions");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const title = String(body.title || "").trim().slice(0, 100);
+	const world = String(body.world || "");
+	const at = new Date(body.auctionAt || "");
+	const status = String(body.status || "open");
+	const perPersonLimit = parseInt(body.perPersonLimit, 10);
+	const totalLimit = parseInt(body.totalLimit, 10);
+	const notes = body.notes ? String(body.notes).trim().slice(0, 500) : null;
+	const cutPercent = body.cutPercent == null || body.cutPercent === "" ? AUCTION_DEFAULT_CUT_PERCENT : Number(body.cutPercent);
+	if (!(cutPercent >= 0 && cutPercent <= 100)) return json({ error: "The cut must be between 0 and 100%." }, 400);
+	if (!title) return json({ error: "Give the auction a title." }, 400);
+	if (!AUCTION_WORLDS.has(world)) return json({ error: "World must be Firefly or Honeybee." }, 400);
+	if (isNaN(at.getTime())) return json({ error: "Set the auction date and time." }, 400);
+	if (!AUCTION_STATUSES.has(status)) return json({ error: "Unknown status." }, 400);
+	if (!(perPersonLimit > 0) || !(totalLimit > 0)) return json({ error: "Both item limits must be at least 1." }, 400);
+
+	if (body.id) {
+		const existing = await env.DB.prepare("SELECT id FROM auctions WHERE id = ?").bind(String(body.id)).first();
+		if (!existing) return json({ error: "Auction not found" }, 404);
+		await env.DB.prepare("UPDATE auctions SET title = ?, world = ?, auctionAt = ?, status = ?, perPersonLimit = ?, totalLimit = ?, cutPercent = ?, notes = ? WHERE id = ?")
+			.bind(title, world, at.toISOString(), status, perPersonLimit, totalLimit, cutPercent, notes, existing.id).run();
+		return json({ ok: true, id: existing.id });
+	}
+	const id = newId();
+	await env.DB.prepare(
+		"INSERT INTO auctions (id, title, world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	).bind(id, title, world, at.toISOString(), status, perPersonLimit, totalLimit, cutPercent, notes, new Date().toISOString(), auth.admin.username).run();
+	return json({ ok: true, id });
+}
+
+async function handleAdminAuctionItems(request, env) {
+	const auth = await requireAdminAuth(request, env, "auctions");
+	if (!auth.ok) return auth.response;
+	const auctionId = new URL(request.url).searchParams.get("auctionId") || "";
+	const { results } = await env.DB.prepare("SELECT * FROM auctionItems WHERE auctionId = ? ORDER BY lower(mcUsername), batchId, createdAt").bind(auctionId).all();
+	return json({ items: results });
+}
+
+async function handleAdminAuctionResult(request, env) {
+	const auth = await requireAdminAuth(request, env, "auctions");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const item = await env.DB.prepare("SELECT * FROM auctionItems WHERE id = ?").bind(String(body.itemId || "")).first();
+	if (!item) return json({ error: "Item not found" }, 404);
+	const status = String(body.status || "");
+	if (!AUCTION_ITEM_STATUSES.has(status)) return json({ error: "Unknown status." }, 400);
+
+	const auction = await env.DB.prepare("SELECT title, cutPercent FROM auctions WHERE id = ?").bind(item.auctionId).first();
+	let soldDia = null, cutDia = null, payoutDia = null;
+	if (status === "sold") {
+		soldDia = Math.round(Number(body.soldDia));
+		if (!(soldDia > 0)) return json({ error: "Enter what it sold for." }, 400);
+		cutDia = auctionCut(soldDia, auction ? auction.cutPercent : null);
+		payoutDia = soldDia - cutDia;
+	}
+	await env.DB.prepare("UPDATE auctionItems SET status = ?, soldDia = ?, cutDia = ?, payoutDia = ?, updatedAt = ? WHERE id = ?")
+		.bind(status, soldDia, cutDia, payoutDia, new Date().toISOString(), item.id).run();
+
+	// Tell the player (if they linked an account) — only when the outcome actually changed.
+	const changed = status !== item.status || soldDia !== item.soldDia;
+	if (item.accountId && changed && (status === "sold" || status === "unsold")) {
+		const where = auction ? ` at ${auction.title}` : "";
+		const message = status === "sold"
+			? `Your ${item.itemName} sold for ${fmtDia(soldDia)}${where}. After our cut (${fmtDia(cutDia)}) you receive ${fmtDia(payoutDia)}.`
+			: `Your ${item.itemName} didn't sell${where}. It will be returned to you.`;
+		await notifyAccount(env, item.accountId, "auctionResult", message, item.id);
+	}
+	return json({ ok: true, soldDia, cutDia, payoutDia });
+}
+
 const ROUTES = [
 	["POST", "/listings", handleUploadListings],
 	["GET", "/listings", handleGetListings],
@@ -6765,6 +7059,15 @@ const ROUTES = [
 	["POST", "/mapart/report", handleSubmitMapartReport],
 	["POST", "/mapart/like", handleLikeMapart],
 	["GET", "/mapart/my-likes", handleGetMyMapartLikes],
+	["GET", "/auction/current", handleGetCurrentAuction],
+	["GET", "/auction/estimate", handleAuctionEstimate],
+	["POST", "/auction/submit", handleAuctionSubmit],
+	["GET", "/auction/lineup", handleGetAuctionLineup],
+	["GET", "/auction/mine", handleGetMyAuctionItems],
+	["GET", "/admin/auctions", handleAdminListAuctions],
+	["POST", "/admin/auctions/save", handleAdminSaveAuction],
+	["GET", "/admin/auctions/items", handleAdminAuctionItems],
+	["POST", "/admin/auctions/result", handleAdminAuctionResult],
 	["GET", "/mapart/of-the-day", handleGetMapartOfTheDay],
 	["POST", "/admin/mapart/otd/reroll", handleAdminRerollMapartOfTheDay],
 	["POST", "/mapart/search-image", handleSearchMapartImage],

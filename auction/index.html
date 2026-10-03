@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rare Auction - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Put your rare items up for auction at the Snailcraft Trading Post.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D; --gold:#F2C14E;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	[hidden]{display:none !important;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:980px;margin:0 auto;padding:0 20px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--gold);color:#2A1E05;display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	.tag{color:var(--muted);font-size:13px;margin:2px 0 0;}
+	main{padding:24px 0 70px;display:flex;flex-direction:column;gap:18px;}
+
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;}
+	.card h2{font-family:var(--font-display);font-size:19px;margin:0 0 12px;}
+	.hero{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;background:linear-gradient(135deg, rgba(242,193,78,0.10), transparent 60%), var(--panel);}
+	@media (max-width:700px){.hero{grid-template-columns:1fr;}}
+	.hero .kicker{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin:0 0 4px;}
+	.hero .when{font-family:var(--font-display);font-size:26px;font-weight:700;margin:0;line-height:1.2;}
+	.hero .sub{color:var(--shell);font-size:14px;margin:6px 0 0;}
+	.status{display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px;white-space:nowrap;}
+	.status.open{background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
+	.status.closed{background:rgba(226,163,61,0.16);color:var(--warn);}
+	.status.none{background:var(--panel-alt);color:var(--muted);}
+	.facts{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px;font-size:13px;color:var(--muted);}
+	.facts b{color:var(--text);font-weight:600;}
+
+	label.lbl{display:block;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+	input[type=text],input[type=number],select{width:100%;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;}
+	input:focus,select:focus{outline:none;border-color:var(--accent-dim);}
+	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
+	.btn:hover{background:var(--accent-dim);}
+	.btn:disabled{opacity:.5;cursor:default;}
+	.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:9px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
+	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.err{color:var(--bad);font-size:13px;margin:8px 0 0;}
+	.hint{color:var(--muted);font-size:12.5px;margin:6px 0 0;}
+
+	.user-row{display:grid;grid-template-columns:minmax(0,320px) 1fr;gap:14px;align-items:end;}
+	@media (max-width:640px){.user-row{grid-template-columns:1fr;}}
+
+	.picker{position:relative;}
+	.results{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:10px;z-index:20;max-height:320px;overflow-y:auto;box-shadow:0 10px 28px rgba(0,0,0,0.45);}
+	.results button{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:none;color:var(--text);padding:8px 12px;text-align:left;cursor:pointer;font-family:inherit;font-size:14px;}
+	.results button:hover,.results button.active{background:var(--panel-alt);}
+	.results .cat{margin-left:auto;font-size:11.5px;color:var(--muted);}
+	.ico{width:32px;height:32px;flex:0 0 auto;image-rendering:pixelated;object-fit:contain;background:#0C140F;border-radius:6px;padding:2px;}
+	.ico.lg{width:48px;height:48px;padding:4px;}
+
+	.editor{margin-top:14px;border:1px dashed var(--line);border-radius:12px;padding:14px;display:grid;gap:12px;}
+	.editor-head{display:flex;align-items:center;gap:12px;}
+	.editor-head h3{margin:0;font-size:16px;}
+	.value-line{font-size:13px;color:var(--shell);}
+	.value-line b{color:var(--gold);}
+	.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+	@media (max-width:560px){.price-grid{grid-template-columns:1fr;}}
+	.money{display:flex;gap:6px;}
+	.money input{flex:1;min-width:0;}
+	.money select{width:84px;flex:0 0 auto;}
+
+	.items{display:flex;flex-direction:column;gap:8px;}
+	.item-row{display:flex;align-items:center;gap:12px;background:var(--panel-alt);border:1px solid var(--line);border-radius:10px;padding:8px 12px;}
+	.item-row .nm{font-weight:600;font-size:14px;}
+	.item-row .px{font-size:12.5px;color:var(--muted);font-family:var(--font-mono);}
+	.item-row .x{margin-left:auto;background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px;}
+	.item-row .x:hover{color:var(--bad);}
+	.list-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;}
+	.empty{color:var(--muted);font-size:13.5px;padding:8px 0;}
+
+	.steps{counter-reset:s;display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;}
+	.steps li{counter-increment:s;display:grid;grid-template-columns:32px 1fr;gap:12px;align-items:start;font-size:14.5px;}
+	.steps li::before{content:counter(s);width:28px;height:28px;border-radius:50%;background:var(--gold);color:#2A1E05;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px;}
+	.copy{display:inline-flex;align-items:center;gap:8px;background:#0C140F;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-family:var(--font-mono);font-size:14px;margin-top:6px;}
+	.copy button{background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;font-family:var(--font-body);}
+
+	.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
+	.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;width:100%;max-width:420px;}
+	.modal h2{font-family:var(--font-display);font-size:19px;margin:0 0 8px;}
+	.modal p{color:var(--shell);font-size:14px;margin:0 0 16px;}
+	.modal .actions{display:flex;flex-direction:column;gap:8px;}
+
+	/* what's up for auction so far */
+	.lineup{display:grid;grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));gap:8px;}
+	.lineup .li{display:flex;align-items:center;gap:10px;background:var(--panel-alt);border:1px solid var(--line);border-radius:10px;padding:6px 10px;min-width:0;}
+	.lineup .li span{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+	.lineup .li .n{margin-left:auto;font-family:var(--font-mono);font-size:12.5px;color:var(--gold);font-weight:700;flex:0 0 auto;}
+
+	/* how it works: the Dutch clock */
+	.how{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:24px;align-items:center;}
+	@media (max-width:760px){.how{grid-template-columns:1fr;}}
+	.how p.lead{color:var(--shell);font-size:14.5px;margin:0 0 14px;max-width:62ch;}
+	.how ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;counter-reset:h;}
+	.how li{counter-increment:h;display:grid;grid-template-columns:26px 1fr;gap:10px;font-size:14px;}
+	.how li::before{content:counter(h);width:24px;height:24px;border-radius:50%;border:1px solid var(--gold);color:var(--gold);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;}
+	.how li b{color:var(--text);}
+	.how li span{color:var(--muted);}
+	.clock{display:flex;flex-direction:column;align-items:center;gap:8px;}
+	.clock svg{width:100%;max-width:220px;height:auto;display:block;}
+	.clock .caption{font-size:12px;color:var(--muted);text-align:center;}
+	.clock-price{font-family:var(--font-display);font-weight:700;fill:var(--text);}
+	.clock-sub{font-family:var(--font-body);font-size:10px;fill:var(--muted);letter-spacing:.06em;}
+	.clock-sold{font-family:var(--font-body);font-weight:800;font-size:12px;fill:var(--accent);letter-spacing:.1em;}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">&#128296;</div>
+			<div><h1>Rare Auction</h1><p class="tag">Put your rares up for auction</p></div>
+		</div>
+		<nav id="siteNavMount"></nav>
+	</div>
+</header>
+
+<main class="wrap">
+	<section class="card hero" id="hero">
+		<div>
+			<p class="kicker">Next auction</p>
+			<p class="when" id="heroWhen">Loading…</p>
+			<p class="sub" id="heroSub"></p>
+		</div>
+		<span class="status none" id="heroStatus">…</span>
+		<div class="facts" id="heroFacts" style="grid-column:1/-1;"></div>
+	</section>
+
+	<section class="card" id="lineupCard" hidden>
+		<h2 id="lineupTitle">Up for auction so far</h2>
+		<div class="lineup" id="lineup"></div>
+	</section>
+
+	<section class="card" id="howCard">
+		<h2>How the auction works</h2>
+		<div class="how">
+			<div>
+				<p class="lead">We use the <b>Dutch clock</b>, the way flowers are sold at the big Dutch flower auctions: the price doesn't go <i>up</i> while people outbid each other, it starts high and keeps <b>dropping</b> until someone takes it.</p>
+				<ol>
+					<li><div><b>The clock starts at your starting bid.</b> <span>Every item gets its turn on the clock.</span></div></li>
+					<li><div><b>The price ticks down, lower and lower.</b> <span>Bidders watch it fall and wait for a price they like.</span></div></li>
+					<li><div><b>The first bidder to claim it wins it at that price.</b> <span>Wait too long and someone else grabs it first: there's no second chance once it's claimed.</span></div></li>
+					<li><div><b>The clock never goes below your lowest limit.</b> <span>If nobody claims it by then, it doesn't sell and you get it back.</span></div></li>
+				</ol>
+				<p class="hint" style="margin-top:14px;">When your item sells, you receive the sale price minus our cut. Set your starting bid high enough to leave room to drop, and your lowest limit at the least you'd be happy to sell for.</p>
+			</div>
+			<div class="clock" aria-hidden="true">
+				<svg viewBox="0 0 220 220" id="dutchClock">
+					<circle cx="110" cy="110" r="100" fill="#0C140F" stroke="var(--line)" stroke-width="2"/>
+					<g id="clockTicks"></g>
+					<circle id="clockArc" cx="110" cy="110" r="88" fill="none" stroke="var(--gold)" stroke-width="6" stroke-linecap="round" transform="rotate(-90 110 110)"/>
+					<line id="clockHand" x1="110" y1="34" x2="110" y2="10" stroke="var(--text)" stroke-width="4" stroke-linecap="round"/>
+					<text x="110" y="148" text-anchor="middle" class="clock-price" font-size="26" id="clockPrice">49 DB</text>
+					<text x="110" y="166" text-anchor="middle" class="clock-sub" id="clockSub">FLAMINGO ELYTRA</text>
+					<text x="110" y="88" text-anchor="middle" class="clock-sold" id="clockSold" opacity="0">SOLD!</text>
+				</svg>
+				<p class="caption">Example: starting bid 49 DB, lowest limit 9 DB, claimed at 31 DB</p>
+			</div>
+		</div>
+	</section>
+
+	<section class="card" id="enterCard" hidden>
+		<h2>Enter your items</h2>
+		<div class="user-row">
+			<div>
+				<label class="lbl" for="mcName">Your Minecraft username</label>
+				<input type="text" id="mcName" maxlength="17" placeholder="e.g. maxolotled" autocomplete="off" spellcheck="false">
+			</div>
+			<p class="hint" id="userHint" style="margin:0 0 10px;"></p>
+		</div>
+
+		<div style="margin-top:16px;" class="picker">
+			<label class="lbl" for="itemSearch">Add a rare</label>
+			<input type="text" id="itemSearch" placeholder="Search rare items…" autocomplete="off" spellcheck="false">
+			<div class="results" id="results" hidden></div>
+		</div>
+
+		<div class="editor" id="editor" hidden>
+			<div class="editor-head">
+				<img class="ico lg" id="edIcon" alt="">
+				<div><h3 id="edName"></h3><div class="value-line" id="edValue"></div></div>
+			</div>
+			<div class="price-grid">
+				<div>
+					<label class="lbl" for="edStart">Starting bid</label>
+					<div class="money"><input type="number" id="edStart" min="0" step="any"><select id="edStartUnit"><option value="db">DB</option><option value="dia">dia</option></select></div>
+					<p class="hint" id="edStartHint"></p>
+				</div>
+				<div>
+					<label class="lbl" for="edMin">Lowest limit</label>
+					<div class="money"><input type="number" id="edMin" min="0" step="any"><select id="edMinUnit"><option value="db">DB</option><option value="dia">dia</option></select></div>
+					<p class="hint" id="edMinHint"></p>
+				</div>
+			</div>
+			<p class="err" id="edErr" hidden></p>
+			<div style="display:flex;gap:8px;flex-wrap:wrap;">
+				<button type="button" class="btn" id="edAdd">Add to my list</button>
+				<button type="button" class="btn-ghost" id="edCancel">Cancel</button>
+			</div>
+		</div>
+
+		<div style="margin-top:20px;">
+			<label class="lbl">Your list</label>
+			<div class="items" id="list"></div>
+			<div class="list-foot">
+				<span class="hint" id="listCount" style="margin:0;"></span>
+				<button type="button" class="btn" id="continueBtn" disabled>Continue</button>
+			</div>
+			<p class="err" id="submitErr" hidden></p>
+		</div>
+	</section>
+
+	<section class="card" id="doneCard" hidden>
+		<h2>Almost done: hand in your items</h2>
+		<ol class="steps">
+			<li><div>Put <b>exactly these items</b> into <b>one shulker box</b>:<div class="items" id="doneList" style="margin-top:8px;"></div></div></li>
+			<li><div>Rename the shulker box in an anvil to exactly:<br><span class="copy"><span id="shulkerName"></span><button type="button" id="copyName">Copy</button></span><p class="hint">This is how we know the shulker belongs to your entry on the website.</p></div></li>
+			<li><div>Drop it off at <b>/pw auction</b><span id="dropBy"></span>.</div></li>
+		</ol>
+		<p class="hint" id="doneAccount" style="margin-top:16px;"></p>
+		<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+			<button type="button" class="btn-ghost" id="enterMore">Enter more items</button>
+		</div>
+	</section>
+</main>
+
+<script src="/site-nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+	var API = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var NAME_KEY = "sctp_auction_name";
+	var MC_NAME = /^[.*]?[A-Za-z0-9_]{2,16}$/;
+
+	var auction = null, enteredTotal = 0, enteredByUser = 0;
+	var lineupLoaded = false, lineupFresh = false;
+	var rares = [];
+	var list = [];       // {rare, startDia, minDia, value}
+	var editing = null;  // {rare, estimate}
+
+	function $(id){ return document.getElementById(id); }
+	function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+	function norm(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9']/g, ""); }
+	function session(){
+		if(window.sctpAccount) return window.sctpAccount.getSession();
+		try { var s = JSON.parse(localStorage.getItem("sctp_session") || "null"); return s && s.token && Date.parse(s.expiresAt) >= Date.now() ? s : null; } catch(e){ return null; }
+	}
+	function fmtDia(d){
+		if(d == null) return "";
+		if(Math.round(d) !== d) return d >= 9 ? (Math.round(d / 9 * 10) / 10) + " DB" : (Math.round(d * 10) / 10) + " dia";
+		var db = Math.floor(d / 9), dia = d % 9;
+		if(!db) return dia + " dia";
+		return dia ? db + " DB " + dia + " dia" : db + " DB";
+	}
+	function toDia(value, unit){ var n = Number(value); if(!(n > 0)) return null; return Math.round(unit === "db" ? n * 9 : n); }
+	function setMoney(inputId, unitId, dia){
+		if(dia == null){ $(inputId).value = ""; return; }
+		if(dia >= 9 && dia % 9 === 0){ $(inputId).value = dia / 9; $(unitId).value = "db"; }
+		else if(dia >= 9){ $(inputId).value = Math.round(dia / 9 * 100) / 100; $(unitId).value = "db"; }
+		else { $(inputId).value = dia; $(unitId).value = "dia"; }
+	}
+
+	// ---------------- auction header ----------------
+	function loadAuction(){
+		var name = $("mcName").value.trim();
+		return fetch(API + "/auction/current" + (MC_NAME.test(name) ? "?mcUsername=" + encodeURIComponent(name) : ""))
+			.then(function(r){ return r.json(); })
+			.then(function(d){ auction = d.auction; enteredTotal = d.entered || 0; enteredByUser = d.enteredByUser || 0; renderHero(); if(!lineupLoaded || lineupFresh){ lineupLoaded = true; loadLineup(lineupFresh); lineupFresh = false; } })
+			.catch(function(){ $("heroWhen").textContent = "Couldn't load the auction"; $("heroSub").textContent = "Check your connection and refresh."; });
+	}
+
+	// ---------------- what's entered so far (no prices, no sellers) ----------------
+	function loadLineup(fresh){
+		if(!auction){ $("lineupCard").hidden = true; return; }
+		fetch(API + "/auction/lineup?auctionId=" + encodeURIComponent(auction.id) + (fresh ? "&t=" + Date.now() : ""))
+			.then(function(r){ return r.json(); })
+			.then(function(d){
+				var items = d.items || [];
+				var total = items.reduce(function(n, i){ return n + i.count; }, 0);
+				$("lineupCard").hidden = false;
+				$("lineupTitle").textContent = "Up for auction so far" + (total ? " (" + total + " item" + (total === 1 ? "" : "s") + ")" : "");
+				$("lineup").innerHTML = items.length ? items.map(function(i){
+					return '<div class="li" title="' + esc(i.itemName) + '"><img class="ico" src="' + esc(i.texture || "") + '" alt=""><span>' + esc(i.itemName) + '</span>' + (i.count > 1 ? '<span class="n">&times;' + i.count + '</span>' : '') + '</div>';
+				}).join("") : '<div class="empty">Nothing entered yet. Be the first!</div>';
+			})
+			.catch(function(){ $("lineupCard").hidden = true; });
+	}
+
+	function renderHero(){
+		var st = $("heroStatus");
+		if(!auction){
+			$("heroWhen").textContent = "No auction scheduled";
+			$("heroSub").textContent = "Keep an eye on Discord for the next one. Entries open here when it's announced.";
+			st.className = "status none"; st.textContent = "Not taking entries";
+			$("heroFacts").innerHTML = "";
+			$("enterCard").hidden = true;
+			return;
+		}
+		var at = new Date(auction.auctionAt);
+		$("heroWhen").textContent = at.toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+		var utc = at.toLocaleString(undefined, { timeZone: "UTC", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " UTC";
+		$("heroSub").textContent = auction.title + " · " + auction.world + " · shown in your time (" + utc + ")" + (auction.notes ? " · " + auction.notes : "");
+		st.className = "status " + (auction.accepting ? "open" : "closed");
+		st.textContent = auction.accepting ? "Taking entries" : "Entries closed";
+		var left = Math.max(0, auction.totalLimit - enteredTotal);
+		$("heroFacts").innerHTML =
+			'<span>Our cut: <b>' + esc(auction.cutPercent) + '%</b> of the sale, rounded up to the nearest diamond (at least <b>1 DB</b> for items that sell for over 32 DB, <b>3 dia</b> for others)</span>' +
+			'<span>Up to <b>' + auction.perPersonLimit + '</b> item' + (auction.perPersonLimit === 1 ? "" : "s") + ' per person</span>' +
+			'<span><b>' + left + '</b> of ' + auction.totalLimit + ' spots left</span>';
+		$("enterCard").hidden = !auction.accepting || !$("doneCard").hidden;
+		renderList();
+	}
+
+	// ---------------- username ----------------
+	function userLimitLeft(){ return auction ? Math.max(0, auction.perPersonLimit - enteredByUser) : 0; }
+	var nameTimer = null;
+	$("mcName").addEventListener("input", function(){
+		var v = $("mcName").value.trim();
+		try { localStorage.setItem(NAME_KEY, v); } catch(e){}
+		clearTimeout(nameTimer);
+		nameTimer = setTimeout(function(){ if(MC_NAME.test(v)) loadAuction(); else { enteredByUser = 0; renderList(); } }, 400);
+		renderList();
+	});
+
+	// ---------------- rare picker ----------------
+	fetch("/data/rare-items.json").then(function(r){ return r.json(); }).then(function(d){ rares = d; }).catch(function(){});
+
+	var activeIdx = -1;
+	function search(){
+		var q = norm($("itemSearch").value);
+		var box = $("results");
+		if(!q){ box.hidden = true; return; }
+		var hits = rares.filter(function(r){ return norm(r.name).indexOf(q) !== -1; })
+			.sort(function(a, b){ return (norm(a.name).indexOf(q) === 0 ? 0 : 1) - (norm(b.name).indexOf(q) === 0 ? 0 : 1) || a.name.localeCompare(b.name); })
+			.slice(0, 10);
+		activeIdx = -1;
+		box.innerHTML = hits.length ? hits.map(function(r){
+			return '<button type="button" data-id="' + esc(r.id) + '"><img class="ico" src="' + esc(r.texture || "") + '" alt="" loading="lazy">' + esc(r.name) + '<span class="cat">' + esc(r.category || "") + '</span></button>';
+		}).join("") : '<div class="empty" style="padding:10px 12px;">No rare matches that</div>';
+		box.hidden = false;
+	}
+	$("itemSearch").addEventListener("input", search);
+	$("itemSearch").addEventListener("keydown", function(e){
+		var btns = $("results").querySelectorAll("button");
+		if(e.key === "ArrowDown" || e.key === "ArrowUp"){
+			e.preventDefault();
+			if(!btns.length) return;
+			activeIdx = (activeIdx + (e.key === "ArrowDown" ? 1 : -1) + btns.length) % btns.length;
+			btns.forEach(function(b, i){ b.classList.toggle("active", i === activeIdx); });
+		} else if(e.key === "Enter" && btns.length){
+			e.preventDefault();
+			(btns[activeIdx] || btns[0]).click();
+		} else if(e.key === "Escape"){ $("results").hidden = true; }
+	});
+	document.addEventListener("click", function(e){ if(!e.target.closest(".picker")) $("results").hidden = true; });
+	$("results").addEventListener("click", function(e){
+		var b = e.target.closest("button[data-id]");
+		if(!b) return;
+		var rare = rares.filter(function(r){ return r.id === b.getAttribute("data-id"); })[0];
+		$("results").hidden = true;
+		$("itemSearch").value = "";
+		if(rare) openEditor(rare);
+	});
+
+	// ---------------- editor ----------------
+	function openEditor(rare){
+		editing = { rare: rare, estimate: null };
+		$("editor").hidden = false;
+		$("edIcon").src = rare.texture || "";
+		$("edName").textContent = rare.name;
+		$("edValue").textContent = "Checking SCTP's price data…";
+		$("edErr").hidden = true;
+		setMoney("edStart", "edStartUnit", null); setMoney("edMin", "edMinUnit", null);
+		$("edStartUnit").value = "db"; $("edMinUnit").value = "db";
+		updateHints();
+		fetch(API + "/auction/estimate?rareId=" + encodeURIComponent(rare.id) + "&world=" + encodeURIComponent(auction.world))
+			.then(function(r){ return r.json(); })
+			.then(function(est){
+				if(!editing || editing.rare.id !== rare.id) return;
+				editing.estimate = est;
+				if(est.value != null){
+					$("edValue").innerHTML = 'SCTP value: <b>&asymp; ' + esc(fmtDia(est.value)) + '</b> <span style="color:var(--muted)">(' + esc(est.basis) + ')</span>';
+					setMoney("edStart", "edStartUnit", est.suggestedStartDia);
+					setMoney("edMin", "edMinUnit", est.suggestedMinDia);
+				} else {
+					$("edValue").textContent = "SCTP has no price data for this rare yet, so set your own prices.";
+				}
+				updateHints();
+			})
+			.catch(function(){ $("edValue").textContent = "Couldn't load SCTP's price data, so set your own prices."; });
+		$("edStart").focus();
+	}
+
+	function editorValues(){
+		return { start: toDia($("edStart").value, $("edStartUnit").value), min: toDia($("edMin").value, $("edMinUnit").value) };
+	}
+	function validate(v, est){
+		if(v.start == null) return "Set a starting bid.";
+		if(v.min == null) return "Set a lowest limit.";
+		if(v.min >= v.start) return "The starting bid must be higher than the lowest limit: the clock counts down from one to the other.";
+		return null;
+	}
+	// SCTP's value is advice only: a heads-up when a price is on the "wrong" side of it, never a block
+	function updateHints(){
+		var v = editorValues(), est = editing && editing.estimate;
+		var value = est && est.value != null ? est.value : null;
+		function hint(id, dia, suggested, emptyText, warn){
+			var el = $(id);
+			el.style.color = warn ? "var(--warn)" : "";
+			if(!dia){ el.textContent = suggested ? "Suggested " + fmtDia(suggested) : emptyText; return; }
+			el.textContent = "= " + fmtDia(dia) + (warn ? " · " + warn : (suggested ? " · suggested " + fmtDia(suggested) : ""));
+		}
+		hint("edStartHint", v.start, est && est.suggestedStartDia, "Where the clock starts",
+			value != null && v.start && v.start <= value ? "below its value (≈ " + fmtDia(value) + "), so the clock starts cheap" : null);
+		hint("edMinHint", v.min, est && est.suggestedMinDia, "Where the clock stops; it won't sell below this",
+			value != null && v.min && value > 1 && v.min >= value ? "above its value (≈ " + fmtDia(value) + "), so it may not sell" : null);
+	}
+	["edStart","edMin","edStartUnit","edMinUnit"].forEach(function(id){ $(id).addEventListener("input", function(){ $("edErr").hidden = true; updateHints(); }); });
+	$("edCancel").addEventListener("click", function(){ editing = null; $("editor").hidden = true; });
+	$("edAdd").addEventListener("click", function(){
+		if(!editing) return;
+		var v = editorValues();
+		var problem = validate(v, editing.estimate);
+		if(!problem && list.length >= userLimitLeft()) problem = userLimitLeft() ? "You can enter " + userLimitLeft() + " item" + (userLimitLeft() === 1 ? "" : "s") + " in this auction." : "You've reached the item limit for this auction.";
+		if(problem){ $("edErr").textContent = problem; $("edErr").hidden = false; return; }
+		list.push({ rare: editing.rare, startDia: v.start, minDia: v.min, value: editing.estimate ? editing.estimate.value : null });
+		editing = null;
+		$("editor").hidden = true;
+		renderList();
+		$("itemSearch").focus();
+	});
+
+	// ---------------- list ----------------
+	function itemRowHtml(it, removable, i){
+		return '<div class="item-row"><img class="ico" src="' + esc(it.texture || (it.rare && it.rare.texture) || "") + '" alt="">' +
+			'<div><div class="nm">' + esc(it.itemName || it.rare.name) + '</div><div class="px">start ' + esc(fmtDia(it.startDia)) + ' · lowest ' + esc(fmtDia(it.minDia)) + '</div></div>' +
+			(removable ? '<button type="button" class="x" data-rm="' + i + '" title="Remove">&times;</button>' : '') + '</div>';
+	}
+	function renderList(){
+		if(!auction) return;
+		$("list").innerHTML = list.length ? list.map(function(it, i){ return itemRowHtml(it, true, i); }).join("") : '<div class="empty">Nothing yet. Search for a rare above to add it.</div>';
+		var name = $("mcName").value.trim();
+		var left = userLimitLeft();
+		$("userHint").textContent = MC_NAME.test(name)
+			? (enteredByUser ? name + " already entered " + enteredByUser + " item" + (enteredByUser === 1 ? "" : "s") + " in this auction. " : "") + "You can enter " + left + " more."
+			: (name ? "That doesn't look like a Minecraft username." : "The name of the account you'll hand the items in with.");
+		$("listCount").textContent = list.length + " of " + left + " item" + (left === 1 ? "" : "s");
+		$("continueBtn").disabled = !list.length || !MC_NAME.test(name) || list.length > left;
+	}
+	$("list").addEventListener("click", function(e){
+		var b = e.target.closest("[data-rm]");
+		if(!b) return;
+		list.splice(Number(b.getAttribute("data-rm")), 1);
+		renderList();
+	});
+
+	// ---------------- continue: optional sign-in, then submit ----------------
+	$("continueBtn").addEventListener("click", function(){
+		$("submitErr").hidden = true;
+		if(session()) { submit(); return; }
+		var wrap = document.createElement("div");
+		wrap.className = "modal-bg";
+		wrap.innerHTML = '<div class="modal"><h2>Want to see your results?</h2>' +
+			'<p>Sign in to see how your items did on <b>My Auctions</b> and get a notification when they sell. Or just continue with your Minecraft username.</p>' +
+			'<div class="actions"><button type="button" class="btn" id="mSignIn">Sign in</button>' +
+			'<button type="button" class="btn-ghost" id="mSkip">Continue as ' + esc($("mcName").value.trim()) + '</button>' +
+			'<button type="button" class="btn-ghost" id="mCancel">Back</button></div></div>';
+		document.body.appendChild(wrap);
+		$("mCancel").onclick = function(){ wrap.remove(); };
+		$("mSkip").onclick = function(){ wrap.remove(); submit(); };
+		$("mSignIn").onclick = function(){
+			wrap.remove();
+			// submit once the login succeeds (account-widget calls sctpOnAccountChange)
+			window.sctpOnAccountChange = function(){ if(session()) submit(); };
+			if(window.sctpAccount && window.sctpAccount.openLogin) window.sctpAccount.openLogin();
+		};
+	});
+
+	var submitting = false;
+	function submit(){
+		if(submitting) return;
+		submitting = true;
+		$("continueBtn").disabled = true;
+		var s = session();
+		var headers = { "Content-Type": "application/json" };
+		if(s) headers.Authorization = "Bearer " + s.token;
+		var name = $("mcName").value.trim();
+		fetch(API + "/auction/submit", { method: "POST", headers: headers, body: JSON.stringify({
+			auctionId: auction.id, mcUsername: name,
+			items: list.map(function(it){ return { rareId: it.rare.id, startDia: it.startDia, minDia: it.minDia }; })
+		}) })
+			.then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+			.then(function(res){
+				submitting = false;
+				if(!res.ok){ $("submitErr").textContent = res.d.error || "Couldn't enter your items."; $("submitErr").hidden = false; renderList(); return; }
+				showDone(res.d);
+			})
+			.catch(function(){ submitting = false; $("submitErr").textContent = "Network error. Try again."; $("submitErr").hidden = false; renderList(); });
+	}
+
+	function showDone(d){
+		list = [];
+		$("enterCard").hidden = true;
+		$("doneCard").hidden = false;
+		$("doneList").innerHTML = d.items.map(function(it){ return itemRowHtml(it, false); }).join("");
+		$("shulkerName").textContent = d.shulkerName;
+		$("dropBy").textContent = " before " + new Date(d.auction.auctionAt).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+		$("doneAccount").innerHTML = d.linkedToAccount
+			? 'Linked to your account: follow your items on <a href="/auction/me/">My Auctions</a>. You\'ll get a notification when they sell.'
+			: 'Not linked to an account. Ask staff about your results, or sign in next time to follow them on My Auctions.';
+		window.scrollTo({ top: 0, behavior: "smooth" });
+		lineupFresh = true;
+		loadAuction();
+	}
+	$("copyName").addEventListener("click", function(){
+		var t = $("shulkerName").textContent;
+		(navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ $("copyName").textContent = "Copied!"; setTimeout(function(){ $("copyName").textContent = "Copy"; }, 1500); }).catch(function(){});
+	});
+	$("enterMore").addEventListener("click", function(){ $("doneCard").hidden = true; renderHero(); });
+
+	// ---------------- the Dutch clock demo ----------------
+	// Ticks from the example starting bid down toward the lowest limit; a
+	// bidder "claims" it partway down, then it starts over.
+	(function(){
+		var START = 49, LOWEST = 9, CLAIM = 31;
+		var ticks = "";
+		for(var i = 0; i < 40; i++){
+			var a = i / 40 * Math.PI * 2, long = i % 5 === 0;
+			var r1 = long ? 76 : 80, r2 = 84;
+			ticks += '<line x1="' + (110 + Math.sin(a) * r1).toFixed(1) + '" y1="' + (110 - Math.cos(a) * r1).toFixed(1) + '" x2="' + (110 + Math.sin(a) * r2).toFixed(1) + '" y2="' + (110 - Math.cos(a) * r2).toFixed(1) + '" stroke="var(--line)" stroke-width="' + (long ? 2 : 1) + '"/>';
+		}
+		document.getElementById("clockTicks").innerHTML = ticks;
+		var arc = document.getElementById("clockArc"), hand = document.getElementById("clockHand");
+		var priceEl = document.getElementById("clockPrice"), sold = document.getElementById("clockSold");
+		var circ = 2 * Math.PI * 88;
+		arc.setAttribute("stroke-dasharray", circ.toFixed(1));
+		function show(price, claimed){
+			var frac = (price - LOWEST) / (START - LOWEST); // 1 at the start, 0 at the lowest limit
+			arc.setAttribute("stroke-dashoffset", (circ * (1 - frac)).toFixed(1));
+			hand.setAttribute("transform", "rotate(" + (360 * (1 - frac)).toFixed(1) + " 110 110)");
+			priceEl.textContent = price + " DB";
+			priceEl.style.fill = claimed ? "var(--accent)" : "";
+			sold.setAttribute("opacity", claimed ? "1" : "0");
+		}
+		var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		if(reduce){ show(CLAIM, true); return; }
+		var price = START, hold = 0;
+		show(price, false);
+		setInterval(function(){
+			if(price === CLAIM){
+				// stay on "SOLD!" for ~2.5 s, then the next item starts at the top again
+				if(++hold < 10) return;
+				hold = 0; price = START; show(price, false); return;
+			}
+			price--;
+			show(price, price === CLAIM);
+		}, 260);
+	})();
+
+	// ---------------- start ----------------
+	try { var saved = localStorage.getItem(NAME_KEY); if(saved) $("mcName").value = saved; } catch(e){}
+	var s0 = session();
+	if(!$("mcName").value && s0 && s0.mcUsername) $("mcName").value = s0.mcUsername;
+	loadAuction();
+})();
+</script>
+</body>
+</html>
