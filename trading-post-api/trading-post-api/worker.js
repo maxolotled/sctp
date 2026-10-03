@@ -304,6 +304,57 @@ function isBannedItem(baseItem, itemName) {
 	return BANNED_ITEMS.includes(b) || BANNED_ITEMS.includes(n);
 }
 
+// Mod versions before the English-names fix uploaded vanilla item names in
+// the player's game language: a German client sent "Truhe" instead of
+// "Chest", a British one "Grey Wool" instead of "Gray Wool". That split
+// listings and broke catalog, search and watchlist matches. Look every
+// incoming name up in itemNameTranslations (all Minecraft languages, see
+// migration 0040 / scripts/build-item-name-translations.js) and store the US
+// English name. Custom names (rares) are never in the table, so they pass
+// through untouched. One batched query per 50 distinct names.
+const ENCHANTMENT_GROUP = "*enchantment";
+const ENCHANT_PART = /^(.*?)( (?:[IVX]+|\d+))?$/; // "Schärfe V" -> "Schärfe", " V"
+
+async function englishItemNames(env, rows) {
+	const itemId = (r) => String(r.baseItem || "").toLowerCase().replace(/^minecraft:/, "");
+	const isBook = (r) => itemId(r) === "enchanted_book";
+
+	const names = new Set();
+	for (const r of rows) {
+		const name = String(r.itemName || "");
+		if (isBook(r)) for (const part of name.split(", ")) names.add(ENCHANT_PART.exec(part)[1]);
+		else names.add(name);
+	}
+	names.delete("");
+
+	const english = new Map(); // foreign name + "\u0000" + group -> English name
+	for (const chunk of chunkArray([...names], MAX_QUERY_PARAMS_PER_CHUNK)) {
+		const { results } = await env.DB.prepare(
+			`SELECT foreignName, baseItem, englishName FROM itemNameTranslations WHERE foreignName IN (${chunk.map(() => "?").join(",")})`
+		).bind(...chunk).all();
+		for (const t of results) english.set(t.foreignName + "\u0000" + t.baseItem, t.englishName);
+	}
+	if (english.size === 0) return rows;
+
+	return rows.map((r) => {
+		const name = String(r.itemName || "");
+		if (isBook(r)) {
+			// "Schärfe V, Haltbarkeit III" -> "Sharpness V, Unbreaking III"
+			let changed = false;
+			const parts = name.split(", ").map((part) => {
+				const m = ENCHANT_PART.exec(part);
+				const en = english.get(m[1] + "\u0000" + ENCHANTMENT_GROUP);
+				if (!en) return part;
+				changed = true;
+				return en + (m[2] || "");
+			});
+			return changed ? { ...r, itemName: parts.join(", ") } : r;
+		}
+		const en = english.get(name + "\u0000" + itemId(r));
+		return en ? { ...r, itemName: en } : r;
+	});
+}
+
 function rowKey(r) {
 	// World is part of the key because the same seller can run independent
 	// shops on both Firefly and Honeybee. bulk/bundled are part of it too so
@@ -1122,7 +1173,7 @@ async function handleUploadListings(request, env) {
 	try {
 		const blockedSet = await getBlockedSellerSet(env, incoming.map((r) => r && r.seller));
 
-		const validRows = [];
+		const acceptedRows = [];
 		for (const r of incoming) {
 			if (!r.itemName || !r.seller || !r.world) { skipped++; continue; }
 			if (isBannedItem(r.baseItem, r.itemName)) { skipped++; continue; }
@@ -1130,8 +1181,9 @@ async function handleUploadListings(request, env) {
 			// Maps are catalogued in the mapart gallery instead (see handleGetListings).
 			if (String(r.baseItem || "").toLowerCase() === "minecraft:filled_map") { skipped++; continue; }
 			if (blockedSet.has(String(r.seller).toLowerCase())) { skipped++; continue; }
-			validRows.push({ ...r, _key: rowKey(r) });
+			acceptedRows.push(r);
 		}
+		const validRows = (await englishItemNames(env, acceptedRows)).map((row) => ({ ...row, _key: rowKey(row) }));
 
 		const stmts = [];
 

@@ -4,6 +4,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.locale.Language;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.BlockItem;
@@ -208,7 +210,7 @@ public final class ShopEntryFactory {
 			ItemEnchantments enchantments = stack.get(DataComponents.STORED_ENCHANTMENTS);
 			if (enchantments != null && !enchantments.isEmpty()) {
 				return enchantments.entrySet().stream()
-						.map(e -> Enchantment.getFullname(e.getKey(), e.getIntValue()).getString())
+						.map(e -> english(Enchantment.getFullname(e.getKey(), e.getIntValue())))
 						.sorted()
 						.collect(Collectors.joining(", "));
 			}
@@ -226,7 +228,27 @@ public final class ShopEntryFactory {
 					.collect(Collectors.joining(" "));
 			return "Music Disc " + titled;
 		}
-		return stack.getHoverName().getString();
+		return english(stack.getHoverName());
+	}
+
+	/**
+	 * A name as US English text, whatever language the player's game is set
+	 * to. Item and enchantment names are translated by the game, so a German
+	 * client would otherwise upload "Truhe" instead of "Chest", splitting
+	 * listings and missing every catalog, search and watchlist match. Custom
+	 * names (rares) are plain text and come out the same either way.
+	 * Language.DEFAULT_INSTANCE is the game's built-in en_us; it's swapped in
+	 * only for this one call, on the game thread, so nothing on screen sees it.
+	 */
+	private static String english(Component name) {
+		Language previous = Language.getInstance();
+		if (previous == Language.DEFAULT_INSTANCE) return name.getString();
+		Language.inject(Language.DEFAULT_INSTANCE);
+		try {
+			return name.getString();
+		} finally {
+			Language.inject(previous);
+		}
 	}
 
 	/** True if every non-empty stack inside the shulker is the same item. */
