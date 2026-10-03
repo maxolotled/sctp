@@ -41,7 +41,7 @@
 
 	// Small public surface so a page's own script can read login state (the
 	// marketplace page and admin.html both need this) and react to changes.
-	window.sctpAccount = { getSession: getSession, API_BASE: API_BASE, clearSession: clearSession, openHelp: openHelp };
+	window.sctpAccount = { getSession: getSession, API_BASE: API_BASE, clearSession: clearSession, openHelp: openHelp, openLogin: function () { openLogin(); } };
 
 	// Same content for "forgot password" and "can't verify" — there's no
 	// self-service recovery for either yet, so both just point at the same
@@ -83,15 +83,18 @@
 		btn.onclick = function () { menu.hidden = !menu.hidden; };
 		var isAdmin = session.isHeadAdmin || (session.permissions && session.permissions.length > 0);
 		var canManageForms = session.isHeadAdmin || (session.permissions && session.permissions.indexOf("manageForms") !== -1);
+		var canRunAuctions = session.isHeadAdmin || (session.permissions && session.permissions.indexOf("auctions") !== -1);
 		var html = '<a href="/s/' + encodeURIComponent((session.mcUsername || session.username || "").replace(/^\./, "")) + '">My Profile</a>';
 		html += '<a href="/marketplace/#mine">My Marketplace</a>';
 		html += '<a href="/stats/mine/">My Shop Statistics</a>';
 		html += '<a href="/mapart/manage/">Mapart Management</a>';
 		html += '<a href="/collection/">My Collection</a>';
+		html += '<a href="/auction/me/">My Auctions</a>';
 		html += '<a href="/store/manage/">Manage my store</a>';
 		html += '<a href="/account/">Account Settings</a>';
 		if (isAdmin) html += '<a href="/admin.html">Admin Panel</a>';
 		if (canManageForms) html += '<a href="/admin-forms.html">Forms</a>';
+		if (canRunAuctions) html += '<a href="/auction/admin/">Auction Admin</a>';
 		html += '<button type="button" id="acctLogout">Log out</button>';
 		menu.innerHTML = html;
 		document.getElementById("acctLogout").onclick = function () {
