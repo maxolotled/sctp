@@ -91,6 +91,22 @@
 	.copy{display:inline-flex;align-items:center;gap:8px;background:#0C140F;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-family:var(--font-mono);font-size:14px;margin-top:6px;}
 	.copy button{background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;font-family:var(--font-body);}
 
+	/* the big "Enter your items" button and the popup it opens */
+	.big-cta{display:flex;align-items:center;justify-content:center;gap:14px;width:100%;border:none;border-radius:14px;padding:18px 22px;cursor:pointer;font-family:inherit;
+		background:linear-gradient(135deg, var(--gold), #E8A93A);color:#2A1E05;box-shadow:0 10px 26px rgba(242,193,78,0.22);transition:transform .12s ease, box-shadow .12s ease;}
+	.big-cta:hover{transform:translateY(-1px);box-shadow:0 14px 32px rgba(242,193,78,0.3);}
+	.big-cta:focus-visible{outline:3px solid var(--text);outline-offset:3px;}
+	.big-cta .t{font-family:var(--font-display);font-size:22px;font-weight:700;}
+	.big-cta .s{font-size:13.5px;font-weight:600;opacity:.8;}
+	.big-cta .arrow{font-size:22px;font-weight:700;}
+	@media (max-width:560px){.big-cta{flex-direction:column;gap:2px;}.big-cta .arrow{display:none;}}
+	@media (prefers-reduced-motion: reduce){.big-cta{transition:none;}.big-cta:hover{transform:none;}}
+	.entry-bg{position:fixed;inset:0;background:rgba(0,0,0,0.68);z-index:150;overflow-y:auto;padding:28px 16px;display:flex;justify-content:center;align-items:flex-start;}
+	.entry-panel{width:100%;max-width:780px;position:relative;}
+	.entry-panel > .card{box-shadow:0 24px 60px rgba(0,0,0,0.55);}
+	.entry-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--panel-alt);color:var(--text);font-size:20px;line-height:1;cursor:pointer;z-index:2;}
+	.entry-close:hover{border-color:var(--accent-dim);color:var(--accent);}
+	body.entry-open{overflow:hidden;}
 	.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
 	.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;width:100%;max-width:420px;}
 	.modal h2{font-family:var(--font-display);font-size:19px;margin:0 0 8px;}
@@ -145,6 +161,10 @@
 		<div class="facts" id="heroFacts" style="grid-column:1/-1;"></div>
 	</section>
 
+	<button type="button" class="big-cta" id="openEntry" hidden>
+		<span class="t">Enter your items</span><span class="s" id="openEntrySub"></span><span class="arrow" aria-hidden="true">&rarr;</span>
+	</button>
+
 	<section class="card" id="lineupCard" hidden>
 		<h2 id="lineupTitle">Up for auction so far</h2>
 		<div class="lineup" id="lineup"></div>
@@ -177,71 +197,76 @@
 			</div>
 		</div>
 	</section>
-
-	<section class="card" id="enterCard" hidden>
-		<h2>Enter your items</h2>
-		<div class="user-row">
-			<div>
-				<label class="lbl" for="mcName">Your Minecraft username</label>
-				<input type="text" id="mcName" maxlength="17" placeholder="e.g. maxolotled" autocomplete="off" spellcheck="false">
-			</div>
-			<p class="hint" id="userHint" style="margin:0 0 10px;"></p>
-		</div>
-
-		<div style="margin-top:16px;" class="picker">
-			<label class="lbl" for="itemSearch">Add a rare</label>
-			<input type="text" id="itemSearch" placeholder="Search rare items…" autocomplete="off" spellcheck="false">
-			<div class="results" id="results" hidden></div>
-		</div>
-
-		<div class="editor" id="editor" hidden>
-			<div class="editor-head">
-				<img class="ico lg" id="edIcon" alt="">
-				<div><h3 id="edName"></h3><div class="value-line" id="edValue"></div></div>
-			</div>
-			<div class="price-grid">
-				<div>
-					<label class="lbl" for="edStart">Starting bid</label>
-					<div class="money"><input type="number" id="edStart" min="0" step="any"><select id="edStartUnit"><option value="db">DB</option><option value="dia">dia</option></select></div>
-					<p class="hint" id="edStartHint"></p>
-				</div>
-				<div>
-					<label class="lbl" for="edMin">Lowest limit</label>
-					<div class="money"><input type="number" id="edMin" min="0" step="any"><select id="edMinUnit"><option value="db">DB</option><option value="dia">dia</option></select></div>
-					<p class="hint" id="edMinHint"></p>
-				</div>
-			</div>
-			<p class="err" id="edErr" hidden></p>
-			<div style="display:flex;gap:8px;flex-wrap:wrap;">
-				<button type="button" class="btn" id="edAdd">Add to my list</button>
-				<button type="button" class="btn-ghost" id="edCancel">Cancel</button>
-			</div>
-		</div>
-
-		<div style="margin-top:20px;">
-			<label class="lbl">Your list</label>
-			<div class="items" id="list"></div>
-			<div class="list-foot">
-				<span class="hint" id="listCount" style="margin:0;"></span>
-				<button type="button" class="btn" id="continueBtn" disabled>Continue</button>
-			</div>
-			<p class="err" id="submitErr" hidden></p>
-		</div>
-	</section>
-
-	<section class="card" id="doneCard" hidden>
-		<h2>Almost done: hand in your items</h2>
-		<ol class="steps">
-			<li><div>Put <b>exactly these items</b> into <b>one shulker box</b>:<div class="items" id="doneList" style="margin-top:8px;"></div></div></li>
-			<li><div>Rename the shulker box in an anvil to exactly:<br><span class="copy"><span id="shulkerName"></span><button type="button" id="copyName">Copy</button></span><p class="hint">This is how we know the shulker belongs to your entry on the website.</p></div></li>
-			<li><div>Drop it off at <b>/pw auction</b><span id="dropBy"></span>.</div></li>
-		</ol>
-		<p class="hint" id="doneAccount" style="margin-top:16px;"></p>
-		<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
-			<button type="button" class="btn-ghost" id="enterMore">Enter more items</button>
-		</div>
-	</section>
 </main>
+
+<div class="entry-bg" id="entryModal" hidden role="dialog" aria-modal="true" aria-labelledby="entryTitle">
+	<div class="entry-panel">
+		<button type="button" class="entry-close" id="closeEntry" aria-label="Close">&times;</button>
+		<section class="card" id="enterCard" hidden>
+			<h2 id="entryTitle">Enter your items</h2>
+			<div class="user-row">
+				<div>
+					<label class="lbl" for="mcName">Your Minecraft username</label>
+					<input type="text" id="mcName" maxlength="17" placeholder="e.g. maxolotled" autocomplete="off" spellcheck="false">
+				</div>
+				<p class="hint" id="userHint" style="margin:0 0 10px;"></p>
+			</div>
+	
+			<div style="margin-top:16px;" class="picker">
+				<label class="lbl" for="itemSearch">Add a rare</label>
+				<input type="text" id="itemSearch" placeholder="Search rare items…" autocomplete="off" spellcheck="false">
+				<div class="results" id="results" hidden></div>
+			</div>
+	
+			<div class="editor" id="editor" hidden>
+				<div class="editor-head">
+					<img class="ico lg" id="edIcon" alt="">
+					<div><h3 id="edName"></h3><div class="value-line" id="edValue"></div></div>
+				</div>
+				<div class="price-grid">
+					<div>
+						<label class="lbl" for="edStart">Starting bid</label>
+						<div class="money"><input type="number" id="edStart" min="0" step="any"><select id="edStartUnit"><option value="db">DB</option><option value="dia">dia</option></select></div>
+						<p class="hint" id="edStartHint"></p>
+					</div>
+					<div>
+						<label class="lbl" for="edMin">Lowest limit</label>
+						<div class="money"><input type="number" id="edMin" min="0" step="any"><select id="edMinUnit"><option value="db">DB</option><option value="dia">dia</option></select></div>
+						<p class="hint" id="edMinHint"></p>
+					</div>
+				</div>
+				<p class="err" id="edErr" hidden></p>
+				<div style="display:flex;gap:8px;flex-wrap:wrap;">
+					<button type="button" class="btn" id="edAdd">Add to my list</button>
+					<button type="button" class="btn-ghost" id="edCancel">Cancel</button>
+				</div>
+			</div>
+	
+			<div style="margin-top:20px;">
+				<label class="lbl">Your list</label>
+				<div class="items" id="list"></div>
+				<div class="list-foot">
+					<span class="hint" id="listCount" style="margin:0;"></span>
+					<button type="button" class="btn" id="continueBtn" disabled>Continue</button>
+				</div>
+				<p class="err" id="submitErr" hidden></p>
+			</div>
+		</section>
+	
+		<section class="card" id="doneCard" hidden>
+			<h2>Almost done: hand in your items</h2>
+			<ol class="steps">
+				<li><div>Put <b>exactly these items</b> into <b>one shulker box</b>:<div class="items" id="doneList" style="margin-top:8px;"></div></div></li>
+				<li><div>Rename the shulker box in an anvil to exactly:<br><span class="copy"><span id="shulkerName"></span><button type="button" id="copyName">Copy</button></span><p class="hint">This is how we know the shulker belongs to your entry on the website.</p></div></li>
+				<li><div>Drop it off at <b>/pw auction</b><span id="dropBy"></span>.</div></li>
+			</ol>
+			<p class="hint" id="doneAccount" style="margin-top:16px;"></p>
+			<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+				<button type="button" class="btn-ghost" id="enterMore">Enter more items</button>
+			</div>
+		</section>
+	</div>
+</div>
 
 <script src="/site-nav.js" defer></script>
 <script src="/account-widget.js" defer></script>
@@ -313,7 +338,8 @@
 			$("heroSub").textContent = "Keep an eye on Discord for the next one. Entries open here when it's announced.";
 			st.className = "status none"; st.textContent = "Not taking entries";
 			$("heroFacts").innerHTML = "";
-			$("enterCard").hidden = true;
+			$("openEntry").hidden = true;
+			closeEntry();
 			return;
 		}
 		var at = new Date(auction.auctionAt);
@@ -327,9 +353,34 @@
 			'<span>Our cut: <b>' + esc(auction.cutPercent) + '%</b> of the sale, rounded up to the nearest diamond (at least <b>1 DB</b> for items that sell for over 32 DB, <b>3 dia</b> for others)</span>' +
 			'<span>Up to <b>' + auction.perPersonLimit + '</b> item' + (auction.perPersonLimit === 1 ? "" : "s") + ' per person</span>' +
 			'<span><b>' + left + '</b> of ' + auction.totalLimit + ' spots left</span>';
-		$("enterCard").hidden = !auction.accepting || !$("doneCard").hidden;
+		$("openEntry").hidden = !auction.accepting;
+		$("openEntrySub").textContent = left + " spot" + (left === 1 ? "" : "s") + " left · up to " + auction.perPersonLimit + " per person";
+		if(!auction.accepting && $("doneCard").hidden) closeEntry();
+		// sctp.nl/auction/#enter (e.g. from an announcement) opens the form straight away
+		if(auction.accepting && location.hash === "#enter" && !openedFromLink){ openedFromLink = true; openEntry(); }
 		renderList();
 	}
+	var openedFromLink = false;
+
+	// ---------------- the entry popup ----------------
+	function openEntry(){
+		$("doneCard").hidden = true;
+		$("enterCard").hidden = false;
+		$("entryModal").hidden = false;
+		document.body.classList.add("entry-open");
+		setTimeout(function(){ ($("mcName").value.trim() ? $("itemSearch") : $("mcName")).focus(); }, 0);
+	}
+	function closeEntry(){
+		$("entryModal").hidden = true;
+		document.body.classList.remove("entry-open");
+	}
+	$("openEntry").addEventListener("click", openEntry);
+	$("closeEntry").addEventListener("click", closeEntry);
+	document.addEventListener("keydown", function(e){
+		// Esc closes the popup, unless the sign-in question or the rare dropdown is the thing open
+		if(e.key !== "Escape" || $("entryModal").hidden || document.querySelector(".modal-bg") || !$("results").hidden) return;
+		closeEntry();
+	});
 
 	// ---------------- username ----------------
 	function userLimitLeft(){ return auction ? Math.max(0, auction.perPersonLimit - enteredByUser) : 0; }
@@ -522,13 +573,14 @@
 		list = [];
 		$("enterCard").hidden = true;
 		$("doneCard").hidden = false;
+		$("entryModal").hidden = false;
+		$("entryModal").scrollTop = 0;
 		$("doneList").innerHTML = d.items.map(function(it){ return itemRowHtml(it, false); }).join("");
 		$("shulkerName").textContent = d.shulkerName;
 		$("dropBy").textContent = " before " + new Date(d.auction.auctionAt).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 		$("doneAccount").innerHTML = d.linkedToAccount
 			? 'Linked to your account: follow your items on <a href="/auction/me/">My Auctions</a>. You\'ll get a notification when they sell.'
 			: 'Not linked to an account. Ask staff about your results, or sign in next time to follow them on My Auctions.';
-		window.scrollTo({ top: 0, behavior: "smooth" });
 		lineupFresh = true;
 		loadAuction();
 	}
@@ -536,7 +588,7 @@
 		var t = $("shulkerName").textContent;
 		(navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ $("copyName").textContent = "Copied!"; setTimeout(function(){ $("copyName").textContent = "Copy"; }, 1500); }).catch(function(){});
 	});
-	$("enterMore").addEventListener("click", function(){ $("doneCard").hidden = true; renderHero(); });
+	$("enterMore").addEventListener("click", function(){ $("doneCard").hidden = true; $("enterCard").hidden = false; $("entryModal").scrollTop = 0; renderHero(); });
 
 	// ---------------- the Dutch clock demo ----------------
 	// Ticks from the example starting bid down toward the lowest limit; a
@@ -553,11 +605,14 @@
 		var arc = document.getElementById("clockArc"), hand = document.getElementById("clockHand");
 		var priceEl = document.getElementById("clockPrice"), sold = document.getElementById("clockSold");
 		var circ = 2 * Math.PI * 88;
-		arc.setAttribute("stroke-dasharray", circ.toFixed(1));
 		function show(price, claimed){
 			var frac = (price - LOWEST) / (START - LOWEST); // 1 at the start, 0 at the lowest limit
-			arc.setAttribute("stroke-dashoffset", (circ * (1 - frac)).toFixed(1));
-			hand.setAttribute("transform", "rotate(" + (360 * (1 - frac)).toFixed(1) + " 110 110)");
+			// The pointer sweeps clockwise from 12 o'clock as the price drops; the
+			// yellow arc is what's left ahead of it, from the pointer round to 12.
+			var gone = 1 - frac;
+			arc.setAttribute("stroke-dasharray", (circ * frac).toFixed(1) + " " + circ.toFixed(1));
+			arc.setAttribute("stroke-dashoffset", (-circ * gone).toFixed(1));
+			hand.setAttribute("transform", "rotate(" + (360 * gone).toFixed(1) + " 110 110)");
 			priceEl.textContent = price + " DB";
 			priceEl.style.fill = claimed ? "var(--accent)" : "";
 			sold.setAttribute("opacity", claimed ? "1" : "0");
