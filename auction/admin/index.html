@@ -165,7 +165,7 @@
 
 	function renderList(){
 		$("auctionList").innerHTML = auctions.length ? auctions.map(function(a){
-			return '<button type="button" class="a-item' + (a.id === selectedId ? " active" : "") + '" data-id="' + esc(a.id) + '"><b>' + esc(a.title) + '</b><span>' +
+			return '<button type="button" class="a-item' + (a.id === selectedId ? " active" : "") + '" data-id="' + esc(a.id) + '"><b>' + esc(a.title) + '</b><span>' + (a.type === "regular" ? "Regular · " : "Dutch · ") +
 				esc(new Date(a.auctionAt).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + ' · ' + esc(a.status) + ' · ' + a.itemCount + ' items' + (a.soldCount ? ', ' + a.soldCount + ' sold' : '') + '</span></button>';
 		}).join("") : '<p class="empty" style="padding:8px 0;">No auctions yet.</p>';
 		$("auctionList").querySelectorAll("[data-id]").forEach(function(b){
@@ -186,6 +186,7 @@
 		var next = new Date(Date.now() + 7 * 864e5); next.setHours(20, 0, 0, 0);
 		return '<section class="card"><h2>' + (a ? "Auction settings" : "New auction") + '</h2><div class="form">' +
 			'<div class="wide"><label class="lbl" for="fTitle">Title</label><input type="text" id="fTitle" maxlength="100" value="' + esc(a ? a.title : "") + '" placeholder="e.g. Spooky Rares Auction"></div>' +
+			'<div><label class="lbl" for="fType">Type</label><select id="fType"><option value="dutch">Dutch clock (price drops)</option><option value="regular">Regular (bids go up)</option></select></div>' +
 			'<div><label class="lbl" for="fWorld">World</label><select id="fWorld"><option>Firefly</option><option>Honeybee</option></select></div>' +
 			'<div><label class="lbl" for="fAt">Date &amp; time (your time)</label><input type="datetime-local" id="fAt" value="' + esc(toLocalInput(a ? a.auctionAt : next.toISOString())) + '"></div>' +
 			'<div><label class="lbl" for="fStatus">Status</label><select id="fStatus"><option value="open">Open: taking entries</option><option value="closed">Closed: no new entries</option><option value="finished">Finished</option></select></div>' +
@@ -197,11 +198,11 @@
 	}
 
 	function wireForm(a){
-		if(a){ $("fWorld").value = a.world; $("fStatus").value = a.status; }
+		if(a){ $("fWorld").value = a.world; $("fStatus").value = a.status; $("fType").value = a.type === "regular" ? "regular" : "dutch"; }
 		$("fSave").onclick = function(){
 			var at = new Date($("fAt").value);
 			api("/admin/auctions/save", { method: "POST", body: {
-				id: a ? a.id : undefined, title: $("fTitle").value, world: $("fWorld").value,
+				id: a ? a.id : undefined, title: $("fTitle").value, type: $("fType").value, world: $("fWorld").value,
 				auctionAt: isNaN(at.getTime()) ? "" : at.toISOString(), status: $("fStatus").value,
 				perPersonLimit: $("fPer").value, totalLimit: $("fTotal").value, cutPercent: $("fCut").value, notes: $("fNotes").value
 			} }).then(function(res){
@@ -234,6 +235,7 @@
 	}
 
 	function groupsHtml(a){
+		var regular = a.type === "regular";
 		var groups = [], byName = {};
 		items.forEach(function(i){
 			var k = i.mcUsername.toLowerCase();
@@ -244,12 +246,12 @@
 			var payout = g.items.filter(function(i){ return i.status === "sold"; }).reduce(function(s, i){ return s + i.payoutDia; }, 0);
 			return '<div class="player"><div class="player-head"><span>Shulker: <code>Registered ' + esc(g.name) + '</code> · ' + g.items.filter(function(i){ return i.status !== "removed"; }).length + ' item(s)</span>' +
 				'<span class="pay">Pay out <b>' + fmtDia(payout) + '</b></span></div><div class="tbl-wrap"><table><thead><tr>' +
-				'<th>Item</th><th>Start</th><th>Lowest</th><th>SCTP value</th><th>Status</th><th>Sold for</th><th>Cut / payout</th><th></th></tr></thead><tbody>' +
+				'<th>Item</th>' + (regular ? '<th>Starting price</th>' : '<th>Start</th><th>Lowest</th>') + '<th>SCTP value</th><th>Status</th><th>Sold for</th><th>Cut / payout</th><th></th></tr></thead><tbody>' +
 				g.items.map(function(i){
 					var soldVal = i.soldDia ? (i.soldDia % 9 === 0 ? i.soldDia / 9 : i.soldDia) : "";
 					var soldUnit = i.soldDia && i.soldDia % 9 !== 0 ? "dia" : "db";
 					return '<tr data-row="' + esc(i.id) + '" class="' + esc(i.status) + '"><td><div class="it"><img class="ico" src="' + esc(i.texture || "") + '" alt="">' + esc(i.itemName) + '</div></td>' +
-						'<td class="num">' + fmtDia(i.startDia) + '</td><td class="num">' + fmtDia(i.minDia) + '</td><td class="num">' + (i.estimateDia != null ? "≈ " + fmtDia(i.estimateDia) : "–") + '</td>' +
+						'<td class="num">' + fmtDia(i.startDia) + '</td>' + (regular ? '' : '<td class="num">' + fmtDia(i.minDia) + '</td>') + '<td class="num">' + (i.estimateDia != null ? "≈ " + fmtDia(i.estimateDia) : "–") + '</td>' +
 						'<td><span class="pill ' + esc(i.status) + '">' + esc(i.status) + '</span></td>' +
 						'<td><div class="sell"><input type="number" min="0" step="any" data-amt value="' + soldVal + '"><select data-unit><option value="db"' + (soldUnit === "db" ? " selected" : "") + '>DB</option><option value="dia"' + (soldUnit === "dia" ? " selected" : "") + '>dia</option></select></div></td>' +
 						'<td class="preview" data-preview>' + (i.status === "sold" ? "cut " + fmtDia(i.cutDia) + " · gets " + fmtDia(i.payoutDia) : "") + '</td>' +

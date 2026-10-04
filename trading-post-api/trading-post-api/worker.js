@@ -6699,13 +6699,16 @@ async function handleSubmitForm(request, env) {
 //   GET  /auction/lineup?auctionId=         (public, cached 1 min) what's entered so far: item + count, no prices or sellers
 //   GET  /auction/mine                      (any account) your entries across every auction
 //   GET  /admin/auctions                    ("auctions") every auction, with entry counts
-//   POST /admin/auctions/save               ("auctions") create/edit {id?, title, world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes?}
+//   POST /admin/auctions/save               ("auctions") create/edit {id?, title, type: "dutch"|"regular", world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes?}
 //   GET  /admin/auctions/items?auctionId=   ("auctions") every entry in one auction
 //   POST /admin/auctions/result             ("auctions") {itemId, status: "sold"|"unsold"|"entered"|"removed", soldDia?}
 
 const AUCTION_DEFAULT_CUT_PERCENT = 2.5;
 const AUCTION_WORLDS = new Set(["Firefly", "Honeybee"]);
 const AUCTION_STATUSES = new Set(["open", "closed", "finished"]);
+// dutch: price starts at the starting bid and drops toward the lowest limit
+// regular: bids go up from one starting price, which is also the minimum
+const AUCTION_TYPES = new Set(["dutch", "regular"]);
 const AUCTION_ITEM_STATUSES = new Set(["entered", "sold", "unsold", "removed"]);
 const MC_USERNAME = /^[.*]?[A-Za-z0-9_]{2,16}$/; // Bedrock (Geyser) players carry a "." prefix
 
@@ -6726,7 +6729,7 @@ function fmtDia(d) {
 
 function auctionPublic(a) {
 	return {
-		id: a.id, title: a.title, world: a.world, auctionAt: a.auctionAt, status: a.status,
+		id: a.id, title: a.title, type: a.type === "regular" ? "regular" : "dutch", world: a.world, auctionAt: a.auctionAt, status: a.status,
 		perPersonLimit: a.perPersonLimit, totalLimit: a.totalLimit, notes: a.notes || null,
 		cutPercent: a.cutPercent == null ? AUCTION_DEFAULT_CUT_PERCENT : a.cutPercent,
 		accepting: a.status === "open" && Date.parse(a.auctionAt) > Date.now(),
@@ -6777,14 +6780,17 @@ async function auctionEstimate(env, rare, world) {
 		value = value == null ? s : (value + s) / 2;
 		parts.push(`${sold.length} past auction sale${sold.length === 1 ? "" : "s"}`);
 	}
-	if (value == null) return { value: null, basis: null, suggestedStartDia: null, suggestedMinDia: null };
+	if (value == null) return { value: null, basis: null, suggestedStartDia: null, suggestedMinDia: null, suggestedRegularDia: null };
 
 	value = Math.round(value * 100) / 100;
 	let start = auctionRound(value * 1.5, true);
 	let min = auctionRound(value * 0.3, false);
 	if (start <= value) start = Math.floor(value) + 1;
 	if (min >= value && value > 1) min = Math.max(1, Math.ceil(value) - 1);
-	return { value, basis: parts.join(" and "), suggestedStartDia: start, suggestedMinDia: min };
+	// regular auction: one starting price that's also the minimum; a bit under
+	// the value so bidding gets going, while still a price worth selling at
+	const regular = auctionRound(value * 0.75, false);
+	return { value, basis: parts.join(" and "), suggestedStartDia: start, suggestedMinDia: min, suggestedRegularDia: regular };
 }
 
 async function handleGetCurrentAuction(request, env) {
@@ -6851,9 +6857,15 @@ async function handleAuctionSubmit(request, env) {
 		const rare = catalog.byId.get(String(it.rareId || ""));
 		if (!rare) return json({ error: "One of the items isn't a known rare." }, 400);
 		const startDia = Math.round(Number(it.startDia));
-		const minDia = Math.round(Number(it.minDia));
-		if (!(startDia > 0) || !(minDia > 0)) return json({ error: `Set a starting bid and lowest limit for ${rare.name}.` }, 400);
-		if (minDia >= startDia) return json({ error: `The starting bid for ${rare.name} must be higher than its lowest limit.` }, 400);
+		let minDia = Math.round(Number(it.minDia));
+		if (auction.type === "regular") {
+			// one price: where bidding starts, and the least it sells for
+			if (!(startDia > 0)) return json({ error: `Set a starting price for ${rare.name}.` }, 400);
+			minDia = startDia;
+		} else {
+			if (!(startDia > 0) || !(minDia > 0)) return json({ error: `Set a starting bid and lowest limit for ${rare.name}.` }, 400);
+			if (minDia >= startDia) return json({ error: `The starting bid for ${rare.name} must be higher than its lowest limit.` }, 400);
+		}
 		// SCTP's value is only advice for the player; it's stored so admins can see it next to the entry
 		if (!estimates.has(rare.id)) estimates.set(rare.id, await auctionEstimate(env, rare, auction.world));
 		const est = estimates.get(rare.id);
@@ -6887,7 +6899,7 @@ async function handleGetMyAuctionItems(request, env) {
 	// Your own entries, plus anything entered under your Minecraft name once that name is verified as yours.
 	const verifiedName = auth.admin.mcVerified && auth.admin.mcUsername ? auth.admin.mcUsername : "";
 	const { results } = await env.DB.prepare(
-		`SELECT i.*, a.title AS auctionTitle, a.auctionAt, a.world, a.status AS auctionStatus
+		`SELECT i.*, a.title AS auctionTitle, a.type AS auctionType, a.auctionAt, a.world, a.status AS auctionStatus
 		 FROM auctionItems i JOIN auctions a ON a.id = i.auctionId
 		 WHERE i.status != 'removed' AND (i.accountId = ? OR (? != '' AND lower(i.mcUsername) = lower(?)))
 		 ORDER BY a.auctionAt DESC, i.createdAt`
@@ -6913,6 +6925,7 @@ async function handleAdminSaveAuction(request, env) {
 	let body;
 	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
 	const title = String(body.title || "").trim().slice(0, 100);
+	const type = String(body.type || "dutch");
 	const world = String(body.world || "");
 	const at = new Date(body.auctionAt || "");
 	const status = String(body.status || "open");
@@ -6922,6 +6935,7 @@ async function handleAdminSaveAuction(request, env) {
 	const cutPercent = body.cutPercent == null || body.cutPercent === "" ? AUCTION_DEFAULT_CUT_PERCENT : Number(body.cutPercent);
 	if (!(cutPercent >= 0 && cutPercent <= 100)) return json({ error: "The cut must be between 0 and 100%." }, 400);
 	if (!title) return json({ error: "Give the auction a title." }, 400);
+	if (!AUCTION_TYPES.has(type)) return json({ error: "Type must be dutch or regular." }, 400);
 	if (!AUCTION_WORLDS.has(world)) return json({ error: "World must be Firefly or Honeybee." }, 400);
 	if (isNaN(at.getTime())) return json({ error: "Set the auction date and time." }, 400);
 	if (!AUCTION_STATUSES.has(status)) return json({ error: "Unknown status." }, 400);
@@ -6930,14 +6944,14 @@ async function handleAdminSaveAuction(request, env) {
 	if (body.id) {
 		const existing = await env.DB.prepare("SELECT id FROM auctions WHERE id = ?").bind(String(body.id)).first();
 		if (!existing) return json({ error: "Auction not found" }, 404);
-		await env.DB.prepare("UPDATE auctions SET title = ?, world = ?, auctionAt = ?, status = ?, perPersonLimit = ?, totalLimit = ?, cutPercent = ?, notes = ? WHERE id = ?")
-			.bind(title, world, at.toISOString(), status, perPersonLimit, totalLimit, cutPercent, notes, existing.id).run();
+		await env.DB.prepare("UPDATE auctions SET title = ?, type = ?, world = ?, auctionAt = ?, status = ?, perPersonLimit = ?, totalLimit = ?, cutPercent = ?, notes = ? WHERE id = ?")
+			.bind(title, type, world, at.toISOString(), status, perPersonLimit, totalLimit, cutPercent, notes, existing.id).run();
 		return json({ ok: true, id: existing.id });
 	}
 	const id = newId();
 	await env.DB.prepare(
-		"INSERT INTO auctions (id, title, world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-	).bind(id, title, world, at.toISOString(), status, perPersonLimit, totalLimit, cutPercent, notes, new Date().toISOString(), auth.admin.username).run();
+		"INSERT INTO auctions (id, title, type, world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	).bind(id, title, type, world, at.toISOString(), status, perPersonLimit, totalLimit, cutPercent, notes, new Date().toISOString(), auth.admin.username).run();
 	return json({ ok: true, id });
 }
 

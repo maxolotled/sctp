@@ -71,6 +71,7 @@
 	.value-line{font-size:13px;color:var(--shell);}
 	.value-line b{color:var(--gold);}
 	.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+	.price-grid.single{grid-template-columns:minmax(0,360px);}
 	@media (max-width:560px){.price-grid{grid-template-columns:1fr;}}
 	.money{display:flex;gap:6px;}
 	.money input{flex:1;min-width:0;}
@@ -118,6 +119,17 @@
 	.lineup .li{display:flex;align-items:center;gap:10px;background:var(--panel-alt);border:1px solid var(--line);border-radius:10px;padding:6px 10px;min-width:0;}
 	.lineup .li span{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 	.lineup .li .n{margin-left:auto;font-family:var(--font-mono);font-size:12.5px;color:var(--gold);font-weight:700;flex:0 0 auto;}
+
+	/* how it works: a regular auction's bids going up */
+	.bids{width:100%;max-width:240px;background:#0C140F;border:1px solid var(--line);border-radius:16px;padding:16px 16px 12px;}
+	.bids .lbl2{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+	.bids .now{font-family:var(--font-display);font-size:30px;font-weight:700;line-height:1.1;margin:2px 0 2px;transition:color .2s;}
+	.bids .item{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+	.bids .rows{display:flex;flex-direction:column;gap:4px;min-height:96px;}
+	.bids .row{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);font-family:var(--font-mono);}
+	.bids .row:first-child{color:var(--text);}
+	.bids .call{margin-top:8px;min-height:18px;font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--gold);text-transform:uppercase;}
+	.bids .call.sold{color:var(--accent);}
 
 	/* how it works: the Dutch clock */
 	.how{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:24px;align-items:center;}
@@ -170,8 +182,34 @@
 		<div class="lineup" id="lineup"></div>
 	</section>
 
+	<section class="card" id="howRegularCard" hidden>
+		<h2 id="howRegularTitle">How the auction works</h2>
+		<div class="how">
+			<div>
+				<p class="lead">A <b>regular auction</b>: bidding starts at your starting price and goes <b>up</b> while bidders outbid each other.</p>
+				<ol>
+					<li><div><b>Bidding opens at your starting price.</b> <span>That's also the least your item can sell for.</span></div></li>
+					<li><div><b>Bidders outbid each other, higher and higher.</b> <span>Every new bid has to beat the one before.</span></div></li>
+					<li><div><b>When the bidding stops, the highest bid wins.</b> <span>Going once, going twice… sold!</span></div></li>
+					<li><div><b>Nobody bids your starting price?</b> <span>Then it doesn't sell and you get it back.</span></div></li>
+				</ol>
+				<p class="hint" style="margin-top:14px;">When your item sells, you receive the sale price minus our cut. A starting price a little under the item's value gets the bidding going; just don't set it lower than you'd be happy to sell for.</p>
+			</div>
+			<div class="clock" aria-hidden="true">
+				<div class="bids">
+					<div class="lbl2">Highest bid</div>
+					<div class="now" id="bidNow">24 DB</div>
+					<div class="item">Flamingo Elytra</div>
+					<div class="rows" id="bidRows"></div>
+					<div class="call" id="bidCall"></div>
+				</div>
+				<p class="caption">Example: starting price 24 DB, sold to the highest bidder at 38 DB</p>
+			</div>
+		</div>
+	</section>
+
 	<section class="card" id="howCard">
-		<h2>How the auction works</h2>
+		<h2 id="howDutchTitle">How the auction works</h2>
 		<div class="how">
 			<div>
 				<p class="lead">We use the <b>Dutch clock</b>, the way flowers are sold at the big Dutch flower auctions: the price doesn't go <i>up</i> while people outbid each other, it starts high and keeps <b>dropping</b> until someone takes it.</p>
@@ -223,13 +261,13 @@
 					<img class="ico lg" id="edIcon" alt="">
 					<div><h3 id="edName"></h3><div class="value-line" id="edValue"></div></div>
 				</div>
-				<div class="price-grid">
+				<div class="price-grid" id="edGrid">
 					<div>
-						<label class="lbl" for="edStart">Starting bid</label>
+						<label class="lbl" for="edStart" id="edStartLabel">Starting bid</label>
 						<div class="money"><input type="number" id="edStart" min="0" step="any"><select id="edStartUnit"><option value="db">DB</option><option value="dia">dia</option></select></div>
 						<p class="hint" id="edStartHint"></p>
 					</div>
-					<div>
+					<div id="edMinWrap">
 						<label class="lbl" for="edMin">Lowest limit</label>
 						<div class="money"><input type="number" id="edMin" min="0" step="any"><select id="edMinUnit"><option value="db">DB</option><option value="dia">dia</option></select></div>
 						<p class="hint" id="edMinHint"></p>
@@ -331,7 +369,19 @@
 			.catch(function(){ $("lineupCard").hidden = true; });
 	}
 
+	function isRegular(){ return !!auction && auction.type === "regular"; }
+
+	// Which explainer to show: the one for this auction's type, or both when nothing's scheduled.
+	function renderHow(){
+		var regular = isRegular();
+		$("howCard").hidden = !!auction && regular;
+		$("howRegularCard").hidden = !!auction && !regular;
+		$("howDutchTitle").textContent = auction ? "How the auction works" : "How a Dutch clock auction works";
+		$("howRegularTitle").textContent = auction ? "How the auction works" : "How a regular auction works";
+	}
+
 	function renderHero(){
+		renderHow();
 		var st = $("heroStatus");
 		if(!auction){
 			$("heroWhen").textContent = "No auction scheduled";
@@ -340,6 +390,7 @@
 			$("heroFacts").innerHTML = "";
 			$("openEntry").hidden = true;
 			closeEntry();
+			renderHow();
 			return;
 		}
 		var at = new Date(auction.auctionAt);
@@ -351,6 +402,7 @@
 		var left = Math.max(0, auction.totalLimit - enteredTotal);
 		$("heroFacts").innerHTML =
 			'<span>Our cut: <b>' + esc(auction.cutPercent) + '%</b> of the sale, rounded up to the nearest diamond (at least <b>1 DB</b> for items that sell for over 32 DB, <b>3 dia</b> for others)</span>' +
+			'<span><b>' + (isRegular() ? "Regular auction" : "Dutch clock auction") + '</b>: ' + (isRegular() ? "bids go up from your starting price" : "the price drops until someone claims it") + '</span>' +
 			'<span>Up to <b>' + auction.perPersonLimit + '</b> item' + (auction.perPersonLimit === 1 ? "" : "s") + ' per person</span>' +
 			'<span><b>' + left + '</b> of ' + auction.totalLimit + ' spots left</span>';
 		$("openEntry").hidden = !auction.accepting;
@@ -443,6 +495,10 @@
 		$("edErr").hidden = true;
 		setMoney("edStart", "edStartUnit", null); setMoney("edMin", "edMinUnit", null);
 		$("edStartUnit").value = "db"; $("edMinUnit").value = "db";
+		// a regular auction takes one price: where bidding starts, and the least it sells for
+		$("edStartLabel").textContent = isRegular() ? "Starting price" : "Starting bid";
+		$("edMinWrap").hidden = isRegular();
+		$("edGrid").classList.toggle("single", isRegular());
 		updateHints();
 		fetch(API + "/auction/estimate?rareId=" + encodeURIComponent(rare.id) + "&world=" + encodeURIComponent(auction.world))
 			.then(function(r){ return r.json(); })
@@ -451,8 +507,11 @@
 				editing.estimate = est;
 				if(est.value != null){
 					$("edValue").innerHTML = 'SCTP value: <b>&asymp; ' + esc(fmtDia(est.value)) + '</b> <span style="color:var(--muted)">(' + esc(est.basis) + ')</span>';
-					setMoney("edStart", "edStartUnit", est.suggestedStartDia);
-					setMoney("edMin", "edMinUnit", est.suggestedMinDia);
+					if(isRegular()) setMoney("edStart", "edStartUnit", est.suggestedRegularDia);
+					else {
+						setMoney("edStart", "edStartUnit", est.suggestedStartDia);
+						setMoney("edMin", "edMinUnit", est.suggestedMinDia);
+					}
 				} else {
 					$("edValue").textContent = "SCTP has no price data for this rare yet, so set your own prices.";
 				}
@@ -466,6 +525,7 @@
 		return { start: toDia($("edStart").value, $("edStartUnit").value), min: toDia($("edMin").value, $("edMinUnit").value) };
 	}
 	function validate(v, est){
+		if(isRegular()) return v.start == null ? "Set a starting price." : null;
 		if(v.start == null) return "Set a starting bid.";
 		if(v.min == null) return "Set a lowest limit.";
 		if(v.min >= v.start) return "The starting bid must be higher than the lowest limit: the clock counts down from one to the other.";
@@ -481,6 +541,11 @@
 			if(!dia){ el.textContent = suggested ? "Suggested " + fmtDia(suggested) : emptyText; return; }
 			el.textContent = "= " + fmtDia(dia) + (warn ? " · " + warn : (suggested ? " · suggested " + fmtDia(suggested) : ""));
 		}
+		if(isRegular()){
+			hint("edStartHint", v.start, est && est.suggestedRegularDia, "Bidding starts here, and it won't sell for less",
+				value != null && v.start && v.start > value ? "above its value (≈ " + fmtDia(value) + "), so it may not get any bids" : null);
+			return;
+		}
 		hint("edStartHint", v.start, est && est.suggestedStartDia, "Where the clock starts",
 			value != null && v.start && v.start <= value ? "below its value (≈ " + fmtDia(value) + "), so the clock starts cheap" : null);
 		hint("edMinHint", v.min, est && est.suggestedMinDia, "Where the clock stops; it won't sell below this",
@@ -494,7 +559,7 @@
 		var problem = validate(v, editing.estimate);
 		if(!problem && list.length >= userLimitLeft()) problem = userLimitLeft() ? "You can enter " + userLimitLeft() + " item" + (userLimitLeft() === 1 ? "" : "s") + " in this auction." : "You've reached the item limit for this auction.";
 		if(problem){ $("edErr").textContent = problem; $("edErr").hidden = false; return; }
-		list.push({ rare: editing.rare, startDia: v.start, minDia: v.min, value: editing.estimate ? editing.estimate.value : null });
+		list.push({ rare: editing.rare, startDia: v.start, minDia: isRegular() ? v.start : v.min, value: editing.estimate ? editing.estimate.value : null });
 		editing = null;
 		$("editor").hidden = true;
 		renderList();
@@ -504,7 +569,7 @@
 	// ---------------- list ----------------
 	function itemRowHtml(it, removable, i){
 		return '<div class="item-row"><img class="ico" src="' + esc(it.texture || (it.rare && it.rare.texture) || "") + '" alt="">' +
-			'<div><div class="nm">' + esc(it.itemName || it.rare.name) + '</div><div class="px">start ' + esc(fmtDia(it.startDia)) + ' · lowest ' + esc(fmtDia(it.minDia)) + '</div></div>' +
+			'<div><div class="nm">' + esc(it.itemName || it.rare.name) + '</div><div class="px">' + (isRegular() ? "starting price " + esc(fmtDia(it.startDia)) : "start " + esc(fmtDia(it.startDia)) + " · lowest " + esc(fmtDia(it.minDia))) + '</div></div>' +
 			(removable ? '<button type="button" class="x" data-rm="' + i + '" title="Remove">&times;</button>' : '') + '</div>';
 	}
 	function renderList(){
@@ -589,6 +654,33 @@
 		(navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ $("copyName").textContent = "Copied!"; setTimeout(function(){ $("copyName").textContent = "Copy"; }, 1500); }).catch(function(){});
 	});
 	$("enterMore").addEventListener("click", function(){ $("doneCard").hidden = true; $("enterCard").hidden = false; $("entryModal").scrollTop = 0; renderHero(); });
+
+	// ---------------- the regular auction demo ----------------
+	// Bids climb from the starting price, then "going once, going twice, sold".
+	(function(){
+		var BIDS = [["Steve", 24], ["Alex", 27], ["Steve", 30], ["Sunny", 33], ["Alex", 36], ["Sunny", 38]];
+		var CALLS = ["Going once…", "Going twice…", "Sold to Sunny!"];
+		var now = document.getElementById("bidNow"), rows = document.getElementById("bidRows"), call = document.getElementById("bidCall");
+		function draw(n, c){
+			var shown = BIDS.slice(0, n).reverse().slice(0, 4);
+			now.textContent = (n ? BIDS[n - 1][1] : BIDS[0][1]) + " DB";
+			now.style.color = c === CALLS.length - 1 ? "var(--accent)" : "";
+			rows.innerHTML = shown.map(function(b){ return '<div class="row"><span>' + b[0] + '</span><span>' + b[1] + ' DB</span></div>'; }).join("");
+			call.textContent = c >= 0 ? CALLS[c] : (n ? "" : "Bidding opens…");
+			call.className = "call" + (c === CALLS.length - 1 ? " sold" : "");
+		}
+		var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		if(reduce){ draw(BIDS.length, CALLS.length - 1); return; }
+		var step = 0; // 0 = opening, 1..BIDS = bids, then the calls, then a pause
+		var total = 1 + BIDS.length + CALLS.length + 3;
+		draw(0, -1);
+		setInterval(function(){
+			step = (step + 1) % total;
+			if(step === 0) draw(0, -1);
+			else if(step <= BIDS.length) draw(step, -1);
+			else draw(BIDS.length, Math.min(step - BIDS.length - 1, CALLS.length - 1));
+		}, 900);
+	})();
 
 	// ---------------- the Dutch clock demo ----------------
 	// Ticks from the example starting bid down toward the lowest limit; a
