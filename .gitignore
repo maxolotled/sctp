@@ -26,3 +26,7 @@ dm-messages/
 
 # Pre-rendered SCTP 2.0 announcement pack (~34 MB) — regenerable, not needed by the site
 content-2.0/
+
+# Personal Word documents (and Word's ~$ lock files) — not part of the site
+*.docx
+~$*

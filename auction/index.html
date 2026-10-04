@@ -401,7 +401,7 @@
 		st.textContent = auction.accepting ? "Taking entries" : "Entries closed";
 		var left = Math.max(0, auction.totalLimit - enteredTotal);
 		$("heroFacts").innerHTML =
-			'<span>Our cut: <b>' + esc(auction.cutPercent) + '%</b> of the sale, rounded up to the nearest diamond (at least <b>1 DB</b> for items that sell for over 32 DB, <b>3 dia</b> for others)</span>' +
+			'<span>Our cut: <b>' + esc(auction.cutPercent) + '%</b> of the sale, rounded up to the nearest diamond</span>' +
 			'<span><b>' + (isRegular() ? "Regular auction" : "Dutch clock auction") + '</b>: ' + (isRegular() ? "bids go up from your starting price" : "the price drops until someone claims it") + '</span>' +
 			'<span>Up to <b>' + auction.perPersonLimit + '</b> item' + (auction.perPersonLimit === 1 ? "" : "s") + ' per person</span>' +
 			'<span><b>' + left + '</b> of ' + auction.totalLimit + ' spots left</span>';

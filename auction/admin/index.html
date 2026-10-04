@@ -129,8 +129,7 @@
 	}
 	// same rule as the Worker's auctionCut()
 	function cutFor(soldDia, pct){
-		var c = Math.max(Math.ceil(soldDia * pct / 100), soldDia > 32 * 9 ? 9 : 3);
-		return Math.min(soldDia, c);
+		return Math.min(soldDia, Math.ceil(soldDia * pct / 100));
 	}
 	function toLocalInput(iso){
 		var d = new Date(iso), p = function(n){ return String(n).padStart(2, "0"); };

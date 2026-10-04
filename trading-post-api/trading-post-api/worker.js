@@ -6712,11 +6712,9 @@ const AUCTION_TYPES = new Set(["dutch", "regular"]);
 const AUCTION_ITEM_STATUSES = new Set(["entered", "sold", "unsold", "removed"]);
 const MC_USERNAME = /^[.*]?[A-Za-z0-9_]{2,16}$/; // Bedrock (Geyser) players carry a "." prefix
 
-/** Our cut: the auction's percentage of the sale rounded up to a whole diamond; at least 1 DB on sales over 32 DB, at least 3 dia otherwise. */
+/** Our cut: the auction's percentage of the sale, rounded up to a whole diamond. */
 function auctionCut(soldDia, cutPercent) {
-	const pct = Math.ceil(soldDia * (cutPercent == null ? AUCTION_DEFAULT_CUT_PERCENT : cutPercent) / 100);
-	const floor = soldDia > 32 * 9 ? 9 : 3;
-	return Math.min(soldDia, Math.max(pct, floor));
+	return Math.min(soldDia, Math.ceil(soldDia * (cutPercent == null ? AUCTION_DEFAULT_CUT_PERCENT : cutPercent) / 100));
 }
 
 /** 351 -> "39 DB", 352 -> "39 DB 1 dia", 4 -> "4 dia"; estimates (not whole) -> "12.4 DB". */
