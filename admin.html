@@ -52,6 +52,7 @@
 	.badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;margin-left:6px;}
 	.badge.approved{background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
 	.badge.denied{background:rgba(226,125,107,0.16);color:var(--danger);}
+	.badge.banned{background:var(--danger);color:#2a0f0a;}
 	.badge.edited{background:rgba(140,147,232,0.18);color:var(--info);}
 	.badge.pending{background:rgba(226,163,61,0.18);color:var(--warn);}
 
@@ -208,6 +209,14 @@
 			<div class="err" id="blockSellerErr"></div>
 		</div>
 		<div id="blockedSellersList"></div>
+		</details>
+		</section>
+
+		<section data-perm="reports">
+		<details class="section-toggle">
+		<summary>Banned listings</summary>
+		<div class="card"><div class="meta">One item from one seller that never shows up again, on either world. Ban from the listings table (the <b>Ban</b> button next to <b>Rem.</b>) or from a report. Unban to let future scans show it again.</div></div>
+		<div id="bannedListingsList"></div>
 		</details>
 		</section>
 
@@ -528,6 +537,7 @@
 	var reports = [];
 	var requests = [];
 	var blockedSellers = [];
+	var bannedListings = [];
 	var admins = [];
 	var adminsSearched = false; // distinguishes "haven't searched yet" from "searched, found nothing"
 	var marketplaceListings = [];
@@ -608,6 +618,7 @@
 		if(hasPerm("manageMapart")) loadMotdAdmin();
 		if(hasPerm("sharedShopRequests")) requests = await api("/admin/shared-shop-requests");
 		if(hasPerm("blockedSellers")) blockedSellers = await api("/admin/blocked-sellers");
+		if(hasPerm("reports")) bannedListings = await api("/admin/listings/bans");
 		if(hasPerm("updateNotice")) updateNotice = await api("/admin/update-notice");
 		if(hasPerm("suggestions")) suggestions = await api("/admin/suggestions");
 		if(hasPerm("bugReports")) bugReports = await api("/admin/bug-reports");
@@ -623,6 +634,7 @@
 		renderReports();
 		renderRequests();
 		renderBlockedSellers();
+		renderBannedListings();
 		renderAdmins();
 		renderMarketplaceMod();
 		renderUpdateNotice();
@@ -1106,6 +1118,12 @@
 				resolveReport(b.getAttribute("data-id"), "approve");
 			});
 		});
+		document.querySelectorAll(".report-ban").forEach(function(b){
+			b.addEventListener("click", function(){
+				if(!confirm("Ban " + b.getAttribute("data-label") + "?\n\nIt's deleted now and never shows up again, on either world. You can undo it under \"Banned listings\".")) return;
+				resolveReport(b.getAttribute("data-id"), "ban");
+			});
+		});
 		document.querySelectorAll(".report-deny").forEach(function(b){
 			b.addEventListener("click", function(){ resolveReport(b.getAttribute("data-id"), "deny"); });
 		});
@@ -1163,6 +1181,7 @@
 		var body = r.status === "pending"
 			? '<div class="actions">'+
 				'<button class="approve report-approve" data-id="'+r.id+'" type="button">Approve (delete listing)</button>'+
+				'<button class="deny report-ban" data-id="'+r.id+'" data-label="'+esc((l.itemName||"this item")+' from '+(l.seller||"this seller"))+'" type="button" title="Delete it and never show this item from this seller again">Ban (never show again)</button>'+
 				'<button class="change report-change-toggle" data-id="'+r.id+'" type="button">Change one field</button>'+
 				'<button class="deny report-deny" data-id="'+r.id+'" type="button">Deny</button>'+
 			  '</div>'+
@@ -1246,6 +1265,29 @@
 		} catch(err){
 			alert("Failed: " + err.message);
 		}
+	}
+
+	// ---------------- banned listings ----------------
+
+	function renderBannedListings(){
+		var el = document.getElementById("bannedListingsList");
+		if(!el) return;
+		el.innerHTML = bannedListings.length
+			? bannedListings.map(function(b){
+				return '<div class="card"><div class="row"><div>'+
+					'<div class="title">'+esc(b.itemName)+' — '+esc(b.seller)+'</div>'+
+					'<div class="meta">banned '+esc(b.createdAt)+' by '+esc(b.createdBy)+(b.world ? ' &middot; from '+esc(b.world) : '')+(b.reason ? ' &middot; '+esc(b.reason) : '')+'</div>'+
+					'</div><button class="approve unban-listing" data-id="'+esc(b.id)+'" type="button">Unban</button></div></div>';
+			}).join("")
+			: '<div class="empty">No listings are banned.</div>';
+		el.querySelectorAll(".unban-listing").forEach(function(btn){
+			btn.addEventListener("click", async function(){
+				try {
+					await api("/admin/listings/unban", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id: btn.getAttribute("data-id") }) });
+					await refresh();
+				} catch(err){ alert("Failed: " + err.message); }
+			});
+		});
 	}
 
 	// ---------------- blocked sellers ----------------

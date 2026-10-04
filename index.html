@@ -528,6 +528,8 @@
 	.report-btn:hover{color:#E27D6B;border-color:#E27D6B;}
 	.report-btn.remove-btn{color:#E27D6B;border-color:#E27D6B;}
 	.report-btn.remove-btn:hover{background:#E27D6B;color:#2a0f0a;}
+	.report-btn.ban-btn{color:#2a0f0a;background:#E2643D;border-color:#E2643D;font-weight:700;}
+	.report-btn.ban-btn:hover{background:#F07A55;border-color:#F07A55;}
 	.report-btn:disabled{opacity:.5;cursor:default;}
 
 	.action-btns{display:flex;flex-direction:column;gap:5px;align-items:stretch;}
@@ -2140,7 +2142,8 @@
 				'<td><div class="action-btns">'+
 					(r.id ? '<button class="share-btn" type="button" data-row-idx="'+idx+'">Share</button>' : '')+
 					(r.mapartGallery ? '<button class="report-btn mapart-report-btn" type="button" data-row-idx="'+idx+'">'+(window.sctpMapartReport ? window.sctpMapartReport.label() : 'Report')+'</button>' : canRemoveListings()
-						? '<button class="report-btn remove-btn" type="button" data-row-idx="'+idx+'">Remove</button>'
+						? '<button class="report-btn remove-btn" type="button" data-row-idx="'+idx+'" title="Remove this listing (it comes back if it\'s scanned again)">Rem.</button>'+
+						  '<button class="report-btn ban-btn" type="button" data-ban-idx="'+idx+'" title="Ban this item from this seller: removed now and never shown again">Ban</button>'
 						: '<button class="report-btn" type="button" data-row-idx="'+idx+'">Report</button>')+
 					'</div></td>'+
 				'</tr>';
@@ -2161,7 +2164,7 @@
 			});
 		});
 
-		area.querySelectorAll(".report-btn").forEach(function(btn){
+		area.querySelectorAll(".report-btn:not(.ban-btn)").forEach(function(btn){
 			btn.addEventListener("click", function(){
 				var row = pageRows[Number(btn.getAttribute("data-row-idx"))];
 				if(row.mapartGallery){
@@ -2174,6 +2177,10 @@
 				else if(canRemoveListings()) removeListingDirect(row, btn);
 				else openReport(row);
 			});
+		});
+
+		area.querySelectorAll(".ban-btn").forEach(function(btn){
+			btn.addEventListener("click", function(){ banListingDirect(pageRows[Number(btn.getAttribute("data-ban-idx"))], btn); });
 		});
 
 		area.querySelectorAll(".share-btn").forEach(function(btn){
@@ -2425,6 +2432,29 @@
 			applyFilters(true);
 		} catch(err){
 			showToast("Couldn't remove: " + err.message);
+			btn.disabled = false;
+		}
+	}
+
+	// Ban = remove now + this item from this seller never shows up again (both worlds).
+	async function banListingDirect(row, btn){
+		if(!confirm('Ban "' + (row.itemNameDisplay || row.itemName) + '" from ' + row.seller + '?\n\nIt\'s removed now and never shows up again, on either world. You can undo this in the Admin Panel under "Banned listings".')) return;
+		btn.disabled = true;
+		var session = window.sctpAccount.getSession();
+		try {
+			var res = await fetch(API_BASE + "/admin/listings/ban", {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "Authorization": "Bearer " + session.token },
+				body: JSON.stringify({ rowKey: rowKey(row) }),
+			});
+			var data = await res.json();
+			if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+			var seller = String(row.seller).toLowerCase(), name = String(row.itemName).trim().toLowerCase();
+			allListings = allListings.filter(function(r){ return !(String(r.seller).toLowerCase() === seller && String(r.itemName).trim().toLowerCase() === name); });
+			showToast("Banned: " + data.deleted + " listing" + (data.deleted === 1 ? "" : "s") + " removed, and it won't show up again.");
+			applyFilters(true);
+		} catch(err){
+			showToast("Couldn't ban: " + err.message);
 			btn.disabled = false;
 		}
 	}

@@ -136,6 +136,8 @@
 //   GET  /admin/reports
 //   POST /admin/reports/resolve              body: {id, action: "approve"|"deny"|"edit", field?, value?}
 //   POST /admin/listings/remove              body: {rowKey} -> instant delete, no report record (website's Remove button)
+//   POST /admin/listings/ban                 body: {rowKey, reason?} -> ban this item from this seller for good (both worlds) + delete it; reports can do the same via action "ban"
+//   GET  /admin/listings/bans, POST /admin/listings/unban {id}   ("reports") — see bannedListings (migration 0045)
 // Permission bucket "sharedShopRequests":
 //   GET  /admin/shared-shop-requests
 //   POST /admin/shared-shop-requests/resolve body: {id, action: "approve"|"deny"}
@@ -540,6 +542,29 @@ async function getBlockedSellerSet(env, sellers) {
 		for (const row of res.results) blocked.add(row.usernameKey);
 	}
 	return blocked;
+}
+
+// Banned listings (migration 0045): one item from one seller, matched on
+// seller + item name (case-insensitive), both worlds, every bulk/bundled
+// variant. Returns a Set of "seller\u0000itemName" keys (lowercased) for the
+// sellers given, so an upload batch costs one query per 50 sellers.
+async function getBannedListingSet(env, sellers) {
+	const keys = [...new Set(sellers.map((s) => String(s || "").toLowerCase()))].filter(Boolean);
+	const banned = new Set();
+	for (const chunk of chunkArray(keys, MAX_QUERY_PARAMS_PER_CHUNK)) {
+		const placeholders = chunk.map(() => "?").join(",");
+		const res = await env.DB.prepare(`SELECT sellerKey, itemNameKey FROM bannedListings WHERE sellerKey IN (${placeholders})`).bind(...chunk).all();
+		for (const row of res.results) banned.add(row.sellerKey + "\u0000" + row.itemNameKey);
+	}
+	return banned;
+}
+function bannedListingKey(seller, itemName) {
+	return String(seller || "").toLowerCase() + "\u0000" + String(itemName || "").trim().toLowerCase();
+}
+/** For manual listings: the first of these item names that's banned for this seller, or null. */
+async function firstBannedItem(env, seller, itemNames) {
+	const banned = await getBannedListingSet(env, [seller]);
+	return itemNames.find((n) => banned.has(bannedListingKey(seller, n))) || null;
 }
 
 // Rare-item catalog name set, fetched from the live site (the Worker has no
@@ -1183,7 +1208,11 @@ async function handleUploadListings(request, env) {
 			if (blockedSet.has(String(r.seller).toLowerCase())) { skipped++; continue; }
 			acceptedRows.push(r);
 		}
-		const validRows = (await englishItemNames(env, acceptedRows)).map((row) => ({ ...row, _key: rowKey(row) }));
+		const translated = await englishItemNames(env, acceptedRows);
+		const bannedSet = await getBannedListingSet(env, translated.map((r) => r.seller));
+		const validRows = translated
+			.filter((row) => { if (bannedSet.has(bannedListingKey(row.seller, row.itemName))) { skipped++; return false; } return true; })
+			.map((row) => ({ ...row, _key: rowKey(row) }));
 
 		const stmts = [];
 
@@ -2235,7 +2264,7 @@ async function handleResolveReport(request, env) {
 	const id = String(body.id || "");
 	const action = String(body.action || "");
 	if (!id) return json({ error: "id is required" }, 400);
-	if (!["approve", "deny", "edit"].includes(action)) return json({ error: "Invalid action" }, 400);
+	if (!["approve", "deny", "edit", "ban"].includes(action)) return json({ error: "Invalid action" }, 400);
 
 	let reportRow;
 	try {
@@ -2252,7 +2281,23 @@ async function handleResolveReport(request, env) {
 		if (!okField) return json({ error: "Invalid or missing field for edit" }, 400);
 	}
 	if (reportRow.status !== "pending") return json({ error: "That report was already resolved." }, 409);
+	if (isMapart && action === "ban") return json({ error: "Mapart reports can't be banned this way" }, 400);
 	if (isMapart) return resolveMapartReport(env, reportRow, action, body, auth.admin);
+
+	// "ban": approve + never show this item from this seller again (both worlds)
+	if (action === "ban") {
+		let listing = null;
+		try { listing = reportRow.listingJson ? JSON.parse(reportRow.listingJson) : null; } catch (e) { /* fall back to the key */ }
+		// rowKey is world|seller|baseItem|itemName|bulk|bundled (lowercased)
+		const parts = String(reportRow.listingKey).split("|");
+		const seller = (listing && listing.seller) || parts[1];
+		const itemName = (listing && listing.itemName) || parts[3];
+		const world = (listing && listing.world) || parts[0];
+		const result = await banListing(env, { seller, itemName, world, reason: `report: ${reportRow.reason}`, by: auth.admin.username });
+		if (result.error) return json({ error: result.error }, 400);
+		await env.DB.prepare("UPDATE reports SET status = 'banned', resolvedAt = ? WHERE id = ?").bind(new Date().toISOString(), id).run();
+		return json({ ok: true, listingChanged: result.deleted > 0, deleted: result.deleted });
+	}
 
 	const newStatus = action === "edit" ? "edited" : action === "approve" ? "approved" : "denied";
 	const resolvedAt = new Date().toISOString();
@@ -2282,6 +2327,55 @@ async function handleResolveReport(request, env) {
 // has the "reports" permission (see index.html's renderTable), skipping the
 // modal/reason/confirmation entirely for someone already trusted to resolve
 // reports the normal way.
+// Bans one item from one seller for good (see getBannedListingSet) and
+// deletes every current listing of it, on both worlds. Used by the "Ban"
+// button next to "Rem." on the listings table, and by reports ("ban" action).
+async function banListing(env, { seller, itemName, world, reason, by }) {
+	const sellerKey = String(seller || "").toLowerCase();
+	const itemNameKey = String(itemName || "").trim().toLowerCase();
+	if (!sellerKey || !itemNameKey) return { error: "Seller and item name are required" };
+	await env.DB.prepare(
+		`INSERT INTO bannedListings (id, sellerKey, itemNameKey, seller, itemName, world, reason, createdAt, createdBy)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(sellerKey, itemNameKey) DO NOTHING`
+	).bind(newId(), sellerKey, itemNameKey, String(seller), String(itemName).trim(), world || null, reason || null, new Date().toISOString(), by).run();
+	const res = await env.DB.prepare("DELETE FROM listings WHERE lower(seller) = ? AND lower(trim(itemName)) = ?").bind(sellerKey, itemNameKey).run();
+	return { ok: true, deleted: res.meta.changes };
+}
+
+// POST /admin/listings/ban {rowKey, reason?} ("reports")
+async function handleAdminBanListing(request, env) {
+	const auth = await requireAdminAuth(request, env, "reports");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const rowKey = String(body.rowKey || "");
+	if (!rowKey) return json({ error: "rowKey is required" }, 400);
+	const row = await env.DB.prepare("SELECT seller, itemName, world FROM listings WHERE rowKey = ?").bind(rowKey).first();
+	if (!row) return json({ error: "Listing not found (it may already be gone)" }, 404);
+	const result = await banListing(env, { ...row, reason: body.reason ? String(body.reason).trim().slice(0, 200) : null, by: auth.admin.username });
+	if (result.error) return json({ error: result.error }, 400);
+	return json({ ...result, seller: row.seller, itemName: row.itemName });
+}
+
+// GET /admin/listings/bans ("reports")
+async function handleAdminListBannedListings(request, env) {
+	const auth = await requireAdminAuth(request, env, "reports");
+	if (!auth.ok) return auth.response;
+	const { results } = await env.DB.prepare("SELECT * FROM bannedListings ORDER BY createdAt DESC").all();
+	return json(results);
+}
+
+// POST /admin/listings/unban {id} ("reports") — future scans can show it again
+async function handleAdminUnbanListing(request, env) {
+	const auth = await requireAdminAuth(request, env, "reports");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const res = await env.DB.prepare("DELETE FROM bannedListings WHERE id = ?").bind(String(body.id || "")).run();
+	if (res.meta.changes === 0) return json({ error: "Ban not found" }, 404);
+	return json({ ok: true });
+}
+
 async function handleAdminRemoveListingDirect(request, env) {
 	const auth = await requireAdminAuth(request, env, "reports");
 	if (!auth.ok) return auth.response;
@@ -2902,6 +2996,9 @@ async function handleAdminAddManualListings(request, env) {
 		if (r.error) return json({ error: r.error }, 400);
 		parsed.push(r.entry);
 	}
+
+	const bannedName = await firstBannedItem(env, seller, parsed.map((e) => e.itemName));
+	if (bannedName) return json({ error: `"${bannedName}" from ${seller} is banned from the site.` }, 400);
 
 	try {
 		const ids = await nextManualIds(env, parsed.length);
@@ -4439,6 +4536,9 @@ async function handleStoreAddListings(request, env) {
 		parsed.push({ ...r.entry, rowKey: k });
 	}
 
+	const bannedName = await firstBannedItem(env, target, parsed.map((e) => e.itemName));
+	if (bannedName) return json({ error: `"${bannedName}" can't be listed: it's banned from the site.` }, 400);
+
 	const count = await env.DB.prepare(`SELECT COUNT(*) AS c FROM listings WHERE lastSeen LIKE 'M%' AND ${STORE_OWNER_SQL}`).bind(target.toLowerCase()).first();
 	if (count.c + parsed.length > MAX_STORE_MANUAL_LISTINGS) {
 		return json({ error: `${target} can have at most ${MAX_STORE_MANUAL_LISTINGS} manual listings (it has ${count.c}).` }, 400);
@@ -4479,6 +4579,7 @@ async function handleStoreUpdateListing(request, env) {
 	const r = parseManualListingEntry(merged);
 	if (r.error) return json({ error: r.error }, 400);
 	const e = r.entry;
+	if (await firstBannedItem(env, row.seller, [e.itemName])) return json({ error: `"${e.itemName}" can't be listed: it's banned from the site.` }, 400);
 	const newKey = manualListingRowKey(row.world, row.seller, e.itemName);
 	if (newKey !== row.rowKey) {
 		const clash = await env.DB.prepare("SELECT 1 AS x FROM listings WHERE rowKey = ?").bind(newKey).first();
@@ -7036,6 +7137,9 @@ const ROUTES = [
 	["GET", "/admin/shared-shop-requests", handleListSharedShopRequests],
 	["POST", "/admin/reports/resolve", handleResolveReport],
 	["POST", "/admin/listings/remove", handleAdminRemoveListingDirect],
+	["POST", "/admin/listings/ban", handleAdminBanListing],
+	["GET", "/admin/listings/bans", handleAdminListBannedListings],
+	["POST", "/admin/listings/unban", handleAdminUnbanListing],
 	["POST", "/admin/shared-shop-requests/resolve", handleResolveSharedShopRequest],
 	["GET", "/admin/faq", handleListFaq],
 	["POST", "/admin/faq/add", handleAddFaq],
