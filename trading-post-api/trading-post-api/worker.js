@@ -1458,8 +1458,6 @@ async function handleCreateMarketplaceListing(request, env) {
 	const quantity = Math.max(1, parseInt(body.quantity, 10) || 1);
 	const baseItem = body.baseItem ? String(body.baseItem).trim() : null;
 	const notes = body.notes ? String(body.notes).trim().slice(0, 500) : null;
-	const hostName = String(body.hostName || "").trim() || null;
-	if (hostName && !MC_USERNAME.test(hostName)) return json({ error: "The host's name doesn't look like a Minecraft username." }, 400);
 
 	const id = newId();
 	const now = new Date();
@@ -6936,6 +6934,8 @@ async function handleAdminSaveAuction(request, env) {
 	const notes = body.notes ? String(body.notes).trim().slice(0, 500) : null;
 	const cutPercent = body.cutPercent == null || body.cutPercent === "" ? AUCTION_DEFAULT_CUT_PERCENT : Number(body.cutPercent);
 	if (!(cutPercent >= 0 && cutPercent <= 100)) return json({ error: "The cut must be between 0 and 100%." }, 400);
+	const hostName = String(body.hostName || "").trim() || null;
+	if (hostName && !MC_USERNAME.test(hostName)) return json({ error: "The host's name doesn't look like a Minecraft username." }, 400);
 	if (!title) return json({ error: "Give the auction a title." }, 400);
 	if (!AUCTION_TYPES.has(type)) return json({ error: "Type must be dutch or regular." }, 400);
 	if (!AUCTION_WORLDS.has(world)) return json({ error: "World must be Firefly or Honeybee." }, 400);
