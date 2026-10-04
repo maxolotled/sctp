@@ -636,6 +636,25 @@
 	   button, so this is our own, styled like the store badges people know:
 	   near-black with CurseForge's orange mark (Simple Icons path, brand colour
 	   #F16436). Fixed colours on purpose, so it looks the same in every theme. */
+	/* Download popup: the launcher stores come first and biggest (Modrinth,
+	   then CurseForge), the site's own file download comes after, smaller. */
+	.store-stack{display:flex;flex-direction:column;gap:10px;margin:0 0 4px;}
+	.store-stack .cf-btn{margin:0;justify-content:flex-start;}
+	.cf-btn.store-lg{padding:16px 20px;gap:16px;border-color:#00BA63;background:linear-gradient(135deg, rgba(0,186,99,0.16), rgba(0,186,99,0.04)), #141414;box-shadow:0 8px 24px rgba(0,186,99,0.18);}
+	.cf-btn.store-lg svg{width:44px;height:44px;}
+	.cf-btn.store-lg .cf-btn-text small{font-size:11px;}
+	.cf-btn.store-lg .cf-btn-text b{font-size:24px;}
+	.cf-btn.store-md{padding:12px 18px;gap:14px;}
+	.cf-btn.store-md svg{width:34px;height:34px;}
+	.cf-btn.store-md .cf-btn-text b{font-size:19px;}
+	.store-note{margin-left:auto;font-size:11.5px;font-weight:600;color:#9BE7BF;text-align:right;line-height:1.3;}
+	.store-note.cf{color:#C9C9C9;}
+	@media (max-width:420px){.store-note{display:none;}}
+	.dl-step-label.rec{color:#1BD96A;margin-top:0;}
+	.download-option-cta.small{flex-direction:row;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 10px;padding:7px 12px;margin:10px 0 0;border-color:var(--line);}
+	.download-option-cta.small:hover{border-color:var(--accent-dim);}
+	.download-option-cta.small strong{font-size:13px;}
+	.download-option-cta.small span{font-size:11px;}
 	.dl-or{display:flex;align-items:center;gap:10px;margin:10px 0;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;}
 	.dl-or::before,.dl-or::after{content:"";flex:1;height:1px;background:var(--line);}
 	.cf-btn{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;padding:9px 16px;background:#141414;border:1px solid #3A3A3A;border-radius:10px;color:#FFFFFF;text-decoration:none;font-family:inherit;transition:border-color .15s ease, transform .12s ease;}
@@ -903,10 +922,26 @@
 <div class="modal-backdrop" id="downloadBackdrop">
 	<div class="modal modal-download">
 		<h2>Download Shop Logger</h2>
-		<p>Pick your mod loader and Minecraft version.</p>
+		<p>Get it from Modrinth or CurseForge and it keeps itself up to date, or download the file yourself.</p>
 
 		<div class="dl-grid">
 		<div class="dl-main">
+		<div class="dl-step-label rec">Recommended</div>
+		<div class="store-stack">
+			<a class="cf-btn mr-btn store-lg" href="https://modrinth.com/mod/sc-shoplogger" target="_blank" rel="noopener">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.252.004a11.78 11.768 0 0 0-8.92 3.73 11 10.999 0 0 0-2.17 3.11 11.37 11.359 0 0 0-1.16 5.169c0 1.42.17 2.5.6 3.77.24.759.77 1.899 1.17 2.529a12.3 12.298 0 0 0 8.85 5.639c.44.05 2.54.07 2.76.02.2-.04.22.1-.26-1.7l-.36-1.37-1.01-.06a8.5 8.489 0 0 1-5.18-1.8 5.34 5.34 0 0 1-1.3-1.26c0-.05.34-.28.74-.5a37.572 37.545 0 0 1 2.88-1.629c.03 0 .5.45 1.06.98l1 .97 2.07-.43 2.06-.43 1.47-1.47c.8-.8 1.48-1.5 1.48-1.52 0-.09-.42-1.63-.46-1.7-.04-.06-.2-.03-1.02.18-.53.13-1.2.3-1.45.4l-.48.15-.53.53-.53.53-.93.1-.93.07-.52-.5a2.7 2.7 0 0 1-.96-1.7l-.13-.6.43-.57c.68-.9.68-.9 1.46-1.1.4-.1.65-.2.83-.33.13-.099.65-.579 1.14-1.069l.9-.9-.7-.7-.7-.7-1.95.54c-1.07.3-1.96.53-1.97.53-.03 0-2.23 2.48-2.63 2.97l-.29.35.28 1.03c.16.56.3 1.16.31 1.34l.03.3-.34.23c-.37.23-2.22 1.3-2.84 1.63-.36.2-.37.2-.44.1-.08-.1-.23-.6-.32-1.03-.18-.86-.17-2.75.02-3.73a8.84 8.839 0 0 1 7.9-6.93c.43-.03.77-.08.78-.1.06-.17.5-2.999.47-3.039-.01-.02-.1-.02-.2-.03Zm3.68.67c-.2 0-.3.1-.37.38-.06.23-.46 2.42-.46 2.52 0 .04.1.11.22.16a8.51 8.499 0 0 1 2.99 2 8.38 8.379 0 0 1 2.16 3.449 6.9 6.9 0 0 1 .4 2.8c0 1.07 0 1.27-.1 1.73a9.37 9.369 0 0 1-1.76 3.769c-.32.4-.98 1.06-1.37 1.38-.38.32-1.54 1.1-1.7 1.14-.1.03-.1.06-.07.26.03.18.64 2.56.7 2.78l.06.06a12.07 12.058 0 0 0 7.27-9.4c.13-.77.13-2.58 0-3.4a11.96 11.948 0 0 0-5.73-8.578c-.7-.42-2.05-1.06-2.25-1.06Z"/></svg>
+				<span class="cf-btn-text"><small>Get it on</small><b>Modrinth</b></span>
+				<span class="store-note">Updates<br>automatically</span>
+			</a>
+			<a class="cf-btn store-md" href="https://www.curseforge.com/minecraft/mc-mods/sctp" target="_blank" rel="noopener">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>
+				<span class="cf-btn-text"><small>Available on</small><b>CurseForge</b></span>
+				<span class="store-note cf">Works with the<br>CurseForge app</span>
+			</a>
+		</div>
+
+		<div class="dl-or">or download the file yourself</div>
+
 		<div class="dl-step-label">1. Mod loader</div>
 		<div class="segmented" id="dlLoaderSeg">
 			<button type="button" data-v="fabric" class="active">Fabric</button>
@@ -924,21 +959,10 @@
 			<a href="https://modrinth.com/mod/fabric-api" target="_blank" rel="noopener">Get Fabric API on Modrinth &rarr;</a>
 		</div>
 
-		<a class="download-option download-option-cta has-alt" id="dlDownloadBtn" href="#" download>
+		<a class="download-option download-option-cta small" id="dlDownloadBtn" href="#" download>
 			<strong id="dlDownloadLabel">Download</strong>
 			<span id="dlDownloadFile"></span>
 		</a>
-		<div class="dl-or">or</div>
-		<div class="store-row">
-			<a class="cf-btn" href="https://www.curseforge.com/minecraft/mc-mods/sctp" target="_blank" rel="noopener">
-				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>
-				<span class="cf-btn-text"><small>Available on</small><b>CurseForge</b></span>
-			</a>
-			<a class="cf-btn mr-btn" href="https://modrinth.com/mod/sc-shoplogger" target="_blank" rel="noopener">
-				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.252.004a11.78 11.768 0 0 0-8.92 3.73 11 10.999 0 0 0-2.17 3.11 11.37 11.359 0 0 0-1.16 5.169c0 1.42.17 2.5.6 3.77.24.759.77 1.899 1.17 2.529a12.3 12.298 0 0 0 8.85 5.639c.44.05 2.54.07 2.76.02.2-.04.22.1-.26-1.7l-.36-1.37-1.01-.06a8.5 8.489 0 0 1-5.18-1.8 5.34 5.34 0 0 1-1.3-1.26c0-.05.34-.28.74-.5a37.572 37.545 0 0 1 2.88-1.629c.03 0 .5.45 1.06.98l1 .97 2.07-.43 2.06-.43 1.47-1.47c.8-.8 1.48-1.5 1.48-1.52 0-.09-.42-1.63-.46-1.7-.04-.06-.2-.03-1.02.18-.53.13-1.2.3-1.45.4l-.48.15-.53.53-.53.53-.93.1-.93.07-.52-.5a2.7 2.7 0 0 1-.96-1.7l-.13-.6.43-.57c.68-.9.68-.9 1.46-1.1.4-.1.65-.2.83-.33.13-.099.65-.579 1.14-1.069l.9-.9-.7-.7-.7-.7-1.95.54c-1.07.3-1.96.53-1.97.53-.03 0-2.23 2.48-2.63 2.97l-.29.35.28 1.03c.16.56.3 1.16.31 1.34l.03.3-.34.23c-.37.23-2.22 1.3-2.84 1.63-.36.2-.37.2-.44.1-.08-.1-.23-.6-.32-1.03-.18-.86-.17-2.75.02-3.73a8.84 8.839 0 0 1 7.9-6.93c.43-.03.77-.08.78-.1.06-.17.5-2.999.47-3.039-.01-.02-.1-.02-.2-.03Zm3.68.67c-.2 0-.3.1-.37.38-.06.23-.46 2.42-.46 2.52 0 .04.1.11.22.16a8.51 8.499 0 0 1 2.99 2 8.38 8.379 0 0 1 2.16 3.449 6.9 6.9 0 0 1 .4 2.8c0 1.07 0 1.27-.1 1.73a9.37 9.369 0 0 1-1.76 3.769c-.32.4-.98 1.06-1.37 1.38-.38.32-1.54 1.1-1.7 1.14-.1.03-.1.06-.07.26.03.18.64 2.56.7 2.78l.06.06a12.07 12.058 0 0 0 7.27-9.4c.13-.77.13-2.58 0-3.4a11.96 11.948 0 0 0-5.73-8.578c-.7-.42-2.05-1.06-2.25-1.06Z"/></svg>
-				<span class="cf-btn-text"><small>Available on</small><b>Modrinth</b></span>
-			</a>
-		</div>
 		</div>
 
 		<div class="dl-side">
@@ -2613,6 +2637,8 @@
 
 	// ---------------- wiring ----------------
 	document.getElementById("downloadMod").addEventListener("click", openDownload);
+	// sctp.nl/#download opens the download popup straight away (handy for links in announcements)
+	if(location.hash === "#download") openDownload();
 
 	// "Now on Modrinth" announcement: "Download here" opens the same download popup; × hides it for good in this browser
 	(function(){
