@@ -396,7 +396,7 @@
 		var at = new Date(auction.auctionAt);
 		$("heroWhen").textContent = at.toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 		var utc = at.toLocaleString(undefined, { timeZone: "UTC", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " UTC";
-		$("heroSub").textContent = auction.title + " · " + auction.world + " · shown in your time (" + utc + ")" + (auction.notes ? " · " + auction.notes : "");
+		$("heroSub").textContent = auction.title + (auction.hostName ? " · hosted by " + auction.hostName : "") + " · " + auction.world + " · shown in your time (" + utc + ")" + (auction.notes ? " · " + auction.notes : "");
 		st.className = "status " + (auction.accepting ? "open" : "closed");
 		st.textContent = auction.accepting ? "Taking entries" : "Entries closed";
 		var left = Math.max(0, auction.totalLimit - enteredTotal);

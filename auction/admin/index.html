@@ -187,6 +187,7 @@
 		return '<section class="card"><h2>' + (a ? "Auction settings" : "New auction") + '</h2><div class="form">' +
 			'<div class="wide"><label class="lbl" for="fTitle">Title</label><input type="text" id="fTitle" maxlength="100" value="' + esc(a ? a.title : "") + '" placeholder="e.g. Spooky Rares Auction"></div>' +
 			'<div><label class="lbl" for="fType">Type</label><select id="fType"><option value="dutch">Dutch clock (price drops)</option><option value="regular">Regular (bids go up)</option></select></div>' +
+			'<div><label class="lbl" for="fHost">Host (Minecraft name)</label><input type="text" id="fHost" maxlength="17" value="' + esc(a && a.hostName ? a.hostName : "") + '" placeholder="optional" spellcheck="false"></div>' +
 			'<div><label class="lbl" for="fWorld">World</label><select id="fWorld"><option>Firefly</option><option>Honeybee</option></select></div>' +
 			'<div><label class="lbl" for="fAt">Date &amp; time (your time)</label><input type="datetime-local" id="fAt" value="' + esc(toLocalInput(a ? a.auctionAt : next.toISOString())) + '"></div>' +
 			'<div><label class="lbl" for="fStatus">Status</label><select id="fStatus"><option value="open">Open: taking entries</option><option value="closed">Closed: no new entries</option><option value="finished">Finished</option></select></div>' +
@@ -202,7 +203,7 @@
 		$("fSave").onclick = function(){
 			var at = new Date($("fAt").value);
 			api("/admin/auctions/save", { method: "POST", body: {
-				id: a ? a.id : undefined, title: $("fTitle").value, type: $("fType").value, world: $("fWorld").value,
+				id: a ? a.id : undefined, title: $("fTitle").value, type: $("fType").value, hostName: $("fHost").value, world: $("fWorld").value,
 				auctionAt: isNaN(at.getTime()) ? "" : at.toISOString(), status: $("fStatus").value,
 				perPersonLimit: $("fPer").value, totalLimit: $("fTotal").value, cutPercent: $("fCut").value, notes: $("fNotes").value
 			} }).then(function(res){
