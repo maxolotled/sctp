@@ -6796,7 +6796,7 @@ async function handleSubmitForm(request, env) {
 // at /pw auction. All prices are whole diamonds (1 DB = 9). See migration 0041.
 //   GET  /auction/current?mcUsername=       (public) the auction taking entries, else the next upcoming one, + entry counts
 //   GET  /auction/estimate?rareId=&world=   (public, cached 10 min) SCTP's value for a rare + suggested starting bid / lowest limit
-//   POST /auction/submit                    (public, login optional) {auctionId, mcUsername, items: [{rareId, startDia, minDia}]} — start must be above min; SCTP's value is advice only
+//   POST /auction/submit                    (public, login optional) {auctionId, mcUsername, items: [{rareId, startDia, minDia, hostPicks?}]} — start must be above min (hostPicks: true leaves the price to the host); SCTP's value is advice only
 //   GET  /auction/lineup?auctionId=         (public, cached 1 min) what's entered so far: item + count, no prices or sellers
 //   GET  /auction/mine                      (any account) your entries across every auction
 //   GET  /admin/auctions                    ("auctions") every auction, with entry counts
@@ -6964,9 +6964,14 @@ async function saveAuctionItems(env, auction, mcUsername, accountId, items) {
 	for (const it of items) {
 		const rare = catalog.byId.get(String(it.rareId || ""));
 		if (!rare) return { error: "One of the items isn't a known rare." };
-		const startDia = Math.round(Number(it.startDia));
+		let startDia = Math.round(Number(it.startDia));
 		let minDia = Math.round(Number(it.minDia));
-		if (auction.type === "regular") {
+		const hostPicks = it.hostPicks === true;
+		if (hostPicks) {
+			// "let the host pick": the host decides the price(s) on the day
+			startDia = 0;
+			minDia = 0;
+		} else if (auction.type === "regular") {
 			// one price: where bidding starts, and the least it sells for
 			if (!(startDia > 0)) return { error: `Set a starting price for ${rare.name}.` };
 			minDia = startDia;
@@ -6979,10 +6984,10 @@ async function saveAuctionItems(env, auction, mcUsername, accountId, items) {
 		const est = estimates.get(rare.id);
 		const id = newId();
 		stmts.push(env.DB.prepare(
-			`INSERT INTO auctionItems (id, auctionId, batchId, mcUsername, accountId, rareId, itemName, texture, estimateDia, startDia, minDia, status, createdAt, updatedAt)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'entered', ?, ?)`
-		).bind(id, auction.id, batchId, mcUsername, accountId, rare.id, rare.name, rare.texture || null, est.value, startDia, minDia, now, now));
-		saved.push({ id, rareId: rare.id, itemName: rare.name, texture: rare.texture || null, startDia, minDia });
+			`INSERT INTO auctionItems (id, auctionId, batchId, mcUsername, accountId, rareId, itemName, texture, estimateDia, startDia, minDia, hostPicks, status, createdAt, updatedAt)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'entered', ?, ?)`
+		).bind(id, auction.id, batchId, mcUsername, accountId, rare.id, rare.name, rare.texture || null, est.value, startDia, minDia, hostPicks ? 1 : 0, now, now));
+		saved.push({ id, rareId: rare.id, itemName: rare.name, texture: rare.texture || null, startDia, minDia, hostPicks: hostPicks ? 1 : 0 });
 	}
 	await env.DB.batch(stmts);
 	return { batchId, saved };

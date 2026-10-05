@@ -425,7 +425,7 @@
 	// a row in the "hand in these items" list after submitting
 	function itemRowHtml(it){
 		return '<div class="item-row"><img class="ico" src="' + esc(it.texture || "") + '" alt="">' +
-			'<div><div class="nm">' + esc(it.itemName) + '</div><div class="px">' + (isRegular() ? "starting price " + esc(fmtDia(it.startDia)) : "start " + esc(fmtDia(it.startDia)) + " · lowest " + esc(fmtDia(it.minDia))) + '</div></div></div>';
+			'<div><div class="nm">' + esc(it.itemName) + '</div><div class="px">' + (it.hostPicks ? "the host picks the price" : isRegular() ? "starting price " + esc(fmtDia(it.startDia)) : "start " + esc(fmtDia(it.startDia)) + " · lowest " + esc(fmtDia(it.minDia))) + '</div></div></div>';
 	}
 	function renderList(){
 		if(!auction) return;

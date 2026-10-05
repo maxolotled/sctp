@@ -10,7 +10,8 @@
 //     onChange: function(){ … }                    // rows added/removed/edited
 //   });
 //   entry.count()      -> number of rows
-//   entry.validate()   -> {error} or {items: [{rareId, startDia, minDia}]}, and marks bad rows
+//   entry.validate()   -> {error} or {items: [{rareId, startDia, minDia, hostPicks}]}, and marks bad rows
+//                         (hostPicks rows: "let the host pick" is ticked, no prices sent)
 //   entry.clear(), entry.focus()
 (function(){
 	"use strict";
@@ -39,6 +40,10 @@
 		".ae-note{font-size:11.5px;margin-top:3px;max-width:190px;}" +
 		".ae-note.warn{color:var(--warn);}" +
 		".ae-note.bad{color:var(--bad);font-weight:600;}" +
+		".ae-host{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:5px;cursor:pointer;user-select:none;white-space:nowrap;}" +
+		".ae-host input{width:auto;margin:0;accent-color:var(--accent);cursor:pointer;}" +
+		".ae-host.on{color:var(--accent);}" +
+		".ae-hostnote{font-size:12px;color:var(--muted);padding-top:8px;max-width:190px;}" +
 		".ae-x{background:transparent;border:none;color:var(--muted);font-size:19px;cursor:pointer;padding:4px 6px;line-height:1;}" +
 		".ae-x:hover{color:var(--bad);}" +
 		".ae-empty{color:var(--muted);font-size:13.5px;padding:14px;text-align:center;}" +
@@ -135,7 +140,7 @@
 				return;
 			}
 			msg.textContent = "";
-			var row = { key: ++seq, rare: rare, est: null, start: { val: "", unit: "db" }, min: { val: "", unit: "db" }, touched: false };
+			var row = { key: ++seq, rare: rare, est: null, start: { val: "", unit: "db" }, min: { val: "", unit: "db" }, touched: false, host: false };
 			rows.push(row);
 			render();
 			changed();
@@ -161,6 +166,7 @@
 		function check(row){
 			var v = vals(row), value = row.est && row.est.value != null ? row.est.value : null;
 			var out = { start: null, min: null };
+			if(row.host) return out;
 			if(regular()){
 				if(v.start == null) out.start = { bad: "Set a starting price" };
 				else if(value != null && v.start > value) out.start = { warn: "Above its value: may not get bids" };
@@ -197,8 +203,9 @@
 			return '<tr data-k="' + row.key + '">' +
 				'<td><div class="ae-item"><img class="ae-ico" src="' + esc(row.rare.texture || "") + '" alt="">' + esc(row.rare.name) + '</div></td>' +
 				'<td>' + valueHtml(row) + '</td>' +
-				'<td>' + moneyHtml("start", row.start) + '<div data-n="start">' + noteHtml(c.start, showBadFor[row.key]) + '</div></td>' +
-				(regular() ? '' : '<td>' + moneyHtml("min", row.min) + '<div data-n="min">' + noteHtml(c.min, showBadFor[row.key]) + '</div></td>') +
+				'<td>' + (row.host ? '<div class="ae-hostnote">The host sets the price' + (regular() ? '' : 's') + '</div>' : moneyHtml("start", row.start) + '<div data-n="start">' + noteHtml(c.start, showBadFor[row.key]) + '</div>') +
+					'<label class="ae-host' + (row.host ? ' on' : '') + '"><input type="checkbox" data-host' + (row.host ? ' checked' : '') + '>Let the host pick</label></td>' +
+				(regular() ? '' : '<td>' + (row.host ? '<div class="ae-hostnote">–</div>' : moneyHtml("min", row.min) + '<div data-n="min">' + noteHtml(c.min, showBadFor[row.key]) + '</div>') + '</td>') +
 				'<td style="width:1%;"><button type="button" class="ae-x" data-rm="' + row.key + '" title="Remove" aria-label="Remove ' + esc(row.rare.name) + '">&times;</button></td></tr>';
 		}
 		function render(){
@@ -214,12 +221,25 @@
 			if(m) m.innerHTML = noteHtml(c.min, showBadFor[row.key]);
 		}
 		tbody.addEventListener("input", function(e){
-			var row = rowOf(e.target); if(!row) return;
+			var row = rowOf(e.target); if(!row || e.target.hasAttribute("data-host")) return;
 			var f = e.target.getAttribute("data-f"), u = e.target.getAttribute("data-u");
 			if(f){ row[f].val = e.target.value; row.touched = true; }
 			if(u){ row[u].unit = e.target.value; row.touched = true; }
 			refreshNotes(e.target.closest("tr"), row);
 			changed();
+		});
+		tbody.addEventListener("change", function(e){
+			if(e.target.hasAttribute("data-host")){
+				var hr = rowOf(e.target); if(!hr) return;
+				hr.host = e.target.checked;
+				var tr = e.target.closest("tr"), tmp = document.createElement("tbody");
+				tmp.innerHTML = rowHtml(hr);
+				tr.replaceWith(tmp.firstChild);
+				var cb = tbody.querySelector('tr[data-k="' + hr.key + '"] [data-host]');
+				if(cb) cb.focus();
+				changed();
+				return;
+			}
 		});
 		tbody.addEventListener("change", function(e){ if(e.target.getAttribute("data-u")){ var row = rowOf(e.target); if(row){ row[e.target.getAttribute("data-u")].unit = e.target.value; refreshNotes(e.target.closest("tr"), row); changed(); } } });
 		tbody.addEventListener("click", function(e){
@@ -249,7 +269,10 @@
 				render();
 				if(!rows.length) return { error: "Add at least one item first." };
 				if(firstBad) return { error: "Fix the prices marked in red (" + firstBad + ")." };
-				return { items: rows.map(function(row){ var v = vals(row); return { rareId: row.rare.id, startDia: v.start, minDia: v.min }; }) };
+				return { items: rows.map(function(row){
+					if(row.host) return { rareId: row.rare.id, hostPicks: true };
+					var v = vals(row); return { rareId: row.rare.id, startDia: v.start, minDia: v.min };
+				}) };
 			},
 		};
 	}

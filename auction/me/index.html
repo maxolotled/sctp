@@ -118,7 +118,7 @@
 				'<div class="tbl-wrap"><table><thead><tr><th>Item</th><th>Entered as</th><th>Starting price</th><th>Lowest limit</th><th>Status</th><th>Sold for</th><th>Our cut</th><th>You receive</th></tr></thead><tbody>' +
 				g.items.map(function(i){
 					return '<tr><td><div class="it"><img class="ico" src="' + esc(i.texture || "") + '" alt="">' + esc(i.itemName) + '</div></td>' +
-						'<td>' + esc(i.mcUsername) + '</td><td class="num">' + fmtDia(i.startDia) + '</td><td class="num">' + (i.auctionType === "regular" ? "–" : fmtDia(i.minDia)) + '</td>' +
+						'<td>' + esc(i.mcUsername) + '</td>' + (i.hostPicks ? '<td class="num">Host picks</td><td class="num">–</td>' : '<td class="num">' + fmtDia(i.startDia) + '</td><td class="num">' + (i.auctionType === "regular" ? "–" : fmtDia(i.minDia)) + '</td>') +
 						'<td><span class="pill ' + esc(i.status) + '">' + esc(LABELS[i.status] || i.status) + '</span></td>' +
 						'<td class="num">' + (i.status === "sold" ? fmtDia(i.soldDia) : "–") + '</td><td class="num">' + (i.status === "sold" ? fmtDia(i.cutDia) : "–") + '</td>' +
 						'<td class="num">' + (i.status === "sold" ? fmtDia(i.payoutDia) : "–") + '</td></tr>';

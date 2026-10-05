@@ -40,6 +40,7 @@
 	.a-item span{font-size:12px;color:var(--muted);}
 	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit;}
 	.btn:hover{background:var(--accent-dim);}
+	.hostpick{color:var(--warn);font-weight:600;font-size:12.5px;}
 	.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 11px;font-size:12.5px;cursor:pointer;font-family:inherit;}
 	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
 	.btn-bad{background:transparent;border:1px solid var(--bad);color:var(--bad);border-radius:8px;padding:6px 11px;font-size:12.5px;cursor:pointer;font-family:inherit;}
@@ -294,7 +295,7 @@
 					var soldVal = i.soldDia ? (i.soldDia % 9 === 0 ? i.soldDia / 9 : i.soldDia) : "";
 					var soldUnit = i.soldDia && i.soldDia % 9 !== 0 ? "dia" : "db";
 					return '<tr data-row="' + esc(i.id) + '" class="' + esc(i.status) + '"><td><div class="it"><img class="ico" src="' + esc(i.texture || "") + '" alt="">' + esc(i.itemName) + '</div></td>' +
-						'<td class="num">' + fmtDia(i.startDia) + '</td>' + (regular ? '' : '<td class="num">' + fmtDia(i.minDia) + '</td>') + '<td class="num">' + (i.estimateDia != null ? "≈ " + fmtDia(i.estimateDia) : "–") + '</td>' +
+						(i.hostPicks ? '<td class="num"><span class="hostpick" title="The player left the price to the host">You pick</span></td>' + (regular ? '' : '<td class="num">–</td>') : '<td class="num">' + fmtDia(i.startDia) + '</td>' + (regular ? '' : '<td class="num">' + fmtDia(i.minDia) + '</td>')) + '<td class="num">' + (i.estimateDia != null ? "≈ " + fmtDia(i.estimateDia) : "–") + '</td>' +
 						'<td><span class="pill ' + esc(i.status) + '">' + esc(i.status) + '</span></td>' +
 						'<td><div class="sell"><input type="number" min="0" step="any" data-amt value="' + soldVal + '"><select data-unit><option value="db"' + (soldUnit === "db" ? " selected" : "") + '>DB</option><option value="dia"' + (soldUnit === "dia" ? " selected" : "") + '>dia</option></select></div></td>' +
 						'<td class="preview" data-preview>' + (i.status === "sold" ? "cut " + fmtDia(i.cutDia) + " · gets " + fmtDia(i.payoutDia) : "") + '</td>' +
