@@ -6800,7 +6800,7 @@ async function handleSubmitForm(request, env) {
 //   GET  /auction/lineup?auctionId=         (public, cached 1 min) what's entered so far: item + count, no prices or sellers
 //   GET  /auction/mine                      (any account) your entries across every auction
 //   GET  /admin/auctions                    ("auctions") every auction, with entry counts
-//   POST /admin/auctions/save               ("auctions") create/edit {id?, title, type: "dutch"|"regular", hostName?, world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes?}
+//   POST /admin/auctions/save               ("auctions") create/edit {id?, title, type: "dutch"|"regular", hostName?, dropOff?, world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes?}
 //   GET  /admin/auctions/items?auctionId=   ("auctions") every entry in one auction
 //   POST /admin/auctions/add-items          ("auctions") {auctionId, mcUsername, items} — enter items for a player (no open/limit checks)
 //   POST /admin/auctions/result             ("auctions") {itemId, status: "sold"|"unsold"|"entered"|"removed", soldDia?}
@@ -6831,6 +6831,7 @@ function auctionPublic(a) {
 	return {
 		id: a.id, title: a.title, type: a.type === "regular" ? "regular" : "dutch", world: a.world, auctionAt: a.auctionAt, status: a.status,
 		perPersonLimit: a.perPersonLimit, totalLimit: a.totalLimit, notes: a.notes || null, hostName: a.hostName || null,
+		dropOff: a.dropOff || null,
 		cutPercent: a.cutPercent == null ? AUCTION_DEFAULT_CUT_PERCENT : a.cutPercent,
 		accepting: a.status === "open" && Date.parse(a.auctionAt) > Date.now(),
 	};
@@ -7071,6 +7072,8 @@ async function handleAdminSaveAuction(request, env) {
 	if (!(cutPercent >= 0 && cutPercent <= 100)) return json({ error: "The cut must be between 0 and 100%." }, 400);
 	const hostName = String(body.hostName || "").trim() || null;
 	if (hostName && !MC_USERNAME.test(hostName)) return json({ error: "The host's name doesn't look like a Minecraft username." }, 400);
+	// where to drop off the shulker, e.g. "/pw auction" (empty = that default)
+	const dropOff = String(body.dropOff || "").trim().slice(0, 100) || null;
 	if (!title) return json({ error: "Give the auction a title." }, 400);
 	if (!AUCTION_TYPES.has(type)) return json({ error: "Type must be dutch or regular." }, 400);
 	if (!AUCTION_WORLDS.has(world)) return json({ error: "World must be Firefly or Honeybee." }, 400);
@@ -7081,14 +7084,14 @@ async function handleAdminSaveAuction(request, env) {
 	if (body.id) {
 		const existing = await env.DB.prepare("SELECT id FROM auctions WHERE id = ?").bind(String(body.id)).first();
 		if (!existing) return json({ error: "Auction not found" }, 404);
-		await env.DB.prepare("UPDATE auctions SET title = ?, type = ?, hostName = ?, world = ?, auctionAt = ?, status = ?, perPersonLimit = ?, totalLimit = ?, cutPercent = ?, notes = ? WHERE id = ?")
-			.bind(title, type, hostName, world, at.toISOString(), status, perPersonLimit, totalLimit, cutPercent, notes, existing.id).run();
+		await env.DB.prepare("UPDATE auctions SET title = ?, type = ?, hostName = ?, dropOff = ?, world = ?, auctionAt = ?, status = ?, perPersonLimit = ?, totalLimit = ?, cutPercent = ?, notes = ? WHERE id = ?")
+			.bind(title, type, hostName, dropOff, world, at.toISOString(), status, perPersonLimit, totalLimit, cutPercent, notes, existing.id).run();
 		return json({ ok: true, id: existing.id });
 	}
 	const id = newId();
 	await env.DB.prepare(
-		"INSERT INTO auctions (id, title, type, hostName, world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-	).bind(id, title, type, hostName, world, at.toISOString(), status, perPersonLimit, totalLimit, cutPercent, notes, new Date().toISOString(), auth.admin.username).run();
+		"INSERT INTO auctions (id, title, type, hostName, dropOff, world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	).bind(id, title, type, hostName, dropOff, world, at.toISOString(), status, perPersonLimit, totalLimit, cutPercent, notes, new Date().toISOString(), auth.admin.username).run();
 	return json({ ok: true, id });
 }
 

@@ -266,7 +266,7 @@
 			<ol class="steps">
 				<li><div>Put <b>exactly these items</b> into <b>one shulker box</b>:<div class="items" id="doneList" style="margin-top:8px;"></div></div></li>
 				<li><div>Rename the shulker box in an anvil to exactly:<br><span class="copy"><span id="shulkerName"></span><button type="button" id="copyName">Copy</button></span><p class="hint">This is how we know the shulker belongs to your entry on the website.</p></div></li>
-				<li><div>Drop it off at <b>/pw auction</b><span id="dropBy"></span>.</div></li>
+				<li><div>Drop it off at <b id="dropAt">/pw auction</b><span id="dropBy"></span>.</div></li>
 			</ol>
 			<p class="hint" id="doneAccount" style="margin-top:16px;"></p>
 			<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
@@ -495,6 +495,7 @@
 		$("entryModal").scrollTop = 0;
 		$("doneList").innerHTML = d.items.map(itemRowHtml).join("");
 		$("shulkerName").textContent = d.shulkerName;
+		$("dropAt").textContent = d.auction.dropOff || "/pw auction";
 		$("dropBy").textContent = " before " + new Date(d.auction.auctionAt).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 		$("doneAccount").innerHTML = d.linkedToAccount
 			? 'Linked to your account: follow your items on <a href="/auction/me/">My Auctions</a>. You\'ll get a notification when they sell.'
