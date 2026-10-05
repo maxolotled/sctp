@@ -432,6 +432,21 @@
 	.promo-market .promo-kicker{color:var(--accent-2,#6FE3C8);}
 	.promo-stat{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);background:var(--panel-alt);border:1px solid var(--line);border-radius:999px;padding:4px 12px;margin:0 0 12px;align-self:flex-start;}
 	.promo-stat b{color:var(--accent-2,#6FE3C8);font-family:var(--font-mono);}
+	/* auction ad: takes the marketplace card's place while an auction is coming up */
+	.promo-auction{background:linear-gradient(160deg,rgba(255,196,77,0.15),rgba(255,140,60,0.05) 55%,transparent),var(--panel);border-color:rgba(255,196,77,0.4);}
+	.promo-auction .promo-kicker{color:#FFC44D;display:flex;align-items:center;gap:8px;}
+	.promo-auction .promo-kicker .live{font-size:10px;letter-spacing:.06em;color:#2A1A05;background:#FFC44D;border-radius:999px;padding:1px 8px;}
+	.promo-auction .promo-btn.primary{background:linear-gradient(90deg,#FFD166,#FFAA3B);color:#2A1A05;}
+	.promo-auction .promo-btn.primary:hover{filter:brightness(1.08);}
+	.auc-facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:13px;margin:0 0 12px;}
+	.auc-facts dt{color:var(--muted);}
+	.auc-facts dd{margin:0;color:var(--text);font-weight:600;overflow-wrap:anywhere;}
+	.auc-facts dd code{font-family:var(--font-mono);font-size:12.5px;color:#FFC44D;}
+	.auc-spots{margin:0 0 12px;}
+	.auc-spots .bar{height:6px;border-radius:999px;background:var(--panel-alt);border:1px solid var(--line);overflow:hidden;}
+	.auc-spots .bar i{display:block;height:100%;background:linear-gradient(90deg,#FFD166,#FFAA3B);}
+	.auc-spots .lbl{font-size:12.5px;color:var(--muted);margin-top:5px;}
+	.auc-spots .lbl b{color:var(--text);font-family:var(--font-mono);}
 	@media (max-width:1100px){.promo-strip{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}.promo-motd{grid-column:1 / -1;}}
 	@media (max-width:640px){.promo-strip{grid-template-columns:1fr;}.promo-motd{flex-direction:column;}.promo-motd .motd-img{max-width:100%;flex:none;}}
 	.dym{color:var(--muted);font-size:13.5px;margin:6px 0 0;}
@@ -3022,11 +3037,41 @@
 			if(window.sctpLike) window.sctpLike.ready(function(){ var h = document.getElementById("motdLike"); if(h) h.innerHTML = window.sctpLike.button(m, true); });
 		}).catch(function(){ document.getElementById("motd").innerHTML = '<div class="promo-loading">Couldn\'t load today\'s mapart.</div>'; });
 
+		// Upcoming auction: replaces the marketplace card until it's held
+		fetch(API_BASE + "/auction/current").then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+			if(!d || !d.auction) return;
+			var a = d.auction, card = document.getElementById("promoMarket");
+			var at = new Date(a.auctionAt), days = Math.floor((at - Date.now()) / 864e5);
+			var when = at.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+			var soon = days >= 2 ? "in " + days + " days" : days === 1 ? "tomorrow" : "today";
+			var left = Math.max(0, a.totalLimit - (d.entered || 0));
+			var full = Math.min(100, Math.round((d.entered || 0) / Math.max(1, a.totalLimit) * 100));
+			var spots = a.accepting
+				? '<div class="auc-spots"><div class="bar"><i style="width:' + full + '%"></i></div><div class="lbl">' + (left
+					? '<b>' + left + '</b> of ' + a.totalLimit + ' spot' + (a.totalLimit === 1 ? '' : 's') + ' left · up to ' + a.perPersonLimit + ' per player'
+					: 'All ' + a.totalLimit + ' spots are taken') + '</div></div>'
+				: '<div class="auc-spots"><div class="lbl">Entries are closed · <b>' + (d.entered || 0) + '</b> item' + (d.entered === 1 ? '' : 's') + ' up for auction</div></div>';
+			card.className = "promo-card promo-auction";
+			card.innerHTML =
+				'<div class="promo-kicker">&#128296; Rare auction <span class="live">' + esc(soon) + '</span></div>' +
+				'<h2 class="promo-title">' + esc(a.title) + '</h2>' +
+				'<dl class="auc-facts">' +
+					'<dt>When</dt><dd>' + esc(when) + '</dd>' +
+					'<dt>Where</dt><dd>' + esc(a.world) + ' · drop-off at <code>' + esc(a.dropOff || "/pw auction") + '</code></dd>' +
+					(a.hostName ? '<dt>Host</dt><dd>' + esc(a.hostName) + '</dd>' : '') +
+					'<dt>Style</dt><dd>' + (a.type === "regular" ? "Regular: bids go up" : "Dutch clock: the price drops") + '</dd>' +
+				'</dl>' + spots +
+				'<div class="promo-actions">' + (a.accepting && left
+					? '<a class="promo-btn primary" href="/auction/#enter">Enter your rares &rarr;</a><a class="promo-btn" href="/auction/">See the line-up</a>'
+					: '<a class="promo-btn primary" href="/auction/">See the line-up &rarr;</a>') + '</div>';
+		}).catch(function(){});
+
 		// Marketplace: show how many listings are open right now
 		fetch(API_BASE + "/marketplace/listings").then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
 			var list = Array.isArray(d) ? d : (d && Array.isArray(d.listings) ? d.listings : null);
 			if(!list || !list.length) return;
 			var el = document.getElementById("promoMarketStat");
+			if(!el) return; // the auction ad took the card
 			el.innerHTML = '<b>' + fmtNum(list.length) + '</b> open listing' + (list.length === 1 ? '' : 's') + ' right now';
 			el.hidden = false;
 		}).catch(function(){});
