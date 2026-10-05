@@ -6802,6 +6802,7 @@ async function handleSubmitForm(request, env) {
 //   GET  /admin/auctions                    ("auctions") every auction, with entry counts
 //   POST /admin/auctions/save               ("auctions") create/edit {id?, title, type: "dutch"|"regular", hostName?, world, auctionAt, status, perPersonLimit, totalLimit, cutPercent, notes?}
 //   GET  /admin/auctions/items?auctionId=   ("auctions") every entry in one auction
+//   POST /admin/auctions/add-items          ("auctions") {auctionId, mcUsername, items} — enter items for a player (no open/limit checks)
 //   POST /admin/auctions/result             ("auctions") {itemId, status: "sold"|"unsold"|"entered"|"removed", soldDia?}
 
 const AUCTION_DEFAULT_CUT_PERCENT = 2.5;
@@ -6946,6 +6947,14 @@ async function handleAuctionSubmit(request, env) {
 		return json({ error: left ? `This auction only has room for ${left} more item${left === 1 ? "" : "s"}.` : "This auction is full." }, 400);
 	}
 
+	const result = await saveAuctionItems(env, auction, mcUsername, accountId, items);
+	if (result.error) return json({ error: result.error }, 400);
+	return json({ ok: true, batchId: result.batchId, shulkerName: `Registered ${mcUsername}`, linkedToAccount: !!accountId, items: result.saved, auction: auctionPublic(auction) });
+}
+
+// Validates and stores one batch (one shulker) of entries. Shared by the
+// public form and the admin "add items for a player". Returns {error} or {batchId, saved}.
+async function saveAuctionItems(env, auction, mcUsername, accountId, items) {
 	const catalog = await getRareCatalog();
 	const estimates = new Map();
 	const now = new Date().toISOString();
@@ -6954,16 +6963,16 @@ async function handleAuctionSubmit(request, env) {
 	const saved = [];
 	for (const it of items) {
 		const rare = catalog.byId.get(String(it.rareId || ""));
-		if (!rare) return json({ error: "One of the items isn't a known rare." }, 400);
+		if (!rare) return { error: "One of the items isn't a known rare." };
 		const startDia = Math.round(Number(it.startDia));
 		let minDia = Math.round(Number(it.minDia));
 		if (auction.type === "regular") {
 			// one price: where bidding starts, and the least it sells for
-			if (!(startDia > 0)) return json({ error: `Set a starting price for ${rare.name}.` }, 400);
+			if (!(startDia > 0)) return { error: `Set a starting price for ${rare.name}.` };
 			minDia = startDia;
 		} else {
-			if (!(startDia > 0) || !(minDia > 0)) return json({ error: `Set a starting bid and lowest limit for ${rare.name}.` }, 400);
-			if (minDia >= startDia) return json({ error: `The starting bid for ${rare.name} must be higher than its lowest limit.` }, 400);
+			if (!(startDia > 0) || !(minDia > 0)) return { error: `Set a starting bid and lowest limit for ${rare.name}.` };
+			if (minDia >= startDia) return { error: `The starting bid for ${rare.name} must be higher than its lowest limit.` };
 		}
 		// SCTP's value is only advice for the player; it's stored so admins can see it next to the entry
 		if (!estimates.has(rare.id)) estimates.set(rare.id, await auctionEstimate(env, rare, auction.world));
@@ -6976,7 +6985,29 @@ async function handleAuctionSubmit(request, env) {
 		saved.push({ id, rareId: rare.id, itemName: rare.name, texture: rare.texture || null, startDia, minDia });
 	}
 	await env.DB.batch(stmts);
-	return json({ ok: true, batchId, shulkerName: `Registered ${mcUsername}`, linkedToAccount: !!accountId, items: saved, auction: auctionPublic(auction) });
+	return { batchId, saved };
+}
+
+// POST /admin/auctions/add-items {auctionId, mcUsername, items} ("auctions") —
+// enter items on a player's behalf (e.g. they handed in a shulker without
+// using the site). Skips the open/limit checks: staff decide. Linked to the
+// player's account when one has that Minecraft name verified, so they still
+// get /auction/me and result notifications.
+async function handleAdminAddAuctionItems(request, env) {
+	const auth = await requireAdminAuth(request, env, "auctions");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const auction = await env.DB.prepare("SELECT * FROM auctions WHERE id = ?").bind(String(body.auctionId || "")).first();
+	if (!auction) return json({ error: "Auction not found" }, 404);
+	const mcUsername = String(body.mcUsername || "").trim();
+	if (!MC_USERNAME.test(mcUsername)) return json({ error: "That doesn't look like a Minecraft username." }, 400);
+	const items = Array.isArray(body.items) ? body.items : [];
+	if (items.length === 0) return json({ error: "Add at least one item first." }, 400);
+	const account = await env.DB.prepare("SELECT id FROM admins WHERE mcVerified = 1 AND lower(mcUsername) = lower(?)").bind(mcUsername).first();
+	const result = await saveAuctionItems(env, auction, mcUsername, account ? account.id : null, items);
+	if (result.error) return json({ error: result.error }, 400);
+	return json({ ok: true, batchId: result.batchId, linkedToAccount: !!account, items: result.saved });
 }
 
 // What's been entered so far, for bidders to look forward to: item and count
@@ -7185,6 +7216,7 @@ const ROUTES = [
 	["GET", "/admin/auctions", handleAdminListAuctions],
 	["POST", "/admin/auctions/save", handleAdminSaveAuction],
 	["GET", "/admin/auctions/items", handleAdminAuctionItems],
+	["POST", "/admin/auctions/add-items", handleAdminAddAuctionItems],
 	["POST", "/admin/auctions/result", handleAdminAuctionResult],
 	["GET", "/mapart/of-the-day", handleGetMapartOfTheDay],
 	["POST", "/admin/mapart/otd/reroll", handleAdminRerollMapartOfTheDay],

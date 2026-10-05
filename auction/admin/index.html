@@ -99,6 +99,7 @@
 
 <script src="/site-nav.js" defer></script>
 <script src="/account-widget.js" defer></script>
+<script src="/auction/entry-table.js"></script>
 <script>
 (function(){
 	"use strict";
@@ -222,6 +223,7 @@
 			var sum = function(arr, k){ return arr.reduce(function(s, i){ return s + (i[k] || 0); }, 0); };
 			var players = {};
 			live.forEach(function(i){ players[i.mcUsername.toLowerCase()] = true; });
+			html += '<div id="addSlot"></div>';
 			html += '<section class="card" style="margin-top:18px;"><h2>Entries</h2>' +
 				'<div class="stats"><span><b>' + live.length + '</b> items from <b>' + Object.keys(players).length + '</b> players</span>' +
 				'<span><b>' + sold.length + '</b> sold · <b>' + live.filter(function(i){ return i.status === "unsold"; }).length + '</b> unsold</span>' +
@@ -231,7 +233,48 @@
 		}
 		$("detail").innerHTML = html;
 		wireForm(a);
-		if(a) wireEntries(a);
+		if(a){ wireEntries(a); $("addSlot").appendChild(addCardFor(a)); }
+	}
+
+	// ---------------- add items for a player ----------------
+	// One card per selected auction, kept alive across re-renders (recording a
+	// result re-renders the page) so a half-filled list isn't lost.
+	var addCard = null, addCardAuction = null, addEntry = null;
+	function addCardFor(a){
+		if(addCard && addCardAuction === a.id){ addEntry.rerender(); return addCard; }
+		addCardAuction = a.id;
+		addCard = document.createElement("section");
+		addCard.className = "card";
+		addCard.style.marginTop = "18px";
+		addCard.innerHTML = '<h2>Add items for a player</h2>' +
+			'<p class="preview" style="white-space:normal;margin:-6px 0 12px;font-size:12.5px;">For players who hand in a shulker without using the site. Same table as /auction, but no limits or open/closed check.</p>' +
+			'<div style="max-width:280px;margin-bottom:12px;"><label class="lbl" for="addSeller">Seller (Minecraft name)</label><input type="text" id="addSeller" maxlength="17" placeholder="e.g. maxolotled" spellcheck="false" autocomplete="off"></div>' +
+			'<div class="ae-root"></div>' +
+			'<div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button type="button" class="btn" data-add>Add to auction</button><span data-add-msg></span></div>';
+		addEntry = SctpAuctionEntry.create(addCard.querySelector(".ae-root"), {
+			api: API,
+			getAuction: function(){ return selected(); },
+			limit: function(){ return Infinity; },
+		});
+		var seller = addCard.querySelector("#addSeller"), msg = addCard.querySelector("[data-add-msg]"), btn = addCard.querySelector("[data-add]");
+		btn.onclick = function(){
+			var name = seller.value.trim();
+			msg.innerHTML = "";
+			if(!/^[.*]?[A-Za-z0-9_]{2,16}$/.test(name)){ msg.innerHTML = '<span class="err" style="margin:0">Enter the seller\'s Minecraft name</span>'; seller.focus(); return; }
+			var v = addEntry.validate();
+			if(v.error){ msg.innerHTML = '<span class="err" style="margin:0">' + esc(v.error) + '</span>'; return; }
+			btn.disabled = true;
+			api("/admin/auctions/add-items", { method: "POST", body: { auctionId: addCardAuction, mcUsername: name, items: v.items } }).then(function(res){
+				btn.disabled = false;
+				if(!res.ok){ msg.innerHTML = '<span class="err" style="margin:0">' + esc(res.d.error || "Couldn't add the items") + '</span>'; return; }
+				addEntry.clear();
+				msg.innerHTML = '<span class="ok" style="margin:0">Added ' + res.d.items.length + ' item' + (res.d.items.length === 1 ? "" : "s") + ' for ' + esc(name) + ' (shulker: Registered ' + esc(name) + ')' + (res.d.linkedToAccount ? ", linked to their account" : "") + '</span>';
+				seller.value = "";
+				loadItems();
+				var a2 = selected(); if(a2){ a2.itemCount = (a2.itemCount || 0) + res.d.items.length; renderList(); }
+			});
+		};
+		return addCard;
 	}
 
 	function groupsHtml(a){

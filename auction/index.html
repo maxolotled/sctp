@@ -250,39 +250,9 @@
 				<p class="hint" id="userHint" style="margin:0 0 10px;"></p>
 			</div>
 	
-			<div style="margin-top:16px;" class="picker">
-				<label class="lbl" for="itemSearch">Add a rare</label>
-				<input type="text" id="itemSearch" placeholder="Search rare items…" autocomplete="off" spellcheck="false">
-				<div class="results" id="results" hidden></div>
-			</div>
-	
-			<div class="editor" id="editor" hidden>
-				<div class="editor-head">
-					<img class="ico lg" id="edIcon" alt="">
-					<div><h3 id="edName"></h3><div class="value-line" id="edValue"></div></div>
-				</div>
-				<div class="price-grid" id="edGrid">
-					<div>
-						<label class="lbl" for="edStart" id="edStartLabel">Starting bid</label>
-						<div class="money"><input type="number" id="edStart" min="0" step="any"><select id="edStartUnit"><option value="db">DB</option><option value="dia">dia</option></select></div>
-						<p class="hint" id="edStartHint"></p>
-					</div>
-					<div id="edMinWrap">
-						<label class="lbl" for="edMin">Lowest limit</label>
-						<div class="money"><input type="number" id="edMin" min="0" step="any"><select id="edMinUnit"><option value="db">DB</option><option value="dia">dia</option></select></div>
-						<p class="hint" id="edMinHint"></p>
-					</div>
-				</div>
-				<p class="err" id="edErr" hidden></p>
-				<div style="display:flex;gap:8px;flex-wrap:wrap;">
-					<button type="button" class="btn" id="edAdd">Add to my list</button>
-					<button type="button" class="btn-ghost" id="edCancel">Cancel</button>
-				</div>
-			</div>
-	
-			<div style="margin-top:20px;">
-				<label class="lbl">Your list</label>
-				<div class="items" id="list"></div>
+			<div style="margin-top:16px;">
+				<label class="lbl">Your items</label>
+				<div id="entryTable"></div>
 				<div class="list-foot">
 					<span class="hint" id="listCount" style="margin:0;"></span>
 					<button type="button" class="btn" id="continueBtn" disabled>Continue</button>
@@ -308,6 +278,7 @@
 
 <script src="/site-nav.js" defer></script>
 <script src="/account-widget.js" defer></script>
+<script src="/auction/entry-table.js"></script>
 <script>
 (function(){
 	"use strict";
@@ -317,9 +288,6 @@
 
 	var auction = null, enteredTotal = 0, enteredByUser = 0;
 	var lineupLoaded = false, lineupFresh = false;
-	var rares = [];
-	var list = [];       // {rare, startDia, minDia, value}
-	var editing = null;  // {rare, estimate}
 
 	function $(id){ return document.getElementById(id); }
 	function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
@@ -410,6 +378,7 @@
 		if(!auction.accepting && $("doneCard").hidden) closeEntry();
 		// sctp.nl/auction/#enter (e.g. from an announcement) opens the form straight away
 		if(auction.accepting && location.hash === "#enter" && !openedFromLink){ openedFromLink = true; openEntry(); }
+		entry.rerender();
 		renderList();
 	}
 	var openedFromLink = false;
@@ -420,7 +389,7 @@
 		$("enterCard").hidden = false;
 		$("entryModal").hidden = false;
 		document.body.classList.add("entry-open");
-		setTimeout(function(){ ($("mcName").value.trim() ? $("itemSearch") : $("mcName")).focus(); }, 0);
+		setTimeout(function(){ if($("mcName").value.trim()) entry.focus(); else $("mcName").focus(); }, 0);
 	}
 	function closeEntry(){
 		$("entryModal").hidden = true;
@@ -430,7 +399,7 @@
 	$("closeEntry").addEventListener("click", closeEntry);
 	document.addEventListener("keydown", function(e){
 		// Esc closes the popup, unless the sign-in question or the rare dropdown is the thing open
-		if(e.key !== "Escape" || $("entryModal").hidden || document.querySelector(".modal-bg") || !$("results").hidden) return;
+		if(e.key !== "Escape" || $("entryModal").hidden || document.querySelector(".modal-bg") || document.querySelector("#entryTable .ae-results:not([hidden])")) return;
 		closeEntry();
 	});
 
@@ -445,154 +414,37 @@
 		renderList();
 	});
 
-	// ---------------- rare picker ----------------
-	fetch("/data/rare-items.json").then(function(r){ return r.json(); }).then(function(d){ rares = d; }).catch(function(){});
-
-	var activeIdx = -1;
-	function search(){
-		var q = norm($("itemSearch").value);
-		var box = $("results");
-		if(!q){ box.hidden = true; return; }
-		var hits = rares.filter(function(r){ return norm(r.name).indexOf(q) !== -1; })
-			.sort(function(a, b){ return (norm(a.name).indexOf(q) === 0 ? 0 : 1) - (norm(b.name).indexOf(q) === 0 ? 0 : 1) || a.name.localeCompare(b.name); })
-			.slice(0, 10);
-		activeIdx = -1;
-		box.innerHTML = hits.length ? hits.map(function(r){
-			return '<button type="button" data-id="' + esc(r.id) + '"><img class="ico" src="' + esc(r.texture || "") + '" alt="" loading="lazy">' + esc(r.name) + '<span class="cat">' + esc(r.category || "") + '</span></button>';
-		}).join("") : '<div class="empty" style="padding:10px 12px;">No rare matches that</div>';
-		box.hidden = false;
-	}
-	$("itemSearch").addEventListener("input", search);
-	$("itemSearch").addEventListener("keydown", function(e){
-		var btns = $("results").querySelectorAll("button");
-		if(e.key === "ArrowDown" || e.key === "ArrowUp"){
-			e.preventDefault();
-			if(!btns.length) return;
-			activeIdx = (activeIdx + (e.key === "ArrowDown" ? 1 : -1) + btns.length) % btns.length;
-			btns.forEach(function(b, i){ b.classList.toggle("active", i === activeIdx); });
-		} else if(e.key === "Enter" && btns.length){
-			e.preventDefault();
-			(btns[activeIdx] || btns[0]).click();
-		} else if(e.key === "Escape"){ $("results").hidden = true; }
-	});
-	document.addEventListener("click", function(e){ if(!e.target.closest(".picker")) $("results").hidden = true; });
-	$("results").addEventListener("click", function(e){
-		var b = e.target.closest("button[data-id]");
-		if(!b) return;
-		var rare = rares.filter(function(r){ return r.id === b.getAttribute("data-id"); })[0];
-		$("results").hidden = true;
-		$("itemSearch").value = "";
-		if(rare) openEditor(rare);
+	// ---------------- items table (see /auction/entry-table.js) ----------------
+	var entry = SctpAuctionEntry.create($("entryTable"), {
+		api: API,
+		getAuction: function(){ return auction; },
+		limit: userLimitLeft,
+		onChange: renderList,
 	});
 
-	// ---------------- editor ----------------
-	function openEditor(rare){
-		editing = { rare: rare, estimate: null };
-		$("editor").hidden = false;
-		$("edIcon").src = rare.texture || "";
-		$("edName").textContent = rare.name;
-		$("edValue").textContent = "Checking SCTP's price data…";
-		$("edErr").hidden = true;
-		setMoney("edStart", "edStartUnit", null); setMoney("edMin", "edMinUnit", null);
-		$("edStartUnit").value = "db"; $("edMinUnit").value = "db";
-		// a regular auction takes one price: where bidding starts, and the least it sells for
-		$("edStartLabel").textContent = isRegular() ? "Starting price" : "Starting bid";
-		$("edMinWrap").hidden = isRegular();
-		$("edGrid").classList.toggle("single", isRegular());
-		updateHints();
-		fetch(API + "/auction/estimate?rareId=" + encodeURIComponent(rare.id) + "&world=" + encodeURIComponent(auction.world))
-			.then(function(r){ return r.json(); })
-			.then(function(est){
-				if(!editing || editing.rare.id !== rare.id) return;
-				editing.estimate = est;
-				if(est.value != null){
-					$("edValue").innerHTML = 'SCTP value: <b>&asymp; ' + esc(fmtDia(est.value)) + '</b> <span style="color:var(--muted)">(' + esc(est.basis) + ')</span>';
-					if(isRegular()) setMoney("edStart", "edStartUnit", est.suggestedRegularDia);
-					else {
-						setMoney("edStart", "edStartUnit", est.suggestedStartDia);
-						setMoney("edMin", "edMinUnit", est.suggestedMinDia);
-					}
-				} else {
-					$("edValue").textContent = "SCTP has no price data for this rare yet, so set your own prices.";
-				}
-				updateHints();
-			})
-			.catch(function(){ $("edValue").textContent = "Couldn't load SCTP's price data, so set your own prices."; });
-		$("edStart").focus();
-	}
-
-	function editorValues(){
-		return { start: toDia($("edStart").value, $("edStartUnit").value), min: toDia($("edMin").value, $("edMinUnit").value) };
-	}
-	function validate(v, est){
-		if(isRegular()) return v.start == null ? "Set a starting price." : null;
-		if(v.start == null) return "Set a starting bid.";
-		if(v.min == null) return "Set a lowest limit.";
-		if(v.min >= v.start) return "The starting bid must be higher than the lowest limit: the clock counts down from one to the other.";
-		return null;
-	}
-	// SCTP's value is advice only: a heads-up when a price is on the "wrong" side of it, never a block
-	function updateHints(){
-		var v = editorValues(), est = editing && editing.estimate;
-		var value = est && est.value != null ? est.value : null;
-		function hint(id, dia, suggested, emptyText, warn){
-			var el = $(id);
-			el.style.color = warn ? "var(--warn)" : "";
-			if(!dia){ el.textContent = suggested ? "Suggested " + fmtDia(suggested) : emptyText; return; }
-			el.textContent = "= " + fmtDia(dia) + (warn ? " · " + warn : (suggested ? " · suggested " + fmtDia(suggested) : ""));
-		}
-		if(isRegular()){
-			hint("edStartHint", v.start, est && est.suggestedRegularDia, "Bidding starts here, and it won't sell for less",
-				value != null && v.start && v.start > value ? "above its value (≈ " + fmtDia(value) + "), so it may not get any bids" : null);
-			return;
-		}
-		hint("edStartHint", v.start, est && est.suggestedStartDia, "Where the clock starts",
-			value != null && v.start && v.start <= value ? "below its value (≈ " + fmtDia(value) + "), so the clock starts cheap" : null);
-		hint("edMinHint", v.min, est && est.suggestedMinDia, "Where the clock stops; it won't sell below this",
-			value != null && v.min && value > 1 && v.min >= value ? "above its value (≈ " + fmtDia(value) + "), so it may not sell" : null);
-	}
-	["edStart","edMin","edStartUnit","edMinUnit"].forEach(function(id){ $(id).addEventListener("input", function(){ $("edErr").hidden = true; updateHints(); }); });
-	$("edCancel").addEventListener("click", function(){ editing = null; $("editor").hidden = true; });
-	$("edAdd").addEventListener("click", function(){
-		if(!editing) return;
-		var v = editorValues();
-		var problem = validate(v, editing.estimate);
-		if(!problem && list.length >= userLimitLeft()) problem = userLimitLeft() ? "You can enter " + userLimitLeft() + " item" + (userLimitLeft() === 1 ? "" : "s") + " in this auction." : "You've reached the item limit for this auction.";
-		if(problem){ $("edErr").textContent = problem; $("edErr").hidden = false; return; }
-		list.push({ rare: editing.rare, startDia: v.start, minDia: isRegular() ? v.start : v.min, value: editing.estimate ? editing.estimate.value : null });
-		editing = null;
-		$("editor").hidden = true;
-		renderList();
-		$("itemSearch").focus();
-	});
-
-	// ---------------- list ----------------
-	function itemRowHtml(it, removable, i){
-		return '<div class="item-row"><img class="ico" src="' + esc(it.texture || (it.rare && it.rare.texture) || "") + '" alt="">' +
-			'<div><div class="nm">' + esc(it.itemName || it.rare.name) + '</div><div class="px">' + (isRegular() ? "starting price " + esc(fmtDia(it.startDia)) : "start " + esc(fmtDia(it.startDia)) + " · lowest " + esc(fmtDia(it.minDia))) + '</div></div>' +
-			(removable ? '<button type="button" class="x" data-rm="' + i + '" title="Remove">&times;</button>' : '') + '</div>';
+	// a row in the "hand in these items" list after submitting
+	function itemRowHtml(it){
+		return '<div class="item-row"><img class="ico" src="' + esc(it.texture || "") + '" alt="">' +
+			'<div><div class="nm">' + esc(it.itemName) + '</div><div class="px">' + (isRegular() ? "starting price " + esc(fmtDia(it.startDia)) : "start " + esc(fmtDia(it.startDia)) + " · lowest " + esc(fmtDia(it.minDia))) + '</div></div></div>';
 	}
 	function renderList(){
 		if(!auction) return;
-		$("list").innerHTML = list.length ? list.map(function(it, i){ return itemRowHtml(it, true, i); }).join("") : '<div class="empty">Nothing yet. Search for a rare above to add it.</div>';
 		var name = $("mcName").value.trim();
-		var left = userLimitLeft();
+		var left = userLimitLeft(), n = entry.count();
 		$("userHint").textContent = MC_NAME.test(name)
 			? (enteredByUser ? name + " already entered " + enteredByUser + " item" + (enteredByUser === 1 ? "" : "s") + " in this auction. " : "") + "You can enter " + left + " more."
 			: (name ? "That doesn't look like a Minecraft username." : "The name of the account you'll hand the items in with.");
-		$("listCount").textContent = list.length + " of " + left + " item" + (left === 1 ? "" : "s");
-		$("continueBtn").disabled = !list.length || !MC_NAME.test(name) || list.length > left;
+		$("listCount").textContent = n + " of " + left + " item" + (left === 1 ? "" : "s");
+		$("continueBtn").disabled = !n || !MC_NAME.test(name) || n > left;
 	}
-	$("list").addEventListener("click", function(e){
-		var b = e.target.closest("[data-rm]");
-		if(!b) return;
-		list.splice(Number(b.getAttribute("data-rm")), 1);
-		renderList();
-	});
 
 	// ---------------- continue: optional sign-in, then submit ----------------
+	var pendingItems = null;
 	$("continueBtn").addEventListener("click", function(){
 		$("submitErr").hidden = true;
+		var v = entry.validate();
+		if(v.error){ $("submitErr").textContent = v.error; $("submitErr").hidden = false; return; }
+		pendingItems = v.items;
 		if(session()) { submit(); return; }
 		var wrap = document.createElement("div");
 		wrap.className = "modal-bg";
@@ -623,7 +475,7 @@
 		var name = $("mcName").value.trim();
 		fetch(API + "/auction/submit", { method: "POST", headers: headers, body: JSON.stringify({
 			auctionId: auction.id, mcUsername: name,
-			items: list.map(function(it){ return { rareId: it.rare.id, startDia: it.startDia, minDia: it.minDia }; })
+			items: pendingItems
 		}) })
 			.then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
 			.then(function(res){
@@ -635,12 +487,13 @@
 	}
 
 	function showDone(d){
-		list = [];
+		entry.clear();
+		pendingItems = null;
 		$("enterCard").hidden = true;
 		$("doneCard").hidden = false;
 		$("entryModal").hidden = false;
 		$("entryModal").scrollTop = 0;
-		$("doneList").innerHTML = d.items.map(function(it){ return itemRowHtml(it, false); }).join("");
+		$("doneList").innerHTML = d.items.map(itemRowHtml).join("");
 		$("shulkerName").textContent = d.shulkerName;
 		$("dropBy").textContent = " before " + new Date(d.auction.auctionAt).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 		$("doneAccount").innerHTML = d.linkedToAccount
