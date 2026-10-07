@@ -2312,10 +2312,10 @@
 
 	// ---------------- download modal ----------------
 	var DOWNLOAD_JARS = {
-		"fabric|26.2": "shoplogger-26.2-2.3.1.jar",
-		"fabric|26.3": "shoplogger-26.3-2.3.1.jar",
-		"neoforge|26.2": "shoplogger-neoforge-26.2-2.3.1.jar",
-		"neoforge|26.3": "shoplogger-neoforge-26.3-2.3.1.jar"
+		"fabric|26.2": "shoplogger-26.2-2.4.jar",
+		"fabric|26.3": "shoplogger-26.3-2.4.jar",
+		"neoforge|26.2": "shoplogger-neoforge-26.2-2.4.jar",
+		"neoforge|26.3": "shoplogger-neoforge-26.3-2.4.jar"
 	};
 	var dlLoader = "fabric";
 	var dlVersion = "26.2";
@@ -2331,7 +2331,13 @@
 		document.getElementById("dlFabricWarning").hidden = dlLoader !== "fabric";
 	}
 
+	// Direct .jar downloads are switched off on the live site for now (mod 2.4 is
+	// still a beta): every Download button sends people to Modrinth instead.
+	// scripts/build-beta.js flips this back on for the /beta/ copy.
+	var DIRECT_DOWNLOADS = false;
+	var MODRINTH_URL = "https://modrinth.com/mod/sc-shoplogger";
 	function openDownload(){
+		if(!DIRECT_DOWNLOADS){ window.location.href = MODRINTH_URL; return; }
 		document.getElementById("downloadBackdrop").classList.add("open");
 		updateDownloadSelection();
 	}

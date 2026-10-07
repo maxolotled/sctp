@@ -92,6 +92,7 @@ public final class ShopSearch {
 		String needle = query.toLowerCase();
 		List<Map<String, Object>> matches = rows.stream()
 				.filter(r -> sameWorld(r, world))
+				.filter(r -> !(SearchPreferences.hideDisplayListings() && "display".equalsIgnoreCase(String.valueOf(r.get("currency")))))
 				.filter(r -> matches(r, needle))
 				.sorted(Comparator
 						.comparing((Map<String, Object> r) -> !isExactMatch(r, needle)) // exact matches first

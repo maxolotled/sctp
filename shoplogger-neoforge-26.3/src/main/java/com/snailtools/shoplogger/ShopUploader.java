@@ -54,6 +54,15 @@ public class ShopUploader {
 			Map<String, Object> m = new LinkedHashMap<>();
 			m.put("world", entry.substring(0, sep));
 			m.put("position", entry.substring(sep + 1));
+			// The shop's uncollected payment at scan time (2.4+): the Worker only
+			// counts a real sale when stock dropped AND this went up since the
+			// previous scan of the same shop (by anyone).
+			ShopLog.Payment pay = ShopLog.getPayment(entry);
+			if (pay != null) {
+				m.put("payment", pay.count());
+				m.put("paymentCurrency", pay.currency());
+				m.put("scannedAt", java.time.Instant.ofEpochMilli(pay.scannedAtMillis()).toString());
+			}
 			scans.add(m);
 		}
 

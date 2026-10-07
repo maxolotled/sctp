@@ -63,7 +63,7 @@ public class HomeScreen extends UiScreen {
 		y += 28;
 
 		// section tiles
-		Section[] tiles = { Section.LISTINGS, Section.VANILLA, Section.RARES, Section.WATCHLIST, Section.MARKET, Section.MAPART, Section.SETTINGS };
+		Section[] tiles = { Section.LISTINGS, Section.VANILLA, Section.RARES, Section.RAREDLE, Section.WATCHLIST, Section.MARKET, Section.MAPART, Section.SETTINGS };
 		int cols = w >= 520 ? 4 : w >= 330 ? 3 : 2;
 		int rows = (tiles.length + cols - 1) / cols;
 		int footerH = 24;
@@ -101,6 +101,7 @@ public class HomeScreen extends UiScreen {
 			case LISTINGS -> "Every shop listing, searchable";
 			case VANILLA -> "Vanilla items: prices & history";
 			case RARES -> "Every rare, with its details";
+			case RAREDLE -> "Guess today's secret rare";
 			case WATCHLIST -> "Get pinged when items show up";
 			case MARKET -> "Buy & sell posts from the site";
 			case MAPART -> "Mapart near you & uploads";

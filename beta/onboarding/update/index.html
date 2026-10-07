@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>What's New - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="What's new in SCTP 2.4: Rare-dle in-game, empty-hand clicks, double chest shops, see-through highlights and beacon beams, rare auctions and wishlists.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.55;}
+	a{color:var(--accent);}
+	code{font-family:var(--font-mono);background:var(--panel-alt);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:.92em;}
+	.wrap{max-width:1180px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:20px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:36px;height:36px;border-radius:9px;background:var(--panel-alt);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:18px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:20px;margin:0;}
+	.tag{color:var(--muted);font-size:13px;margin:2px 0 0;}
+
+	#topProgress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-2,#6FE3C8));width:0%;z-index:200;transition:width .1s linear;}
+
+	.hero{padding:54px 0 36px;border-bottom:1px solid var(--line);position:relative;overflow:hidden;}
+	.hero::before{content:"";position:absolute;top:-40%;right:-10%;width:520px;height:520px;background:radial-gradient(circle,rgba(var(--accent-rgb),0.14),transparent 65%);pointer-events:none;}
+	.hero .kicker{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;margin:0 0 10px;position:relative;}
+	.hero h2{font-family:var(--font-display);font-size:clamp(28px,4.2vw,44px);font-weight:700;margin:0 0 14px;line-height:1.1;max-width:18ch;position:relative;}
+	.hero p{color:var(--shell);font-size:16px;max-width:62ch;margin:0 0 22px;position:relative;}
+	.hero-actions{display:flex;gap:10px;flex-wrap:wrap;position:relative;}
+	.btn{display:inline-block;background:var(--accent);color:var(--accent-ink);border:none;border-radius:999px;padding:11px 20px;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none;font-family:inherit;}
+	.btn:hover{background:var(--accent-dim);}
+	.btn-ghost{display:inline-block;background:transparent;border:1px solid var(--line);color:var(--text);border-radius:999px;padding:10px 20px;font-weight:600;font-size:14px;cursor:pointer;text-decoration:none;font-family:inherit;}
+	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.hero-meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:26px;font-size:12.5px;color:var(--muted);position:relative;}
+	.hero-meta b{color:var(--text);}
+
+	.layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:40px;padding:36px 0 80px;align-items:start;}
+	@media (max-width:860px){.layout{grid-template-columns:1fr;}}
+	nav.toc{position:sticky;top:20px;display:flex;flex-direction:column;gap:2px;max-height:calc(100vh - 40px);overflow-y:auto;}
+	nav.toc a{display:block;padding:7px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;border-left:2px solid transparent;}
+	nav.toc a:hover{color:var(--text);}
+	nav.toc a.active{color:var(--accent);background:rgba(var(--accent-rgb),0.08);border-left-color:var(--accent);}
+	nav.toc .toc-num{display:inline-block;width:20px;color:var(--muted);font-family:var(--font-mono);font-size:11px;}
+	@media (max-width:860px){
+		nav.toc{position:static;flex-direction:row;overflow-x:auto;overflow-y:visible;max-height:none;gap:6px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch;}
+		nav.toc a{white-space:nowrap;flex:none;border-left:none;border-bottom:2px solid transparent;}
+		nav.toc a.active{border-left-color:transparent;border-bottom-color:var(--accent);}
+	}
+
+	.steps{display:flex;flex-direction:column;gap:64px;min-width:0;}
+	section.step{scroll-margin-top:16px;opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease;}
+	section.step.in{opacity:1;transform:none;}
+	@media (prefers-reduced-motion:reduce){section.step{opacity:1;transform:none;transition:none;}}
+	.step-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;flex-wrap:wrap;}
+	.step-num{font-family:var(--font-display);font-weight:700;color:var(--accent-ink);background:var(--accent);width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:13px;}
+	.step-head h3{font-family:var(--font-display);font-size:24px;font-weight:700;margin:0;}
+	.step-lede{color:var(--shell);font-size:14.5px;margin:0 0 18px;max-width:66ch;}
+	.step-body{display:grid;grid-template-columns:1.05fr 1fr;gap:24px;align-items:start;}
+	.step-body.wide{grid-template-columns:1fr;}
+	@media (max-width:760px){.step-body{grid-template-columns:1fr !important;}}
+
+	.shot{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);box-shadow:0 12px 30px rgba(0,0,0,0.35);}
+	.shot img{display:block;width:100%;height:auto;}
+	.shot-cap{padding:8px 12px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);font-family:var(--font-mono);}
+
+	.notes{display:flex;flex-direction:column;gap:10px;}
+	.notes p{margin:0;font-size:14px;}
+	.notes ul{margin:0;padding-left:20px;font-size:14px;}
+	.notes li{margin-bottom:6px;}
+	.tip{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text);}
+	.tip b{color:var(--accent);}
+	.new-pill{display:inline-block;background:linear-gradient(135deg,var(--accent),var(--accent-2,#6FE3C8));color:var(--accent-ink);font-size:10px;font-weight:800;letter-spacing:.04em;padding:3px 9px;border-radius:999px;}
+
+	.demo-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px;background:var(--panel);border:1px dashed var(--line);border-radius:10px;}
+	.demo-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);width:100%;margin-bottom:2px;}
+	.col-chip{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;}
+	.col-chip.on{background:var(--accent);border-color:transparent;color:var(--accent-ink);}
+	.job-rating{display:flex;gap:10px;font-size:12.5px;font-weight:600;}
+	.job-rating .up{color:var(--accent);}
+	.job-rating .down{color:var(--bad);}
+	.seller-rating{font-size:11.5px;border-radius:999px;padding:2px 10px;border:1px solid rgba(var(--accent-rgb),0.5);color:var(--accent);font-weight:600;}
+	.seller-rating .n{color:var(--muted);font-weight:400;}
+
+	.like-demo{display:inline-flex;align-items:center;gap:5px;background:rgba(226,100,122,0.16);border:1px solid #E2647A;color:#F08A9C;border-radius:999px;padding:6px 14px 6px 12px;font-size:14px;font-weight:700;}
+	.like-demo .hrt{color:#F0647E;font-size:16px;line-height:1;}
+	.review-demo{background:var(--panel-alt);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:8px 10px;width:100%;}
+	.review-demo .head{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;}
+	.review-demo p{margin:4px 0 0;font-size:13px;}
+	.pick-demo{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;width:100%;max-width:260px;font-size:13px;}
+	.pick-demo .lbl{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:2px 6px 6px;}
+	.pick-demo div.opt{padding:4px 8px;border-radius:6px;color:var(--muted);}
+	.pick-demo div.opt.on{background:rgba(var(--accent-rgb),0.14);color:var(--accent);box-shadow:inset 2px 0 0 var(--accent);}
+	.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+	.minichip{font-size:12px;font-weight:600;background:var(--panel-alt);border:1px solid var(--line);border-radius:999px;padding:4px 11px;color:var(--shell);}
+
+	footer.site{border-top:1px solid var(--line);padding:40px 0;margin-top:20px;}
+	.foot-grid{display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;font-size:13.5px;color:var(--muted);}
+	.foot-links{display:flex;gap:18px;flex-wrap:wrap;}
+	.foot-links a{color:var(--text);text-decoration:none;font-weight:600;}
+	.foot-links a:hover{color:var(--accent);}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/beta/beta.css">
+</head>
+<body>
+<div id="topProgress"></div>
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">✨</div>
+			<div><h1>SCTP 2.4</h1><p class="tag">What's new</p></div>
+		</div>
+		<nav id="siteNavMount"></nav>
+	</div>
+</header>
+
+<div class="wrap hero">
+	<p class="kicker">Onboarding &middot; What's new</p>
+	<h2>What's new in SCTP 2.4</h2>
+	<p>Everything new in 2.4, in the order you'll run into it. Update the mod from <a href="https://modrinth.com/mod/sc-shoplogger">Modrinth</a>, CurseForge or the Download button on the site to get the in-game parts. New here entirely? The <a href="/onboarding/web">website walkthrough</a> and <a href="/onboarding/mod">mod walkthrough</a> cover everything.</p>
+	<div class="hero-actions">
+		<a class="btn" href="/">Open the Trading Post &rarr;</a>
+		<a class="btn-ghost" href="/onboarding/mod">Mod walkthrough &rarr;</a>
+	</div>
+	<div class="hero-meta">
+		<span><b>Released</b> October 2026</span>
+		<span><b>Mod 2.4</b> for Fabric &amp; NeoForge, Minecraft 26.2 &amp; 26.3</span>
+	</div>
+</div>
+
+<div class="wrap layout">
+	<nav class="toc" id="toc">
+		<a href="#raredle"><span class="toc-num">01</span>Rare-dle in-game</a>
+		<a href="#empty-hand"><span class="toc-num">02</span>Empty hand</a>
+		<a href="#double-chests"><span class="toc-num">03</span>Double chest shops</a>
+		<a href="#highlights"><span class="toc-num">04</span>Highlights &amp; beams</a>
+		<a href="#extras"><span class="toc-num">05</span>Handy extras</a>
+		<a href="#auctions"><span class="toc-num">06</span>Rare auctions</a>
+		<a href="#wishlist"><span class="toc-num">07</span>Wishlists</a>
+		<a href="#site-extras"><span class="toc-num">08</span>More on the site</a>
+	</nav>
+
+	<div class="steps">
+
+		<section class="step" id="raredle">
+			<div class="step-head"><div class="step-num">1</div><h3>Rare-dle in-game</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">Play today's <a href="/rare-dle/">Rare-dle</a> without leaving the game. Press <b>X</b> and open the new <b>Rare-dle</b> tile.</p>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li><b>Same game as the website</b>: the same daily rare, and your guesses count toward the same streak, points and leaderboard.</li>
+						<li><b>No password</b>: the mod signs you in with your Minecraft name, the same way a server checks it when you join. It plays on the sctp.nl account with that name verified, so verify your name on the site first.</li>
+						<li>Type a rare's name and press Enter (or click it). Each guess shows how close it is, the pixel hint sharpens as you go, and the answer shows when you're done.</li>
+					</ul>
+				</div>
+				<div class="demo-row">
+					<span class="demo-label">Example: one guess</span>
+					<span style="background:#2F7D4E;color:#fff;border-radius:6px;padding:4px 9px;font-size:12.5px;">Collectibles</span>
+					<span style="background:#A97E22;color:#fff;border-radius:6px;padding:4px 9px;font-size:12.5px;">&#8593; Aug 2026</span>
+					<span style="background:#7E3329;color:#fff;border-radius:6px;padding:4px 9px;font-size:12.5px;">Spawn NPC</span>
+					<span style="background:#2F7D4E;color:#fff;border-radius:6px;padding:4px 9px;font-size:12.5px;">Plushie</span>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="empty-hand">
+			<div class="step-head"><div class="step-num">2</div><h3>Empty hand for doors, chests and more</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">Some items do something whenever you right-click with them, even when you only wanted to open a door. Now you can tell the mod to click with an empty hand instead.</p>
+			<div class="notes">
+				<ul>
+					<li>Go to <b>Settings &rsaquo; Empty hand</b>, press <b>Add</b>, hold the item and press <b>X</b>. Add as many items as you like.</li>
+					<li>From then on, clicking doors, chests, buttons, levers, crafting tables and every other clickable block uses an empty slot (or a plain vanilla item), so your item doesn't go off. Works everywhere, not just in shop worlds.</li>
+					<li>Items match exactly: adding your named sword leaves your other swords alone.</li>
+					<li>Want to use the item on a block after all? Sneak while you click.</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="double-chests">
+			<div class="step-head"><div class="step-num">3</div><h3>Double chest shops</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">Double chests are scanned as shops now, as one shop for both halves.</p>
+			<div class="notes">
+				<ul>
+					<li>The sign on the <b>left</b> half (as you face the chest) is the price for everything inside.</li>
+					<li>If only the right half has a sign, that one counts.</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="highlights">
+			<div class="step-head"><div class="step-num">4</div><h3>Highlights and beams</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">The mod can now outline a chest the way the game does when you look at a block, only brighter, in colour, and visible through walls.</p>
+			<div class="notes">
+				<ul>
+					<li><b>Something sold?</b> Your shop chest with a payment waiting gets a <b>green outline</b> you can spot from across your shop, instead of a green particle.</li>
+					<li><b>New teleport styles</b> (Settings &rsaquo; Look &amp; tools &rsaquo; Teleport beam style): <b>Chest highlight (through walls)</b> outlines the shop you're heading to, and <b>Beacon beam at the chest</b> puts a real beacon beam on it.</li>
+					<li><b>Stock holograms</b> (off by default, Settings &rsaquo; Look &amp; tools): a small &ldquo;64 in stock &middot; 3m ago&rdquo; line on the front of scanned shop chests, printed flat under the sign. It only shows when you&rsquo;re close and in front of the chest.</li>
+					<li><b>Empty shops</b> you just walked past get a <b>grey</b> marker on their sign instead of red, so you can skip them.</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="extras">
+			<div class="step-head"><div class="step-num">5</div><h3>Handy extras</h3><span class="new-pill">MOD</span></div>
+			<div class="notes">
+				<ul>
+					<li><b>Ender chest &#8644; backpack</b> is one button now, on the left: it shows the one you're not in (a bundle for your backpack, an ender chest for <code>/ec</code>).</li>
+					<li><b>Hide display listings</b>: the <b>Display</b> chip on the Listings screen (or Settings &rsaquo; Look &amp; tools) leaves [DISPLAY] shops out of listings, item pages, seller profiles and chat <code>/search</code>.</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="auctions">
+			<div class="step-head"><div class="step-num">6</div><h3>Rare auctions</h3><span class="new-pill">WEBSITE</span></div>
+			<p class="step-lede">Sell your rares at an SCTP auction. When one is coming up, the homepage shows it with the date, host, drop-off and spots left.</p>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li>On <a href="/auction/">sctp.nl/auction</a>, press the big button and search your rares: each one lands in a table with SCTP's value and suggested prices already filled in.</li>
+						<li><b>Dutch clock</b> auctions start high and the price keeps dropping until someone claims the item; <b>regular</b> auctions go up from a starting price. Not sure what to ask? Tick <b>Let the host pick</b>.</li>
+						<li>You get your shulker name (<code>Registered &lt;you&gt;</code>) and where to drop it off. <b>My Auctions</b> shows what sold and what you receive.</li>
+					</ul>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="wishlist">
+			<div class="step-head"><div class="step-num">7</div><h3>Wishlists</h3><span class="new-pill">WEBSITE</span></div>
+			<p class="step-lede">Star (&#9734;) the rares and mapart you want on <a href="/collection/">My Collection</a>, per world.</p>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li>Once you tick an item as owned, its star goes away by itself.</li>
+						<li><b>Share it</b>: the Wishlist card has a <b>Copy wishlist link</b> button, and that link opens your public collection straight on your wishlist.</li>
+						<li>Filter the checklist to <b>Wishlist</b>, or make a wishlist picture with "Share what I still need".</li>
+					</ul>
+				</div>
+				<div class="demo-row">
+					<span class="demo-label">Example: a starred rare</span>
+					<span style="display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(232,185,58,0.55);border-radius:10px;padding:6px 12px;font-size:13px;"><span style="background:#E8B93A;color:#2A1F05;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;">&#9733;</span>Flamingo Elytra</span>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="site-extras">
+			<div class="step-head"><div class="step-num">8</div><h3>More on the site</h3><span class="new-pill">WEBSITE</span></div>
+			<div class="notes">
+				<ul>
+					<li><b>Shop Logger is on <a href="https://modrinth.com/mod/sc-shoplogger">Modrinth</a></b>: install and update it straight from the Modrinth app. CurseForge and the direct download still work.</li>
+					<li><b>Every language</b>: item names from a game set to German, French or any other language are turned back into English names, so they show up in searches like everyone else's.</li>
+					<li><b>Real sales</b>: &ldquo;sold&rdquo; on item pages and the statistics pages now only counts real sales, when a shop&rsquo;s stock went down <i>and</i> its payment showed up in the chest. Restocking or taking items out no longer counts.</li>
+					<li><b>20 new rares</b> from the item sheet, plus updated details for many others.</li>
+				</ul>
+			</div>
+		</section>
+
+	</div>
+</div>
+
+<footer class="site">
+	<div class="wrap foot-grid">
+		<span>Snailcraft Trading Post &middot; onboarding</span>
+		<div class="foot-links">
+			<a href="/onboarding/web">Website walkthrough</a>
+			<a href="/onboarding/mod">Mod walkthrough</a>
+			<a href="/">Back to the Trading Post</a>
+		</div>
+	</div>
+</footer>
+
+<script src="/beta/nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+	var bar = document.getElementById("topProgress");
+	function onScroll(){
+		var h = document.documentElement;
+		var pct = (h.scrollTop) / ((h.scrollHeight - h.clientHeight) || 1) * 100;
+		bar.style.width = Math.min(100, Math.max(0, pct)) + "%";
+	}
+	document.addEventListener("scroll", onScroll, { passive: true });
+	onScroll();
+
+	var steps = document.querySelectorAll("section.step");
+	if("IntersectionObserver" in window){
+		var io = new IntersectionObserver(function(entries){
+			entries.forEach(function(e){ if(e.isIntersecting) e.target.classList.add("in"); });
+		}, { threshold: 0.08, rootMargin: "0px 0px -8% 0px" });
+		steps.forEach(function(s){ io.observe(s); });
+	} else {
+		steps.forEach(function(s){ s.classList.add("in"); });
+	}
+
+	var links = document.querySelectorAll("#toc a");
+	var map = {};
+	links.forEach(function(a){ map[a.getAttribute("href").slice(1)] = a; });
+	if("IntersectionObserver" in window){
+		var spy = new IntersectionObserver(function(entries){
+			entries.forEach(function(e){
+				var a = map[e.target.id];
+				if(!a) return;
+				if(e.isIntersecting) { links.forEach(function(l){ l.classList.remove("active"); }); a.classList.add("active"); }
+			});
+		}, { rootMargin: "-40% 0px -55% 0px" });
+		steps.forEach(function(s){ spy.observe(s); });
+	}
+})();
+</script>
+</body>
+</html>

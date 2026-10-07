@@ -5,8 +5,10 @@
   "compatibilityLevel": "JAVA_25",
   "client": [
     "ClientPlayNetworkHandlerMixin",
+    "EmptyHandMixin",
     "GuiScreenMixin",
     "InteractionMixin",
+    "LevelRendererMixin",
     "MouseHandlerMixin",
     "ScreenMixin"
   ],

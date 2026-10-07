@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.4 (mod 2.4)
+
+### Mod
+- **Rare-dle in-game:** a new Rare-dle tab (and dashboard tile) plays today's daily Rare-dle. It's the same puzzle, account, streak and leaderboard as sctp.nl/rare-dle. There's no password: the mod proves your Minecraft name the same way a server does when you join, and plays on the sctp.nl account that has that name verified. Guesses show the same coloured hints, the pixel hint sharpens as you go, and the answer shows when you're done.
+- **Empty hand for block clicks:** a new Settings › Empty hand page. Press Add, hold an item, press X, and from then on clicking doors, chests, buttons, levers, crafting tables and every other clickable block uses an empty hotbar slot (or a plain vanilla item) instead of that item, so its own right-click doesn't fire. Works everywhere, for as many items as you like. Items match exactly (same item and same name), so your named sword doesn't affect plain swords. Sneak-clicking still uses the item, and the page lists your items with a Remove button.
+- **Double chest shops:** double chests are scanned now, as one shop. The sign on the left half (as you face the chest) is the price; if only the right half has a sign, that one counts.
+- **Highlights that show through walls:** your own shop chests with a payment waiting get a bright green outline, visible through blocks, instead of green particles. The teleport beam's "Glowing chest outline" style is now this same outline ("Chest highlight (through walls)").
+- **Beacon beam teleport style:** "Destination marker only" is now "Beacon beam at the chest": a real beacon beam rising out of the shop you're heading to.
+- **Empty chests get grey markers:** a recently scanned shop with nothing for sale gets a grey particle on its sign instead of red.
+- **Ender chest ⇄ backpack:** the two arrows are now one icon button on the left that opens whichever one you're not in (a bundle for your backpack, an ender chest for /ec).
+- **Stock holograms** (off by default, Settings › Look & tools): a small line on the front of each scanned shop chest, under its sign: "64 in stock · 3m ago" or "Empty". It sits flat on the chest like sign text (it doesn't turn to follow you), only shows within 8 blocks, and only when you're in front of the chest.
+- **Real sales:** every scan now also reports how much payment is sitting in the shop, so the website can tell real sales apart from sellers taking stock out (see Website).
+- **Hide display listings:** a "Display: Shown / Hidden" chip on the Listings screen and a Settings › Look & tools option leave out [DISPLAY] shops everywhere: listings, item pages, seller profiles and chat `/search`.
+
+### Website
+- **Rare auctions (/auction):** enter rares for the next auction in a quick table: search a rare and it's added straight away, with SCTP's value and suggested prices filled in. Supports Dutch clock auctions (the price keeps dropping until someone claims it) and regular auctions. You can tick "Let the host pick" instead of setting a price. You get your shulker name ("Registered <name>") and the drop-off location for that auction. **My Auctions** shows your results and payouts, and the homepage shows the next auction (date, host, drop-off, spots left) with a button to enter.
+- **Wishlist:** star (☆) the rares and mapart you want on My Collection, per world. Owning an item takes its star away. A wishlist card with a "Copy wishlist link" button shares it (`/collection/<name>#wishlist` opens straight on it), the Have / Need filter has a Wishlist option, and "Share what I still need" can make a wishlist picture.
+- **Shop Logger on Modrinth:** the download buttons point to Modrinth (biggest) and CurseForge, with the direct download still available.
+- **Real sales in every statistic:** "sold" used to be any stock that disappeared, so restocking, moving items or delisting all counted as sales. Now an item only counts as sold when a shop's stock went down **and** its payment showed up in that chest between two scans (by anyone with mod 2.4). Item pages, the Statistics page (best-selling), My Shop Statistics and the restock hints all use this, counted from 7 October 2026. A sale where the seller collects the payment before the next scan can be missed, so the numbers can only be a little low, never inflated.
+- **Other languages:** item names uploaded from a game set to another language (German, French…) are turned back into the English names, so they match everyone else's.
+- **20 new rares** from the item sheet (The Grimoire, the organ collectibles, the Star (Reversed), new plushies…), with updated details for existing ones.
+
+### Admin
+- **Auction admin (/auction/admin, "auctions" permission):** create auctions (type, host, drop-off location, date, limits, cut %), see every entry per player, record what sold, and add items for a player who handed in a shulker without using the site.
+- **Listing bans:** "Ban" next to "Rem." on listings and in reports hides that item from that seller for good; the Banned listings section in the admin page undoes it.
+
+### Backend
+- Migration 0050: `containerScans` (last scan per chest: stock per listing + payment), `shopSales` (every confirmed sale) and `confirmedSold` / `confirmedRevenueDiamonds` on `sellerItemDailyStats`. Uploads accept `payment`, `paymentCurrency` and `scannedAt` per scanned position; `/stats/item`, `/stats/world` and `/stats/mine` return confirmed sales (`totalSold`, `recentSold`…) and `salesSince`.
+- Migrations 0040 (item name translations), 0041–0044 and 0046–0047 (auctions, cut %, type, host, "host picks", drop-off), 0045 (`bannedListings`), 0048 (`wishlistItems`).
+- New endpoints: `/auction/*` and `/admin/auctions/*` (incl. `add-items`), `/admin/listings/ban|bans|unban`, `POST /mod/login` (Mojang-verified mod sign-in), and `list: "wish"` on `/collection/set`.
+
 ## 2.3 (mod 2.3)
 
 ### Mod

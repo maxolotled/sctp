@@ -1,5 +1,6 @@
 package com.snailtools.shoplogger.gui;
 
+import com.snailtools.shoplogger.SearchPreferences;
 import com.snailtools.shoplogger.ShopWorld;
 import com.snailtools.shoplogger.WorldSelection;
 import com.snailtools.shoplogger.gui.data.Listing;
@@ -76,13 +77,17 @@ public class ListingsScreen extends UiScreen {
 		addRenderableWidget(search.box);
 		y += 26;
 
-		int chipW = Math.min(130, (w - 12 - 90) / 3);
+		int chipW = Math.min(120, (w - 18 - 90) / 4);
 		worldFilter = addRenderableWidget(new UiChip<>(x, y, chipW, 18, "World", List.of(ALL_WORLDS, "Firefly", "Honeybee"), keepWorld,
 				v -> v, v -> { keepWorld = v; refreshList(); }));
 		typeFilter = addRenderableWidget(new UiChip<>(x + chipW + 6, y, chipW, 18, "Type", List.of(ANY_TYPE, "Bulk", "Bundled", "Single"), keepType,
 				v -> v, v -> { keepType = v; refreshList(); }));
 		sortMode = addRenderableWidget(new UiChip<>(x + 2 * (chipW + 6), y, chipW, 18, "Sort", SORTS, keepSort,
 				v -> v, v -> { keepSort = v; refreshList(); }));
+		// same setting as Settings > "Hide display listings", so it sticks everywhere
+		addRenderableWidget(new UiChip<>(x + 3 * (chipW + 6), y, chipW, 18, "Display", List.of(Boolean.FALSE, Boolean.TRUE),
+				SearchPreferences.hideDisplayListings(), v -> v ? "Hidden" : "Shown",
+				v -> { SearchPreferences.setHideDisplayListings(v); refreshList(); }));
 		y += 24;
 
 		listX = x - 6;
@@ -144,7 +149,9 @@ public class ListingsScreen extends UiScreen {
 		String type = typeFilter.getValue();
 
 		List<Listing> filtered = new ArrayList<>();
+		boolean hideDisplay = SearchPreferences.hideDisplayListings();
 		for (Listing l : allListings) {
+			if (hideDisplay && l.isDisplay()) continue;
 			if (!q.isEmpty() && !(l.itemName.toLowerCase(Locale.ROOT).contains(q) || l.seller.toLowerCase(Locale.ROOT).contains(q))) continue;
 			if (!ALL_WORLDS.equals(world) && !world.equalsIgnoreCase(l.world)) continue;
 			if ("Bulk".equals(type) && !l.bulk) continue;

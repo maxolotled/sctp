@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manage my store - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><rect x='40' y='40' width='120' height='120' rx='14' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--info:#8C93E8; --warn:#E2A33D; --bad:#E2643D;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:1100px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:28px 0 22px;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:14px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:40px;height:40px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:21px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:28px;margin:0 0 4px;}
+	header.site .tag{color:var(--muted);font-size:14px;margin:0;}
+	main{padding:28px 0 60px;}
+	h2.section{font-family:var(--font-display);font-size:20px;margin:30px 0 10px;}
+	h2.section:first-child{margin-top:0;}
+	.help{color:var(--muted);font-size:13.5px;margin:0 0 12px;}
+	.notice{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;color:var(--muted);font-size:14px;}
+	.notice.warn{border-color:var(--warn);color:var(--warn);background:rgba(226,163,61,0.1);}
+	.notice strong{color:var(--text);}
+	.disclaimer{background:rgba(226,163,61,0.1);border:1px solid var(--warn);color:var(--warn);border-radius:10px;padding:10px 14px;font-size:13.5px;font-weight:600;margin-top:12px;}
+
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;}
+	input[type=text],input[type=number],select{
+		width:100%;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
+		border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px;
+	}
+	input:focus,select:focus{outline:none;border-color:var(--accent-dim);}
+	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit;}
+	.btn:hover{background:var(--accent-dim);}
+	.btn:disabled{opacity:.5;cursor:default;}
+	.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;}
+	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.btn-danger{background:transparent;border:1px solid var(--bad);color:var(--bad);border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
+	.status{font-size:12.5px;color:var(--accent);}
+	.status.err{color:var(--bad);}
+	.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center;}
+	.top-links{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;}
+
+	/* rows are a grid so the same columns line up in the add form and the editable list */
+	.lrow{display:grid;grid-template-columns:1.6fr .7fr 1fr 1.5fr auto;gap:8px;align-items:end;margin-bottom:8px;}
+	.lrow .f label{display:block;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px;}
+	.lrow .btns{display:flex;gap:6px;}
+	.lrow.list{padding:10px 0;border-top:1px solid var(--line);margin:0;}
+	.lrow.list:first-child{border-top:none;}
+	.world-tag{display:inline-block;font-size:11px;font-family:var(--font-mono);color:var(--muted);background:var(--panel-alt);border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin-bottom:6px;}
+	@media (max-width:860px){.lrow{grid-template-columns:1fr 1fr;}.lrow .btns{grid-column:1 / -1;}}
+
+	.search{width:100%;max-width:340px;margin-bottom:12px;}
+	table{width:100%;border-collapse:collapse;font-size:13.5px;}
+	th,td{text-align:left;padding:8px 10px;border-top:1px solid var(--line);vertical-align:top;}
+	th{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;font-weight:600;border-top:none;}
+	.table-scroll{overflow-x:auto;}
+	.empty{color:var(--muted);padding:12px 0;font-size:14px;}
+	footer.site{padding:20px 0 40px;color:var(--muted);font-size:12.5px;text-align:center;}
+	[hidden]{display:none!important;}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/beta/beta.css">
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap">
+		<div class="header-row">
+			<div class="brand-row">
+				<div class="brand-mark">🏪</div>
+				<div>
+					<h1>Manage my store</h1>
+					<p class="tag">Add, edit and remove the manual listings under your Minecraft username.</p>
+				</div>
+			</div>
+			<nav id="siteNavMount"></nav>
+		</div>
+	</div>
+</header>
+
+<main class="wrap">
+	<div id="gate" class="notice" hidden></div>
+
+	<div id="content" hidden>
+		<div class="top-links">
+			<a class="btn-ghost" href="/mapart/manage/">&larr; Mapart management</a>
+			<a class="btn-ghost" id="sellerLink" href="#">View my public seller page</a>
+		</div>
+
+		<h2 class="section">Add listings</h2>
+		<p class="help">Manual listings are for things the Shop Logger mod can't see (or for shops you haven't had scanned yet). They show up in the main table with an "added manually" note, an unlimited-stock marker and no scan time. Up to <span id="capText">100</span> per seller.</p>
+		<div class="card">
+			<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+				<div style="width:220px;"><div class="lrow" style="grid-template-columns:1fr;margin:0;"><div class="f"><label>World</label>
+					<select id="addWorld"><option value="Firefly">Firefly</option><option value="Honeybee">Honeybee</option></select></div></div></div>
+				<div style="width:220px;" id="addSellerWrap" hidden><div class="lrow" style="grid-template-columns:1fr;margin:0;"><div class="f"><label>Add as seller</label>
+					<select id="addSeller"></select></div></div></div>
+			</div>
+			<div id="addRows"></div>
+			<div class="actions">
+				<button type="button" class="btn-ghost" id="addRowBtn">+ Another row</button>
+				<button type="button" class="btn" id="addSubmit">Add listings</button>
+				<span class="status" id="addStatus"></span>
+			</div>
+		</div>
+
+		<h2 class="section">Your manual listings <span class="help" id="manualCount" style="font-weight:400;"></span></h2>
+		<input type="text" class="search" id="manualSearch" placeholder="Search your manual listings…" hidden>
+		<div class="card" id="manualList"><p class="empty">Loading…</p></div>
+
+		<h2 class="section">Your scanned listings <span class="help" id="scannedCount" style="font-weight:400;"></span></h2>
+		<p class="help">These come from the Shop Logger mod and are rewritten every time your chests are scanned, so they're read-only here. To change one, change the shop itself.</p>
+		<div class="card"><div class="table-scroll" id="scannedList"><p class="empty">Loading…</p></div></div>
+	</div>
+</main>
+
+<footer class="site"><div class="wrap"><a href="/">&larr; Back to the listings</a></div></footer>
+
+<datalist id="currencyList">
+	<option value="diamond"><option value="diamondblock"><option value="ironingot"><option value="ironblock">
+	<option value="goldingot"><option value="goldblock"><option value="emerald"><option value="netherite"><option value="netheriteblock">
+</datalist>
+
+<script src="/beta/nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var VERIFY_DISCLAIMER = "If you would like to verify your account, please dm maxolotled on discord! (@ectf)";
+	var MAX_ROWS = 25;
+	var manual = [];
+	var seller = "";
+
+	function esc(s){
+		return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+			return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+		});
+	}
+	function session(){ return window.sctpAccount ? window.sctpAccount.getSession() : null; }
+	function authFetch(path, opts){
+		var s = session();
+		opts = opts || {};
+		opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {}, s ? { Authorization: "Bearer " + s.token } : {});
+		return fetch(API_BASE + path, opts).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, status: r.status, data: d }; }); });
+	}
+	function gate(msg, warn){
+		var g = document.getElementById("gate");
+		g.className = "notice" + (warn ? " warn" : "");
+		g.innerHTML = msg;
+		g.hidden = false;
+		document.getElementById("content").hidden = true;
+	}
+	function disclaimerHtml(){ return '<div class="disclaimer">' + esc(VERIFY_DISCLAIMER) + '</div>'; }
+
+	// ---------- add form ----------
+	function addRowHtml(){
+		return '<div class="lrow add-row">' +
+			'<div class="f"><label>Item name</label><input type="text" data-f="itemName" maxlength="100" placeholder="e.g. Elytra"></div>' +
+			'<div class="f"><label>Price</label><input type="number" data-f="price" min="0" step="any" placeholder="e.g. 5"></div>' +
+			'<div class="f"><label>Currency</label><input type="text" data-f="currency" maxlength="40" list="currencyList" value="diamond"></div>' +
+			'<div class="f"><label>Where to find it</label><input type="text" data-f="position" maxlength="200" placeholder="e.g. /shop ' + esc(seller || "Name") + '"></div>' +
+			'<div class="btns"><button type="button" class="btn-ghost" data-act="rm" title="Remove this row">&times;</button></div>' +
+		'</div>';
+	}
+	function addRow(){
+		var host = document.getElementById("addRows");
+		if(host.querySelectorAll(".add-row").length >= MAX_ROWS) return;
+		host.insertAdjacentHTML("beforeend", addRowHtml());
+		var row = host.lastElementChild;
+		row.querySelector('[data-act="rm"]').addEventListener("click", function(){
+			if(host.querySelectorAll(".add-row").length > 1) row.remove();
+			else row.querySelectorAll("input[data-f=itemName],input[data-f=price],input[data-f=position]").forEach(function(i){ i.value = ""; });
+		});
+	}
+	function setAddStatus(t, err){ var s = document.getElementById("addStatus"); s.textContent = t; s.className = "status" + (err ? " err" : ""); }
+
+	document.getElementById("addRowBtn").addEventListener("click", addRow);
+	document.getElementById("addSubmit").addEventListener("click", function(){
+		var btn = this;
+		var entries = [];
+		document.querySelectorAll("#addRows .add-row").forEach(function(row){
+			var e = {};
+			row.querySelectorAll("[data-f]").forEach(function(i){ e[i.getAttribute("data-f")] = i.value.trim(); });
+			// A completely untouched row is just ignored rather than reported as invalid.
+			if(e.itemName || e.price || e.position) entries.push(e);
+		});
+		if(!entries.length){ setAddStatus("Fill in at least one row.", true); return; }
+		btn.disabled = true;
+		setAddStatus("Adding…", false);
+		authFetch("/store/listings/add", { method: "POST", body: JSON.stringify({ world: document.getElementById("addWorld").value, seller: document.getElementById("addSeller").value, entries: entries }) }).then(function(res){
+			btn.disabled = false;
+			if(!res.ok){ setAddStatus(res.data.error || "Couldn't add.", true); return; }
+			setAddStatus("Added " + res.data.added.length + " listing" + (res.data.added.length === 1 ? "" : "s") + "!", false);
+			document.getElementById("addRows").innerHTML = "";
+			addRow();
+			loadStore();
+		}).catch(function(){ btn.disabled = false; setAddStatus("Network problem — try again.", true); });
+	});
+
+	// ---------- manual list ----------
+	function renderManual(){
+		var host = document.getElementById("manualList");
+		var q = document.getElementById("manualSearch").value.trim().toLowerCase();
+		document.getElementById("manualSearch").hidden = manual.length < 6;
+		document.getElementById("manualCount").textContent = manual.length ? "(" + manual.length + ")" : "";
+		if(!manual.length){ host.innerHTML = '<p class="empty">You have no manual listings yet.</p>'; return; }
+		var rows = manual.filter(function(m){ return !q || (m.itemName + " " + m.world + " " + m.position).toLowerCase().indexOf(q) !== -1; });
+		if(!rows.length){ host.innerHTML = '<p class="empty">Nothing matches that search.</p>'; return; }
+		host.innerHTML = rows.map(function(m){
+			return '<div data-id="' + esc(m.id) + '">' +
+				'<div class="lrow list">' +
+					'<div class="f"><span class="world-tag">' + esc(m.world) + (m.seller && m.seller.toLowerCase() !== seller.toLowerCase() ? ' &middot; ' + esc(m.seller) : '') + '</span><input type="text" data-f="itemName" maxlength="100" value="' + esc(m.itemName) + '"></div>' +
+					'<div class="f"><label>Price</label><input type="number" data-f="price" min="0" step="any" value="' + esc(m.price) + '"></div>' +
+					'<div class="f"><label>Currency</label><input type="text" data-f="currency" maxlength="40" list="currencyList" value="' + esc(m.currency) + '"></div>' +
+					'<div class="f"><label>Where to find it</label><input type="text" data-f="position" maxlength="200" value="' + esc(m.position) + '"></div>' +
+					'<div class="btns"><button type="button" class="btn" data-act="save">Save</button><button type="button" class="btn-danger" data-act="del">Delete</button></div>' +
+				'</div>' +
+				'<div class="status" data-role="status" style="margin:0 0 6px;"></div>' +
+			'</div>';
+		}).join("");
+		host.querySelectorAll("[data-id]").forEach(function(box){
+			var id = box.getAttribute("data-id");
+			var status = box.querySelector('[data-role="status"]');
+			function setStatus(t, err){ status.textContent = t; status.className = "status" + (err ? " err" : ""); }
+			box.querySelector('[data-act="save"]').addEventListener("click", function(){
+				var body = { id: id };
+				box.querySelectorAll("[data-f]").forEach(function(i){ body[i.getAttribute("data-f")] = i.value.trim(); });
+				setStatus("Saving…", false);
+				authFetch("/store/listings/update", { method: "POST", body: JSON.stringify(body) }).then(function(res){
+					if(!res.ok){ setStatus(res.data.error || "Couldn't save.", true); return; }
+					var i = manual.findIndex(function(x){ return x.id === id; });
+					if(i !== -1) manual[i] = res.data.listing;
+					setStatus("Saved!", false);
+				});
+			});
+			box.querySelector('[data-act="del"]').addEventListener("click", function(){
+				if(!confirm("Delete this listing?")) return;
+				authFetch("/store/listings/delete", { method: "POST", body: JSON.stringify({ id: id }) }).then(function(res){
+					if(!res.ok){ setStatus(res.data.error || "Couldn't delete.", true); return; }
+					manual = manual.filter(function(x){ return x.id !== id; });
+					renderManual();
+				});
+			});
+		});
+	}
+	document.getElementById("manualSearch").addEventListener("input", renderManual);
+
+	// ---------- scanned (read-only) ----------
+	function renderScanned(list, total){
+		var host = document.getElementById("scannedList");
+		document.getElementById("scannedCount").textContent = total ? "(" + total + (total > list.length ? ", showing " + list.length : "") + ")" : "";
+		if(!list.length){ host.innerHTML = '<p class="empty">No scanned listings under your username yet.</p>'; return; }
+		host.innerHTML = '<table><thead><tr><th>Item</th><th>Type</th><th>Price</th><th>In stock</th><th>World</th><th>Position</th></tr></thead><tbody>' +
+			list.map(function(r){
+				return '<tr><td>' + esc(r.itemName) + '</td>' +
+					'<td>' + (r.bulk ? 'Bulk' : r.bundled ? 'Bundled' : 'Single') + '</td>' +
+					'<td>' + esc(r.priceLabel) + '</td>' +
+					'<td>' + esc(r.amount) + '</td>' +
+					'<td>' + esc(r.world) + '</td>' +
+					'<td>' + esc(r.position) + '</td></tr>';
+			}).join("") + '</tbody></table>';
+	}
+
+	function loadStore(){
+		return authFetch("/store/listings").then(function(res){
+			if(res.status === 403){
+				gate('<strong>Your account isn\'t verified yet.</strong> Store management is only available to accounts with a verified Minecraft username.' + disclaimerHtml(), true);
+				return;
+			}
+			if(res.status === 401){ gate('Your login expired &mdash; please log in again from the account button up top.', true); return; }
+			if(!res.ok){ gate(esc(res.data.error || "Couldn't load your store."), true); return; }
+			seller = res.data.seller;
+			document.getElementById("gate").hidden = true;
+			document.getElementById("content").hidden = false;
+			document.getElementById("capText").textContent = res.data.manualCap;
+			var firstWorld = (res.data.manual[0] || res.data.scanned[0] || {}).world;
+			document.getElementById("sellerLink").href = "/s/" + encodeURIComponent(seller);
+			manual = res.data.manual;
+			// Sellers whose manual listings were handed to this account show up here too.
+			var managed = res.data.managedSellers || [];
+			var sel = document.getElementById("addSeller");
+			sel.innerHTML = [seller].concat(managed.map(function(m){ return m.sellerName; })).map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join("");
+			document.getElementById("addSellerWrap").hidden = !managed.length;
+			if(!document.querySelector("#addRows .add-row")) addRow();
+			renderManual();
+			renderScanned(res.data.scanned, res.data.scannedTotal);
+		});
+	}
+
+	function start(){
+		if(!session()){
+			gate('<strong>Log in first.</strong> Use the account button up top, then come back here. Store management is available to accounts with a verified Minecraft username.' + disclaimerHtml(), false);
+			return;
+		}
+		loadStore();
+	}
+	// account-widget.js loads deferred — wait for it before reading the session.
+	if(document.readyState === "complete") start();
+	else window.addEventListener("load", start);
+	window.sctpOnAccountChange = function(){ location.reload(); };
+})();
+</script>
+</body>
+</html>

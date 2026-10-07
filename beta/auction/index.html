@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rare Auction - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Put your rare items up for auction at the Snailcraft Trading Post.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D; --gold:#F2C14E;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	[hidden]{display:none !important;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:980px;margin:0 auto;padding:0 20px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--gold);color:#2A1E05;display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	.tag{color:var(--muted);font-size:13px;margin:2px 0 0;}
+	main{padding:24px 0 70px;display:flex;flex-direction:column;gap:18px;}
+
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;}
+	.card h2{font-family:var(--font-display);font-size:19px;margin:0 0 12px;}
+	.hero{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;background:linear-gradient(135deg, rgba(242,193,78,0.10), transparent 60%), var(--panel);}
+	@media (max-width:700px){.hero{grid-template-columns:1fr;}}
+	.hero .kicker{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin:0 0 4px;}
+	.hero .when{font-family:var(--font-display);font-size:26px;font-weight:700;margin:0;line-height:1.2;}
+	.hero .sub{color:var(--shell);font-size:14px;margin:6px 0 0;}
+	.status{display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px;white-space:nowrap;}
+	.status.open{background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
+	.status.closed{background:rgba(226,163,61,0.16);color:var(--warn);}
+	.status.none{background:var(--panel-alt);color:var(--muted);}
+	.facts{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px;font-size:13px;color:var(--muted);}
+	.facts b{color:var(--text);font-weight:600;}
+
+	label.lbl{display:block;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+	input[type=text],input[type=number],select{width:100%;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;}
+	input:focus,select:focus{outline:none;border-color:var(--accent-dim);}
+	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
+	.btn:hover{background:var(--accent-dim);}
+	.btn:disabled{opacity:.5;cursor:default;}
+	.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:9px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
+	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.err{color:var(--bad);font-size:13px;margin:8px 0 0;}
+	.hint{color:var(--muted);font-size:12.5px;margin:6px 0 0;}
+
+	.user-row{display:grid;grid-template-columns:minmax(0,320px) 1fr;gap:14px;align-items:end;}
+	@media (max-width:640px){.user-row{grid-template-columns:1fr;}}
+
+	.picker{position:relative;}
+	.results{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:10px;z-index:20;max-height:320px;overflow-y:auto;box-shadow:0 10px 28px rgba(0,0,0,0.45);}
+	.results button{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:none;color:var(--text);padding:8px 12px;text-align:left;cursor:pointer;font-family:inherit;font-size:14px;}
+	.results button:hover,.results button.active{background:var(--panel-alt);}
+	.results .cat{margin-left:auto;font-size:11.5px;color:var(--muted);}
+	.ico{width:32px;height:32px;flex:0 0 auto;image-rendering:pixelated;object-fit:contain;background:#0C140F;border-radius:6px;padding:2px;}
+	.ico.lg{width:48px;height:48px;padding:4px;}
+
+	.editor{margin-top:14px;border:1px dashed var(--line);border-radius:12px;padding:14px;display:grid;gap:12px;}
+	.editor-head{display:flex;align-items:center;gap:12px;}
+	.editor-head h3{margin:0;font-size:16px;}
+	.value-line{font-size:13px;color:var(--shell);}
+	.value-line b{color:var(--gold);}
+	.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+	.price-grid.single{grid-template-columns:minmax(0,360px);}
+	@media (max-width:560px){.price-grid{grid-template-columns:1fr;}}
+	.money{display:flex;gap:6px;}
+	.money input{flex:1;min-width:0;}
+	.money select{width:84px;flex:0 0 auto;}
+
+	.items{display:flex;flex-direction:column;gap:8px;}
+	.item-row{display:flex;align-items:center;gap:12px;background:var(--panel-alt);border:1px solid var(--line);border-radius:10px;padding:8px 12px;}
+	.item-row .nm{font-weight:600;font-size:14px;}
+	.item-row .px{font-size:12.5px;color:var(--muted);font-family:var(--font-mono);}
+	.item-row .x{margin-left:auto;background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px;}
+	.item-row .x:hover{color:var(--bad);}
+	.list-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;}
+	.empty{color:var(--muted);font-size:13.5px;padding:8px 0;}
+
+	.steps{counter-reset:s;display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;}
+	.steps li{counter-increment:s;display:grid;grid-template-columns:32px 1fr;gap:12px;align-items:start;font-size:14.5px;}
+	.steps li::before{content:counter(s);width:28px;height:28px;border-radius:50%;background:var(--gold);color:#2A1E05;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px;}
+	.copy{display:inline-flex;align-items:center;gap:8px;background:#0C140F;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-family:var(--font-mono);font-size:14px;margin-top:6px;}
+	.copy button{background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;font-family:var(--font-body);}
+
+	/* the big "Enter your items" button and the popup it opens */
+	.big-cta{display:flex;align-items:center;justify-content:center;gap:14px;width:100%;border:none;border-radius:14px;padding:18px 22px;cursor:pointer;font-family:inherit;
+		background:linear-gradient(135deg, var(--gold), #E8A93A);color:#2A1E05;box-shadow:0 10px 26px rgba(242,193,78,0.22);transition:transform .12s ease, box-shadow .12s ease;}
+	.big-cta:hover{transform:translateY(-1px);box-shadow:0 14px 32px rgba(242,193,78,0.3);}
+	.big-cta:focus-visible{outline:3px solid var(--text);outline-offset:3px;}
+	.big-cta .t{font-family:var(--font-display);font-size:22px;font-weight:700;}
+	.big-cta .s{font-size:13.5px;font-weight:600;opacity:.8;}
+	.big-cta .arrow{font-size:22px;font-weight:700;}
+	@media (max-width:560px){.big-cta{flex-direction:column;gap:2px;}.big-cta .arrow{display:none;}}
+	@media (prefers-reduced-motion: reduce){.big-cta{transition:none;}.big-cta:hover{transform:none;}}
+	.entry-bg{position:fixed;inset:0;background:rgba(0,0,0,0.68);z-index:150;overflow-y:auto;padding:28px 16px;display:flex;justify-content:center;align-items:flex-start;}
+	.entry-panel{width:100%;max-width:780px;position:relative;}
+	.entry-panel > .card{box-shadow:0 24px 60px rgba(0,0,0,0.55);}
+	.entry-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--panel-alt);color:var(--text);font-size:20px;line-height:1;cursor:pointer;z-index:2;}
+	.entry-close:hover{border-color:var(--accent-dim);color:var(--accent);}
+	body.entry-open{overflow:hidden;}
+	.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
+	.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;width:100%;max-width:420px;}
+	.modal h2{font-family:var(--font-display);font-size:19px;margin:0 0 8px;}
+	.modal p{color:var(--shell);font-size:14px;margin:0 0 16px;}
+	.modal .actions{display:flex;flex-direction:column;gap:8px;}
+
+	/* what's up for auction so far */
+	.lineup{display:grid;grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));gap:8px;}
+	.lineup .li{display:flex;align-items:center;gap:10px;background:var(--panel-alt);border:1px solid var(--line);border-radius:10px;padding:6px 10px;min-width:0;}
+	.lineup .li span{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+	.lineup .li .n{margin-left:auto;font-family:var(--font-mono);font-size:12.5px;color:var(--gold);font-weight:700;flex:0 0 auto;}
+
+	/* how it works: a regular auction's bids going up */
+	.bids{width:100%;max-width:240px;background:#0C140F;border:1px solid var(--line);border-radius:16px;padding:16px 16px 12px;}
+	.bids .lbl2{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+	.bids .now{font-family:var(--font-display);font-size:30px;font-weight:700;line-height:1.1;margin:2px 0 2px;transition:color .2s;}
+	.bids .item{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+	.bids .rows{display:flex;flex-direction:column;gap:4px;min-height:96px;}
+	.bids .row{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);font-family:var(--font-mono);}
+	.bids .row:first-child{color:var(--text);}
+	.bids .call{margin-top:8px;min-height:18px;font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--gold);text-transform:uppercase;}
+	.bids .call.sold{color:var(--accent);}
+
+	/* how it works: the Dutch clock */
+	.how{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:24px;align-items:center;}
+	@media (max-width:760px){.how{grid-template-columns:1fr;}}
+	.how p.lead{color:var(--shell);font-size:14.5px;margin:0 0 14px;max-width:62ch;}
+	.how ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;counter-reset:h;}
+	.how li{counter-increment:h;display:grid;grid-template-columns:26px 1fr;gap:10px;font-size:14px;}
+	.how li::before{content:counter(h);width:24px;height:24px;border-radius:50%;border:1px solid var(--gold);color:var(--gold);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;}
+	.how li b{color:var(--text);}
+	.how li span{color:var(--muted);}
+	.clock{display:flex;flex-direction:column;align-items:center;gap:8px;}
+	.clock svg{width:100%;max-width:220px;height:auto;display:block;}
+	.clock .caption{font-size:12px;color:var(--muted);text-align:center;}
+	.clock-price{font-family:var(--font-display);font-weight:700;fill:var(--text);}
+	.clock-sub{font-family:var(--font-body);font-size:10px;fill:var(--muted);letter-spacing:.06em;}
+	.clock-sold{font-family:var(--font-body);font-weight:800;font-size:12px;fill:var(--accent);letter-spacing:.1em;}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/beta/beta.css">
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">&#128296;</div>
+			<div><h1>Rare Auction</h1><p class="tag">Put your rares up for auction</p></div>
+		</div>
+		<nav id="siteNavMount"></nav>
+	</div>
+</header>
+
+<main class="wrap">
+	<section class="card hero" id="hero">
+		<div>
+			<p class="kicker">Next auction</p>
+			<p class="when" id="heroWhen">Loading…</p>
+			<p class="sub" id="heroSub"></p>
+		</div>
+		<span class="status none" id="heroStatus">…</span>
+		<div class="facts" id="heroFacts" style="grid-column:1/-1;"></div>
+	</section>
+
+	<button type="button" class="big-cta" id="openEntry" hidden>
+		<span class="t">Enter your items</span><span class="s" id="openEntrySub"></span><span class="arrow" aria-hidden="true">&rarr;</span>
+	</button>
+
+	<section class="card" id="lineupCard" hidden>
+		<h2 id="lineupTitle">Up for auction so far</h2>
+		<div class="lineup" id="lineup"></div>
+	</section>
+
+	<section class="card" id="howRegularCard" hidden>
+		<h2 id="howRegularTitle">How the auction works</h2>
+		<div class="how">
+			<div>
+				<p class="lead">A <b>regular auction</b>: bidding starts at your starting price and goes <b>up</b> while bidders outbid each other.</p>
+				<ol>
+					<li><div><b>Bidding opens at your starting price.</b> <span>That's also the least your item can sell for.</span></div></li>
+					<li><div><b>Bidders outbid each other, higher and higher.</b> <span>Every new bid has to beat the one before.</span></div></li>
+					<li><div><b>When the bidding stops, the highest bid wins.</b> <span>Going once, going twice… sold!</span></div></li>
+					<li><div><b>Nobody bids your starting price?</b> <span>Then it doesn't sell and you get it back.</span></div></li>
+				</ol>
+				<p class="hint" style="margin-top:14px;">When your item sells, you receive the sale price minus our cut. A starting price a little under the item's value gets the bidding going; just don't set it lower than you'd be happy to sell for.</p>
+			</div>
+			<div class="clock" aria-hidden="true">
+				<div class="bids">
+					<div class="lbl2">Highest bid</div>
+					<div class="now" id="bidNow">24 DB</div>
+					<div class="item">Flamingo Elytra</div>
+					<div class="rows" id="bidRows"></div>
+					<div class="call" id="bidCall"></div>
+				</div>
+				<p class="caption">Example: starting price 24 DB, sold to the highest bidder at 38 DB</p>
+			</div>
+		</div>
+	</section>
+
+	<section class="card" id="howCard">
+		<h2 id="howDutchTitle">How the auction works</h2>
+		<div class="how">
+			<div>
+				<p class="lead">We use the <b>Dutch clock</b>, the way flowers are sold at the big Dutch flower auctions: the price doesn't go <i>up</i> while people outbid each other, it starts high and keeps <b>dropping</b> until someone takes it.</p>
+				<ol>
+					<li><div><b>The clock starts at your starting bid.</b> <span>Every item gets its turn on the clock.</span></div></li>
+					<li><div><b>The price ticks down, lower and lower.</b> <span>Bidders watch it fall and wait for a price they like.</span></div></li>
+					<li><div><b>The first bidder to claim it wins it at that price.</b> <span>Wait too long and someone else grabs it first: there's no second chance once it's claimed.</span></div></li>
+					<li><div><b>The clock never goes below your lowest limit.</b> <span>If nobody claims it by then, it doesn't sell and you get it back.</span></div></li>
+				</ol>
+				<p class="hint" style="margin-top:14px;">When your item sells, you receive the sale price minus our cut. Set your starting bid high enough to leave room to drop, and your lowest limit at the least you'd be happy to sell for.</p>
+			</div>
+			<div class="clock" aria-hidden="true">
+				<svg viewBox="0 0 220 220" id="dutchClock">
+					<circle cx="110" cy="110" r="100" fill="#0C140F" stroke="var(--line)" stroke-width="2"/>
+					<g id="clockTicks"></g>
+					<circle id="clockArc" cx="110" cy="110" r="88" fill="none" stroke="var(--gold)" stroke-width="6" stroke-linecap="round" transform="rotate(-90 110 110)"/>
+					<line id="clockHand" x1="110" y1="34" x2="110" y2="10" stroke="var(--text)" stroke-width="4" stroke-linecap="round"/>
+					<text x="110" y="148" text-anchor="middle" class="clock-price" font-size="26" id="clockPrice">49 DB</text>
+					<text x="110" y="166" text-anchor="middle" class="clock-sub" id="clockSub">FLAMINGO ELYTRA</text>
+					<text x="110" y="88" text-anchor="middle" class="clock-sold" id="clockSold" opacity="0">SOLD!</text>
+				</svg>
+				<p class="caption">Example: starting bid 49 DB, lowest limit 9 DB, claimed at 31 DB</p>
+			</div>
+		</div>
+	</section>
+</main>
+
+<div class="entry-bg" id="entryModal" hidden role="dialog" aria-modal="true" aria-labelledby="entryTitle">
+	<div class="entry-panel">
+		<button type="button" class="entry-close" id="closeEntry" aria-label="Close">&times;</button>
+		<section class="card" id="enterCard" hidden>
+			<h2 id="entryTitle">Enter your items</h2>
+			<div class="user-row">
+				<div>
+					<label class="lbl" for="mcName">Your Minecraft username</label>
+					<input type="text" id="mcName" maxlength="17" placeholder="e.g. maxolotled" autocomplete="off" spellcheck="false">
+				</div>
+				<p class="hint" id="userHint" style="margin:0 0 10px;"></p>
+			</div>
+	
+			<div style="margin-top:16px;">
+				<label class="lbl">Your items</label>
+				<div id="entryTable"></div>
+				<div class="list-foot">
+					<span class="hint" id="listCount" style="margin:0;"></span>
+					<button type="button" class="btn" id="continueBtn" disabled>Continue</button>
+				</div>
+				<p class="err" id="submitErr" hidden></p>
+			</div>
+		</section>
+	
+		<section class="card" id="doneCard" hidden>
+			<h2>Almost done: hand in your items</h2>
+			<ol class="steps">
+				<li><div>Put <b>exactly these items</b> into <b>one shulker box</b>:<div class="items" id="doneList" style="margin-top:8px;"></div></div></li>
+				<li><div>Rename the shulker box in an anvil to exactly:<br><span class="copy"><span id="shulkerName"></span><button type="button" id="copyName">Copy</button></span><p class="hint">This is how we know the shulker belongs to your entry on the website.</p></div></li>
+				<li><div>Drop it off at <b id="dropAt">/pw auction</b><span id="dropBy"></span>.</div></li>
+			</ol>
+			<p class="hint" id="doneAccount" style="margin-top:16px;"></p>
+			<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+				<button type="button" class="btn-ghost" id="enterMore">Enter more items</button>
+			</div>
+		</section>
+	</div>
+</div>
+
+<script src="/beta/nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+<script src="/auction/entry-table.js"></script>
+<script>
+(function(){
+	"use strict";
+	var API = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var NAME_KEY = "sctp_auction_name";
+	var MC_NAME = /^[.*]?[A-Za-z0-9_]{2,16}$/;
+
+	var auction = null, enteredTotal = 0, enteredByUser = 0;
+	var lineupLoaded = false, lineupFresh = false;
+
+	function $(id){ return document.getElementById(id); }
+	function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+	function norm(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9']/g, ""); }
+	function session(){
+		if(window.sctpAccount) return window.sctpAccount.getSession();
+		try { var s = JSON.parse(localStorage.getItem("sctp_session") || "null"); return s && s.token && Date.parse(s.expiresAt) >= Date.now() ? s : null; } catch(e){ return null; }
+	}
+	function fmtDia(d){
+		if(d == null) return "";
+		if(Math.round(d) !== d) return d >= 9 ? (Math.round(d / 9 * 10) / 10) + " DB" : (Math.round(d * 10) / 10) + " dia";
+		var db = Math.floor(d / 9), dia = d % 9;
+		if(!db) return dia + " dia";
+		return dia ? db + " DB " + dia + " dia" : db + " DB";
+	}
+	function toDia(value, unit){ var n = Number(value); if(!(n > 0)) return null; return Math.round(unit === "db" ? n * 9 : n); }
+	function setMoney(inputId, unitId, dia){
+		if(dia == null){ $(inputId).value = ""; return; }
+		if(dia >= 9 && dia % 9 === 0){ $(inputId).value = dia / 9; $(unitId).value = "db"; }
+		else if(dia >= 9){ $(inputId).value = Math.round(dia / 9 * 100) / 100; $(unitId).value = "db"; }
+		else { $(inputId).value = dia; $(unitId).value = "dia"; }
+	}
+
+	// ---------------- auction header ----------------
+	function loadAuction(){
+		var name = $("mcName").value.trim();
+		return fetch(API + "/auction/current" + (MC_NAME.test(name) ? "?mcUsername=" + encodeURIComponent(name) : ""))
+			.then(function(r){ return r.json(); })
+			.then(function(d){ auction = d.auction; enteredTotal = d.entered || 0; enteredByUser = d.enteredByUser || 0; renderHero(); if(!lineupLoaded || lineupFresh){ lineupLoaded = true; loadLineup(lineupFresh); lineupFresh = false; } })
+			.catch(function(){ $("heroWhen").textContent = "Couldn't load the auction"; $("heroSub").textContent = "Check your connection and refresh."; });
+	}
+
+	// ---------------- what's entered so far (no prices, no sellers) ----------------
+	function loadLineup(fresh){
+		if(!auction){ $("lineupCard").hidden = true; return; }
+		fetch(API + "/auction/lineup?auctionId=" + encodeURIComponent(auction.id) + (fresh ? "&t=" + Date.now() : ""))
+			.then(function(r){ return r.json(); })
+			.then(function(d){
+				var items = d.items || [];
+				var total = items.reduce(function(n, i){ return n + i.count; }, 0);
+				$("lineupCard").hidden = false;
+				$("lineupTitle").textContent = "Up for auction so far" + (total ? " (" + total + " item" + (total === 1 ? "" : "s") + ")" : "");
+				$("lineup").innerHTML = items.length ? items.map(function(i){
+					return '<div class="li" title="' + esc(i.itemName) + '"><img class="ico" src="' + esc(i.texture || "") + '" alt=""><span>' + esc(i.itemName) + '</span>' + (i.count > 1 ? '<span class="n">&times;' + i.count + '</span>' : '') + '</div>';
+				}).join("") : '<div class="empty">Nothing entered yet. Be the first!</div>';
+			})
+			.catch(function(){ $("lineupCard").hidden = true; });
+	}
+
+	function isRegular(){ return !!auction && auction.type === "regular"; }
+
+	// Which explainer to show: the one for this auction's type, or both when nothing's scheduled.
+	function renderHow(){
+		var regular = isRegular();
+		$("howCard").hidden = !!auction && regular;
+		$("howRegularCard").hidden = !!auction && !regular;
+		$("howDutchTitle").textContent = auction ? "How the auction works" : "How a Dutch clock auction works";
+		$("howRegularTitle").textContent = auction ? "How the auction works" : "How a regular auction works";
+	}
+
+	function renderHero(){
+		renderHow();
+		var st = $("heroStatus");
+		if(!auction){
+			$("heroWhen").textContent = "No auction scheduled";
+			$("heroSub").textContent = "Keep an eye on Discord for the next one. Entries open here when it's announced.";
+			st.className = "status none"; st.textContent = "Not taking entries";
+			$("heroFacts").innerHTML = "";
+			$("openEntry").hidden = true;
+			closeEntry();
+			renderHow();
+			return;
+		}
+		var at = new Date(auction.auctionAt);
+		$("heroWhen").textContent = at.toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+		var utc = at.toLocaleString(undefined, { timeZone: "UTC", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " UTC";
+		$("heroSub").textContent = auction.title + (auction.hostName ? " · hosted by " + auction.hostName : "") + " · " + auction.world + " · shown in your time (" + utc + ")" + (auction.notes ? " · " + auction.notes : "");
+		st.className = "status " + (auction.accepting ? "open" : "closed");
+		st.textContent = auction.accepting ? "Taking entries" : "Entries closed";
+		var left = Math.max(0, auction.totalLimit - enteredTotal);
+		$("heroFacts").innerHTML =
+			'<span>Our cut: <b>' + esc(auction.cutPercent) + '%</b> of the sale, rounded up to the nearest diamond</span>' +
+			'<span><b>' + (isRegular() ? "Regular auction" : "Dutch clock auction") + '</b>: ' + (isRegular() ? "bids go up from your starting price" : "the price drops until someone claims it") + '</span>' +
+			'<span>Up to <b>' + auction.perPersonLimit + '</b> item' + (auction.perPersonLimit === 1 ? "" : "s") + ' per person</span>' +
+			'<span><b>' + left + '</b> of ' + auction.totalLimit + ' spots left</span>';
+		$("openEntry").hidden = !auction.accepting;
+		$("openEntrySub").textContent = left + " spot" + (left === 1 ? "" : "s") + " left · up to " + auction.perPersonLimit + " per person";
+		if(!auction.accepting && $("doneCard").hidden) closeEntry();
+		// sctp.nl/auction/#enter (e.g. from an announcement) opens the form straight away
+		if(auction.accepting && location.hash === "#enter" && !openedFromLink){ openedFromLink = true; openEntry(); }
+		entry.rerender();
+		renderList();
+	}
+	var openedFromLink = false;
+
+	// ---------------- the entry popup ----------------
+	function openEntry(){
+		$("doneCard").hidden = true;
+		$("enterCard").hidden = false;
+		$("entryModal").hidden = false;
+		document.body.classList.add("entry-open");
+		setTimeout(function(){ if($("mcName").value.trim()) entry.focus(); else $("mcName").focus(); }, 0);
+	}
+	function closeEntry(){
+		$("entryModal").hidden = true;
+		document.body.classList.remove("entry-open");
+	}
+	$("openEntry").addEventListener("click", openEntry);
+	$("closeEntry").addEventListener("click", closeEntry);
+	document.addEventListener("keydown", function(e){
+		// Esc closes the popup, unless the sign-in question or the rare dropdown is the thing open
+		if(e.key !== "Escape" || $("entryModal").hidden || document.querySelector(".modal-bg") || document.querySelector("#entryTable .ae-results:not([hidden])")) return;
+		closeEntry();
+	});
+
+	// ---------------- username ----------------
+	function userLimitLeft(){ return auction ? Math.max(0, auction.perPersonLimit - enteredByUser) : 0; }
+	var nameTimer = null;
+	$("mcName").addEventListener("input", function(){
+		var v = $("mcName").value.trim();
+		try { localStorage.setItem(NAME_KEY, v); } catch(e){}
+		clearTimeout(nameTimer);
+		nameTimer = setTimeout(function(){ if(MC_NAME.test(v)) loadAuction(); else { enteredByUser = 0; renderList(); } }, 400);
+		renderList();
+	});
+
+	// ---------------- items table (see /auction/entry-table.js) ----------------
+	var entry = SctpAuctionEntry.create($("entryTable"), {
+		api: API,
+		getAuction: function(){ return auction; },
+		limit: userLimitLeft,
+		onChange: renderList,
+	});
+
+	// a row in the "hand in these items" list after submitting
+	function itemRowHtml(it){
+		return '<div class="item-row"><img class="ico" src="' + esc(it.texture || "") + '" alt="">' +
+			'<div><div class="nm">' + esc(it.itemName) + '</div><div class="px">' + (it.hostPicks ? "the host picks the price" : isRegular() ? "starting price " + esc(fmtDia(it.startDia)) : "start " + esc(fmtDia(it.startDia)) + " · lowest " + esc(fmtDia(it.minDia))) + '</div></div></div>';
+	}
+	function renderList(){
+		if(!auction) return;
+		var name = $("mcName").value.trim();
+		var left = userLimitLeft(), n = entry.count();
+		$("userHint").textContent = MC_NAME.test(name)
+			? (enteredByUser ? name + " already entered " + enteredByUser + " item" + (enteredByUser === 1 ? "" : "s") + " in this auction. " : "") + "You can enter " + left + " more."
+			: (name ? "That doesn't look like a Minecraft username." : "The name of the account you'll hand the items in with.");
+		$("listCount").textContent = n + " of " + left + " item" + (left === 1 ? "" : "s");
+		$("continueBtn").disabled = !n || !MC_NAME.test(name) || n > left;
+	}
+
+	// ---------------- continue: optional sign-in, then submit ----------------
+	var pendingItems = null;
+	$("continueBtn").addEventListener("click", function(){
+		$("submitErr").hidden = true;
+		var v = entry.validate();
+		if(v.error){ $("submitErr").textContent = v.error; $("submitErr").hidden = false; return; }
+		pendingItems = v.items;
+		if(session()) { submit(); return; }
+		var wrap = document.createElement("div");
+		wrap.className = "modal-bg";
+		wrap.innerHTML = '<div class="modal"><h2>Want to see your results?</h2>' +
+			'<p>Sign in to see how your items did on <b>My Auctions</b> and get a notification when they sell. Or just continue with your Minecraft username.</p>' +
+			'<div class="actions"><button type="button" class="btn" id="mSignIn">Sign in</button>' +
+			'<button type="button" class="btn-ghost" id="mSkip">Continue as ' + esc($("mcName").value.trim()) + '</button>' +
+			'<button type="button" class="btn-ghost" id="mCancel">Back</button></div></div>';
+		document.body.appendChild(wrap);
+		$("mCancel").onclick = function(){ wrap.remove(); };
+		$("mSkip").onclick = function(){ wrap.remove(); submit(); };
+		$("mSignIn").onclick = function(){
+			wrap.remove();
+			// submit once the login succeeds (account-widget calls sctpOnAccountChange)
+			window.sctpOnAccountChange = function(){ if(session()) submit(); };
+			if(window.sctpAccount && window.sctpAccount.openLogin) window.sctpAccount.openLogin();
+		};
+	});
+
+	var submitting = false;
+	function submit(){
+		if(submitting) return;
+		submitting = true;
+		$("continueBtn").disabled = true;
+		var s = session();
+		var headers = { "Content-Type": "application/json" };
+		if(s) headers.Authorization = "Bearer " + s.token;
+		var name = $("mcName").value.trim();
+		fetch(API + "/auction/submit", { method: "POST", headers: headers, body: JSON.stringify({
+			auctionId: auction.id, mcUsername: name,
+			items: pendingItems
+		}) })
+			.then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+			.then(function(res){
+				submitting = false;
+				if(!res.ok){ $("submitErr").textContent = res.d.error || "Couldn't enter your items."; $("submitErr").hidden = false; renderList(); return; }
+				showDone(res.d);
+			})
+			.catch(function(){ submitting = false; $("submitErr").textContent = "Network error. Try again."; $("submitErr").hidden = false; renderList(); });
+	}
+
+	function showDone(d){
+		entry.clear();
+		pendingItems = null;
+		$("enterCard").hidden = true;
+		$("doneCard").hidden = false;
+		$("entryModal").hidden = false;
+		$("entryModal").scrollTop = 0;
+		$("doneList").innerHTML = d.items.map(itemRowHtml).join("");
+		$("shulkerName").textContent = d.shulkerName;
+		$("dropAt").textContent = d.auction.dropOff || "/pw auction";
+		$("dropBy").textContent = " before " + new Date(d.auction.auctionAt).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+		$("doneAccount").innerHTML = d.linkedToAccount
+			? 'Linked to your account: follow your items on <a href="/auction/me/">My Auctions</a>. You\'ll get a notification when they sell.'
+			: 'Not linked to an account. Ask staff about your results, or sign in next time to follow them on My Auctions.';
+		lineupFresh = true;
+		loadAuction();
+	}
+	$("copyName").addEventListener("click", function(){
+		var t = $("shulkerName").textContent;
+		(navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ $("copyName").textContent = "Copied!"; setTimeout(function(){ $("copyName").textContent = "Copy"; }, 1500); }).catch(function(){});
+	});
+	$("enterMore").addEventListener("click", function(){ $("doneCard").hidden = true; $("enterCard").hidden = false; $("entryModal").scrollTop = 0; renderHero(); });
+
+	// ---------------- the regular auction demo ----------------
+	// Bids climb from the starting price, then "going once, going twice, sold".
+	(function(){
+		var BIDS = [["Steve", 24], ["Alex", 27], ["Steve", 30], ["Sunny", 33], ["Alex", 36], ["Sunny", 38]];
+		var CALLS = ["Going once…", "Going twice…", "Sold to Sunny!"];
+		var now = document.getElementById("bidNow"), rows = document.getElementById("bidRows"), call = document.getElementById("bidCall");
+		function draw(n, c){
+			var shown = BIDS.slice(0, n).reverse().slice(0, 4);
+			now.textContent = (n ? BIDS[n - 1][1] : BIDS[0][1]) + " DB";
+			now.style.color = c === CALLS.length - 1 ? "var(--accent)" : "";
+			rows.innerHTML = shown.map(function(b){ return '<div class="row"><span>' + b[0] + '</span><span>' + b[1] + ' DB</span></div>'; }).join("");
+			call.textContent = c >= 0 ? CALLS[c] : (n ? "" : "Bidding opens…");
+			call.className = "call" + (c === CALLS.length - 1 ? " sold" : "");
+		}
+		var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		if(reduce){ draw(BIDS.length, CALLS.length - 1); return; }
+		var step = 0; // 0 = opening, 1..BIDS = bids, then the calls, then a pause
+		var total = 1 + BIDS.length + CALLS.length + 3;
+		draw(0, -1);
+		setInterval(function(){
+			step = (step + 1) % total;
+			if(step === 0) draw(0, -1);
+			else if(step <= BIDS.length) draw(step, -1);
+			else draw(BIDS.length, Math.min(step - BIDS.length - 1, CALLS.length - 1));
+		}, 900);
+	})();
+
+	// ---------------- the Dutch clock demo ----------------
+	// Ticks from the example starting bid down toward the lowest limit; a
+	// bidder "claims" it partway down, then it starts over.
+	(function(){
+		var START = 49, LOWEST = 9, CLAIM = 31;
+		var ticks = "";
+		for(var i = 0; i < 40; i++){
+			var a = i / 40 * Math.PI * 2, long = i % 5 === 0;
+			var r1 = long ? 76 : 80, r2 = 84;
+			ticks += '<line x1="' + (110 + Math.sin(a) * r1).toFixed(1) + '" y1="' + (110 - Math.cos(a) * r1).toFixed(1) + '" x2="' + (110 + Math.sin(a) * r2).toFixed(1) + '" y2="' + (110 - Math.cos(a) * r2).toFixed(1) + '" stroke="var(--line)" stroke-width="' + (long ? 2 : 1) + '"/>';
+		}
+		document.getElementById("clockTicks").innerHTML = ticks;
+		var arc = document.getElementById("clockArc"), hand = document.getElementById("clockHand");
+		var priceEl = document.getElementById("clockPrice"), sold = document.getElementById("clockSold");
+		var circ = 2 * Math.PI * 88;
+		function show(price, claimed){
+			var frac = (price - LOWEST) / (START - LOWEST); // 1 at the start, 0 at the lowest limit
+			// The pointer sweeps clockwise from 12 o'clock as the price drops; the
+			// yellow arc is what's left ahead of it, from the pointer round to 12.
+			var gone = 1 - frac;
+			arc.setAttribute("stroke-dasharray", (circ * frac).toFixed(1) + " " + circ.toFixed(1));
+			arc.setAttribute("stroke-dashoffset", (-circ * gone).toFixed(1));
+			hand.setAttribute("transform", "rotate(" + (360 * gone).toFixed(1) + " 110 110)");
+			priceEl.textContent = price + " DB";
+			priceEl.style.fill = claimed ? "var(--accent)" : "";
+			sold.setAttribute("opacity", claimed ? "1" : "0");
+		}
+		var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		if(reduce){ show(CLAIM, true); return; }
+		var price = START, hold = 0;
+		show(price, false);
+		setInterval(function(){
+			if(price === CLAIM){
+				// stay on "SOLD!" for ~2.5 s, then the next item starts at the top again
+				if(++hold < 10) return;
+				hold = 0; price = START; show(price, false); return;
+			}
+			price--;
+			show(price, price === CLAIM);
+		}, 260);
+	})();
+
+	// ---------------- start ----------------
+	try { var saved = localStorage.getItem(NAME_KEY); if(saved) $("mcName").value = saved; } catch(e){}
+	var s0 = session();
+	if(!$("mcName").value && s0 && s0.mcUsername) $("mcName").value = s0.mcUsername;
+	loadAuction();
+})();
+</script>
+</body>
+</html>

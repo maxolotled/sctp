@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My Auctions - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D; --gold:#F2C14E;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	[hidden]{display:none !important;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:980px;margin:0 auto;padding:0 20px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--gold);color:#2A1E05;display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	.tag{color:var(--muted);font-size:13px;margin:2px 0 0;}
+	main{padding:24px 0 70px;display:flex;flex-direction:column;gap:18px;}
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;}
+	.card h2{font-family:var(--font-display);font-size:19px;margin:0;}
+	.a-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+	.a-meta{color:var(--muted);font-size:13px;}
+	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
+	.empty{color:var(--muted);font-size:14px;text-align:center;padding:30px 0;}
+	.tbl-wrap{overflow-x:auto;}
+	table{width:100%;border-collapse:collapse;font-size:13.5px;}
+	th{text-align:left;color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
+	td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+	td.num{font-family:var(--font-mono);white-space:nowrap;}
+	.it{display:flex;align-items:center;gap:10px;}
+	.ico{width:30px;height:30px;image-rendering:pixelated;object-fit:contain;background:#0C140F;border-radius:6px;padding:2px;flex:0 0 auto;}
+	.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap;}
+	.pill.entered{background:var(--panel-alt);color:var(--shell);}
+	.pill.sold{background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
+	.pill.unsold{background:rgba(226,100,61,0.16);color:var(--bad);}
+	.total{display:flex;justify-content:flex-end;gap:18px;margin-top:10px;font-size:13.5px;color:var(--muted);}
+	.total b{color:var(--accent);font-family:var(--font-mono);}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/beta/beta.css">
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">&#128296;</div>
+			<div><h1>My Auctions</h1><p class="tag">Your entries and results · <a href="/auction/">enter items</a></p></div>
+		</div>
+		<nav id="siteNavMount"></nav>
+	</div>
+</header>
+
+<main class="wrap" id="app">
+	<p class="empty">Loading…</p>
+</main>
+
+<script src="/beta/nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+	var API = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var app = document.getElementById("app");
+	var LABELS = { entered: "Waiting for auction", sold: "Sold", unsold: "Didn't sell" };
+
+	function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+	function session(){
+		if(window.sctpAccount) return window.sctpAccount.getSession();
+		try { var s = JSON.parse(localStorage.getItem("sctp_session") || "null"); return s && s.token && Date.parse(s.expiresAt) >= Date.now() ? s : null; } catch(e){ return null; }
+	}
+	function fmtDia(d){
+		if(d == null) return "–";
+		var db = Math.floor(d / 9), dia = d % 9;
+		if(!db) return dia + " dia";
+		return dia ? db + " DB " + dia + " dia" : db + " DB";
+	}
+
+	function load(){
+		var s = session();
+		if(!s){
+			app.innerHTML = '<div class="card empty"><p>Log in to see the items you\'ve entered in auctions and how they did.</p><button type="button" class="btn" id="loginBtn">Log in</button></div>';
+			document.getElementById("loginBtn").onclick = function(){ if(window.sctpAccount && window.sctpAccount.openLogin) window.sctpAccount.openLogin(); };
+			return;
+		}
+		fetch(API + "/auction/mine", { headers: { Authorization: "Bearer " + s.token } })
+			.then(function(r){ return r.json(); })
+			.then(function(d){ render(d.items || []); })
+			.catch(function(){ app.innerHTML = '<p class="empty">Couldn\'t load your auctions. Try again in a moment.</p>'; });
+	}
+
+	function render(items){
+		if(!items.length){
+			app.innerHTML = '<div class="card empty"><p>You haven\'t entered anything yet.</p><p><a href="/auction/">Put a rare up for auction</a>. Entries made while you\'re logged in (or under your verified Minecraft name) show up here.</p></div>';
+			return;
+		}
+		var groups = [], byId = {};
+		items.forEach(function(it){
+			if(!byId[it.auctionId]){ byId[it.auctionId] = { title: it.auctionTitle, at: it.auctionAt, world: it.world, status: it.auctionStatus, items: [] }; groups.push(byId[it.auctionId]); }
+			byId[it.auctionId].items.push(it);
+		});
+		app.innerHTML = groups.map(function(g){
+			var sold = g.items.filter(function(i){ return i.status === "sold"; });
+			var payout = sold.reduce(function(sum, i){ return sum + (i.payoutDia || 0); }, 0);
+			return '<section class="card"><div class="a-head"><h2>' + esc(g.title) + '</h2><span class="a-meta">' +
+				esc(new Date(g.at).toLocaleString(undefined, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })) + ' · ' + esc(g.world) + '</span></div>' +
+				'<div class="tbl-wrap"><table><thead><tr><th>Item</th><th>Entered as</th><th>Starting price</th><th>Lowest limit</th><th>Status</th><th>Sold for</th><th>Our cut</th><th>You receive</th></tr></thead><tbody>' +
+				g.items.map(function(i){
+					return '<tr><td><div class="it"><img class="ico" src="' + esc(i.texture || "") + '" alt="">' + esc(i.itemName) + '</div></td>' +
+						'<td>' + esc(i.mcUsername) + '</td>' + (i.hostPicks ? '<td class="num">Host picks</td><td class="num">–</td>' : '<td class="num">' + fmtDia(i.startDia) + '</td><td class="num">' + (i.auctionType === "regular" ? "–" : fmtDia(i.minDia)) + '</td>') +
+						'<td><span class="pill ' + esc(i.status) + '">' + esc(LABELS[i.status] || i.status) + '</span></td>' +
+						'<td class="num">' + (i.status === "sold" ? fmtDia(i.soldDia) : "–") + '</td><td class="num">' + (i.status === "sold" ? fmtDia(i.cutDia) : "–") + '</td>' +
+						'<td class="num">' + (i.status === "sold" ? fmtDia(i.payoutDia) : "–") + '</td></tr>';
+				}).join("") + '</tbody></table></div>' +
+				(sold.length ? '<div class="total">' + sold.length + ' sold · you receive <b>' + fmtDia(payout) + '</b></div>' : '') +
+				'</section>';
+		}).join("");
+	}
+
+	window.sctpOnAccountChange = load;
+	load();
+})();
+</script>
+</body>
+</html>

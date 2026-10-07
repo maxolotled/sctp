@@ -7,7 +7,9 @@
 //     editable -> the logged-in account's own collection (checkboxes, privacy switch)
 //     otherwise -> public view of `username` (404.html routes /collection/<username> here)
 //
-// Collections are per world (Firefly / Honeybee). The catalogs come from
+// Collections are per world (Firefly / Honeybee). Each card also has a star
+// for the wishlist (things you want, shared on the same public page; owning an
+// item takes its star away — the server does the same). The catalogs come from
 // /data/rare-items.json and GET /mapart; ownership from the /collection API.
 (function () {
 	"use strict";
@@ -54,6 +56,11 @@
 		".col-item .nm small{display:block;color:var(--muted,#8FA593);font-size:11px;margin-top:1px;}" +
 		".col-item .ck{padding:0;font-family:inherit;text-align:center;-webkit-user-select:none;user-select:none;position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line,#33453A);background:var(--panel-alt,#22332A);font-size:12px;line-height:18px;color:transparent;}" +
 		".col-item.own .ck{background:var(--accent,#B7E23D);border-color:transparent;color:var(--accent-ink,#16210F);font-weight:700;}" +
+		".col-item .st{padding:0;font-family:inherit;position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line,#33453A);background:var(--panel-alt,#22332A);font-size:12px;line-height:18px;color:var(--muted,#8FA593);text-align:center;}" +
+		".col-item button.st:hover{border-color:#E8B93A;color:#E8B93A;}" +
+		".col-item.wish .st{background:#E8B93A;border-color:transparent;color:#2A1F05;}" +
+		".col-item.wish{border-color:rgba(232,185,58,0.55);}" +
+		".col-item.own .st{display:none;}" +
 		".col-more{display:block;margin:14px auto 0;background:transparent;border:1px solid var(--line,#33453A);color:var(--text,#EAEFE7);border-radius:9px;padding:9px 20px;cursor:pointer;font-family:inherit;}" +
 		".col-msg{color:var(--muted,#8FA593);font-size:13.5px;padding:10px 0;}" +
 		".col-msg.err{color:#E27D6B;}" +
@@ -108,6 +115,7 @@
 		var st = {
 			world: "Firefly", kind: "rare", status: "all", cat: "", q: "", shown: PAGE,
 			owned: {},       // "kind|world|id" -> addedAt
+			wished: {},      // same keys: starred (wishlist)
 			private: false, username: opts.username || "", cat_: null,
 		};
 		function key(kind, world, id) { return kind + "|" + world + "|" + id; }
@@ -125,6 +133,9 @@
 			st.username = r.data.username || st.username;
 			st.private = !!r.data.private;
 			(r.data.items || []).forEach(function (i) { st.owned[key(i.kind, i.world, i.itemId)] = i.addedAt || ""; });
+			(r.data.wishes || []).forEach(function (i) { st.wished[key(i.kind, i.world, i.itemId)] = i.addedAt || ""; });
+			// /collection/<name>#wishlist (the "Copy wishlist link" button) opens on the stars
+			if (location.hash === "#wishlist") st.status = "wish";
 			// Mapart ids never seen in the catalog (deleted since) just don't count.
 			st.mapartById = {};
 			cat.mapart.forEach(function (m) { st.mapartById[m.id] = m; });
@@ -134,6 +145,13 @@
 		function rareList() { return st.cat_.rare; }
 		function mapartList() { return st.cat_.mapart.filter(function (m) { return m.world === st.world; }); }
 		function isOwned(kind, id) { return Object.prototype.hasOwnProperty.call(st.owned, key(kind, st.world, id)); }
+		function isWished(kind, id) { return !isOwned(kind, id) && Object.prototype.hasOwnProperty.call(st.wished, key(kind, st.world, id)); }
+		function wishCount(world) {
+			return Object.keys(st.wished).filter(function (k) {
+				var p = k.split("|");
+				return p[1] === world && !Object.prototype.hasOwnProperty.call(st.owned, k) && (p[0] === "rare" || st.mapartById[p.slice(2).join("|")]);
+			}).length;
+		}
 		function catOfRare(it) { return it.category || "Other"; }
 		function catOfMapart(m) { return m.category || "No category"; }
 
@@ -184,6 +202,8 @@
 				'<div class="col-card"><div class="k">Rare items</div><div class="v">' + rc.have + " <small>/ " + rc.total + "</small></div>" + bar(rc.have, rc.total) + '<div class="sub">' + pct(rc.have, rc.total) + "% &middot; " + (rc.total - rc.have) + " still needed</div></div>" +
 				'<div class="col-card"><div class="k">Mapart (' + esc(st.world) + ')</div><div class="v">' + mc.have + " <small>/ " + mc.total + "</small></div>" + bar(mc.have, mc.total) + '<div class="sub">' + pct(mc.have, mc.total) + "% &middot; " + (mc.total - mc.have) + " still needed</div></div>" +
 				'<div class="col-card"><div class="k">Overall (' + esc(st.world) + ')</div><div class="v">' + pct(have, total) + "<small>%</small></div>" + bar(have, total) + '<div class="sub">' + have + " of " + total + " collected</div></div>" +
+				'<div class="col-card"><div class="k">Wishlist (' + esc(st.world) + ')</div><div class="v">' + wishCount(st.world) + ' <small>starred</small></div><div class="sub">' +
+					(editable ? "Star (&#9734;) what you want. " + (st.private ? "Turn off \"keep private\" to share it." : '<button type="button" id="colWishCopy" class="col-pill" style="padding:3px 10px;font-size:12px;">Copy wishlist link</button>') : '<a href="#wishlist" id="colWishShow" style="color:var(--accent,#B7E23D);">Show the wishlist</a>') + "</div></div>" +
 				'<div class="col-card"><div class="k">' + esc(other) + '</div><div class="v">' + otherHave + ' <small>collected</small></div><div class="sub">Switch world above to see its full breakdown.</div></div>' +
 				"</div>" +
 				(recent.length ? '<div class="col-h">Recently added</div><div class="col-recent">' + recent.map(function (n) { return "<span>" + esc(n) + "</span>"; }).join("") + "</div>" : "") +
@@ -201,6 +221,7 @@
 				var own = isOwned(st.kind, x.id);
 				if (st.status === "owned" && !own) return false;
 				if (st.status === "missing" && own) return false;
+				if (st.status === "wish" && !isWished(st.kind, x.id)) return false;
 				var c = st.kind === "rare" ? catOfRare(x) : catOfMapart(x);
 				if (st.cat && c !== st.cat) return false;
 				if (q) {
@@ -212,11 +233,12 @@
 		}
 
 		function itemHtml(x) {
-			var own = isOwned(st.kind, x.id);
+			var own = isOwned(st.kind, x.id), wish = isWished(st.kind, x.id);
 			var img = st.kind === "rare" ? x.texture : API_BASE + "/mapart/image?id=" + encodeURIComponent(x.id) + "&v=" + encodeURIComponent(x.imageHash || "");
 			var name = st.kind === "rare" ? x.name : x.title;
 			var sub = st.kind === "rare" ? (x.category || "") : (x.artist ? "by " + x.artist : "");
-			return '<div class="col-item ' + (own ? "own" : "miss") + (editable ? " editable" : "") + '" data-id="' + esc(x.id) + '" title="' + esc(name) + '">' +
+			return '<div class="col-item ' + (own ? "own" : "miss") + (wish ? " wish" : "") + (editable ? " editable" : "") + '" data-id="' + esc(x.id) + '" title="' + esc(name) + '">' +
+				(editable ? '<button type="button" class="st" title="' + (wish ? "On your wishlist — click to remove" : "Add to wishlist") + '">' + (wish ? "&#9733;" : "&#9734;") + "</button>" : (wish ? '<span class="st" title="On the wishlist">&#9733;</span>' : "")) +
 				(editable ? '<button type="button" class="ck" title="' + (own ? "Owned — click to remove" : "Mark as owned") + '">&#10003;</button>' : '<span class="ck">&#10003;</span>') + '<div class="im"><img src="' + esc(img) + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'"></div>' +
 				'<div class="nm">' + esc(name) + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</div></div>";
 		}
@@ -246,7 +268,7 @@
 				"</div>" +
 				'<div class="col-tools"><input type="search" id="colQ" placeholder="Search…" value="' + esc(st.q) + '">' +
 					'<select id="colCat"><option value="">All categories</option>' + cats.map(function (c) { return '<option value="' + esc(c) + '"' + (st.cat === c ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select>" +
-					'<select id="colStatus">' + [["all", "All"], ["owned", "Have"], ["missing", "Need"]].map(function (o) { return '<option value="' + o[0] + '"' + (st.status === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
+					'<select id="colStatus">' + [["all", "All"], ["owned", "Have"], ["missing", "Need"], ["wish", "Wishlist \u2605"]].map(function (o) { return '<option value="' + o[0] + '"' + (st.status === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
 					(editable ? '<button type="button" id="colAll">Mark all matching as owned</button><button type="button" id="colNone">Unmark all matching</button><button type="button" id="colShare" title="Make a picture of what you still need, to share on Discord">&#128444; Share what I still need</button>' : "") +
 				"</div>" +
 				'<div class="col-msg" id="colCount"></div>' +
@@ -281,6 +303,7 @@
 				var k = key(kind, world, id);
 				before[id] = Object.prototype.hasOwnProperty.call(st.owned, k) ? st.owned[k] : undefined;
 				if (own) st.owned[k] = st.owned[k] || now; else delete st.owned[k];
+				if (own) delete st.wished[k];
 			});
 			showErr("");
 			if (inPlace) { paintOwnedState(ids, kind, world); refreshStats(); }
@@ -317,6 +340,29 @@
 				var own = isOwned(kind, id);
 				el.classList.toggle("own", own);
 				el.classList.toggle("miss", !own);
+				paintStar(el, kind, id);
+			});
+		}
+
+		function paintStar(el, kind, id) {
+			var wish = isWished(kind, id), b = el.querySelector(".st");
+			el.classList.toggle("wish", wish);
+			if (b) { b.innerHTML = wish ? "&#9733;" : "&#9734;"; b.title = wish ? "On your wishlist — click to remove" : "Add to wishlist"; }
+		}
+
+		// Same optimistic pattern as setOwned, for the wishlist.
+		function setWished(ids, wish) {
+			var kind = st.kind, world = st.world, now = new Date().toISOString();
+			ids.forEach(function (id) { var k = key(kind, world, id); if (wish) st.wished[k] = st.wished[k] || now; else delete st.wished[k]; });
+			showErr("");
+			paintOwnedState(ids, kind, world);
+			refreshStats();
+			api("/collection/set", { method: "POST", body: JSON.stringify({ kind: kind, world: world, ids: ids, owned: wish, list: "wish" }) }).then(function (r) {
+				if (r.ok) return;
+				showErr(r.data.error || "Couldn't save that change.");
+				ids.forEach(function (id) { var k = key(kind, world, id); if (wish) delete st.wished[k]; else st.wished[k] = now; });
+				paintOwnedState(ids, kind, world);
+				refreshStats();
 			});
 		}
 
@@ -330,11 +376,19 @@
 			host.querySelector("#colQ").oninput = function (e) { st.q = e.target.value; st.shown = PAGE; paintGrid(); };
 			host.querySelector("#colCat").onchange = function (e) { st.cat = e.target.value; st.shown = PAGE; paintGrid(); };
 			host.querySelector("#colStatus").onchange = function (e) { st.status = e.target.value; st.shown = PAGE; paintGrid(); };
+			host.querySelector("#colStats").onclick = function (e) {
+				if (e.target.id === "colWishShow") { e.preventDefault(); st.status = "wish"; st.shown = PAGE; render(); host.querySelector("#colGrid").scrollIntoView({ behavior: "smooth", block: "start" }); }
+				if (e.target.id === "colWishCopy") {
+					var link = location.origin + "/collection/" + encodeURIComponent(st.username) + "#wishlist";
+					if (navigator.clipboard) navigator.clipboard.writeText(link).then(function () { e.target.textContent = "Copied!"; });
+				}
+			};
 			if (!editable) return;
 			host.querySelector("#colGrid").onclick = function (e) {
 				var el = e.target.closest ? e.target.closest(".col-item") : null;
 				if (!el) return;
 				var id = el.getAttribute("data-id");
+				if (e.target.closest(".st")) { setWished([id], !isWished(st.kind, id)); return; }
 				setOwned([id], !isOwned(st.kind, id), true);
 			};
 			function bulk(own) {
@@ -344,7 +398,7 @@
 				setOwned(ids, own);
 			}
 			host.querySelector("#colShare").onclick = function () {
-				openNeedCard({ world: st.world, kind: st.kind, rare: rareList(), mapart: mapartList(), username: st.username, isOwned: function (k, id) { return isOwned(k, id); } });
+				openNeedCard({ world: st.world, kind: st.kind, rare: rareList(), mapart: mapartList(), username: st.username, isOwned: function (k, id) { return isOwned(k, id); }, isWished: function (k, id) { return isWished(k, id); } });
 			};
 			host.querySelector("#colAll").onclick = function () { bulk(true); };
 			host.querySelector("#colNone").onclick = function () { bulk(false); };
@@ -421,7 +475,7 @@
 		bg.innerHTML =
 			'<div class="nc-modal"><h2>What I still need</h2>' +
 			'<p class="nc-sub">' + (isRare ? "Rare items" : "Mapart") + " in " + esc(ctx.world) + " that you don't own yet. Narrow it down, then download or copy the picture to share.</p>" +
-			'<div class="nc-grid"><div><label>Show</label><select id="ncMode"><option value="need">What I still need</option><option value="own">What I own (showcase)</option></select></div>' + filters + '<div style="grid-column:1/-1;"><label>Title on the picture</label><input id="ncTitle" maxlength="90"></div></div>' +
+			'<div class="nc-grid"><div><label>Show</label><select id="ncMode"><option value="need">What I still need</option><option value="wish">My wishlist (starred)</option><option value="own">What I own (showcase)</option></select></div>' + filters + '<div style="grid-column:1/-1;"><label>Title on the picture</label><input id="ncTitle" maxlength="90"></div></div>' +
 			'<div id="ncStudio" style="margin:0 0 12px;"></div>' +
 			'<div class="nc-count" id="ncCount"></div><div class="nc-out" id="ncOut"></div>' +
 			'<div class="nc-actions"><button type="button" id="ncClose">Close</button><button type="button" id="ncCopy">Copy image</button><a id="ncDl" download="what-i-still-need.png" class="primary">Download PNG</a></div></div>';
@@ -439,7 +493,8 @@
 			var slot = q("#ncSlot") ? q("#ncSlot").value.trim().toLowerCase() : "";
 			var size = q("#ncSize") ? q("#ncSize").value : "";
 			return pool.filter(function (x) {
-				if (ctx.isOwned(ctx.kind, x.id) !== (q("#ncMode").value === "own")) return false;
+				var mode = q("#ncMode").value;
+				if (mode === "wish" ? !ctx.isWished(ctx.kind, x.id) : ctx.isOwned(ctx.kind, x.id) !== (mode === "own")) return false;
 				if (isRare) {
 					if (cat && x.category !== cat) return false;
 					if (relV) { if (/^\d{4}$/.test(relV) ? String(x.releaseDate || "").indexOf(relV) === -1 : x.releaseDate !== relV) return false; }
@@ -460,7 +515,7 @@
 			if (q("#ncFrom") && q("#ncFrom").value.trim()) bits.push((isRare ? "" : "by ") + q("#ncFrom").value.trim());
 			if (q("#ncSlot") && q("#ncSlot").value.trim()) bits.push(q("#ncSlot").value.trim());
 			if (q("#ncCat").value) bits.push(q("#ncCat").value);
-			return (q("#ncMode").value === "own" ? "My collection" : "Still needed") + (bits.length ? ": " + bits.join(" \u00b7 ") : (isRare ? ": rare items" : ": mapart"));
+			return (q("#ncMode").value === "own" ? "My collection" : q("#ncMode").value === "wish" ? "Wishlist" : "Still needed") + (bits.length ? ": " + bits.join(" \u00b7 ") : (isRare ? ": rare items" : ": mapart"));
 		}
 		var timer = null;
 		function schedule() { clearTimeout(timer); timer = setTimeout(draw, 250); }
@@ -471,15 +526,15 @@
 
 		var studio = null;
 		function draw() {
-			var own = q("#ncMode").value === "own";
+			var own = q("#ncMode").value === "own", wishMode = q("#ncMode").value === "wish";
 			var items = selected().sort(function (a, b) { return String(isRare ? a.name : a.title).localeCompare(String(isRare ? b.name : b.title)); });
-			q("#ncCount").textContent = items.length + (own ? " owned" : " still needed") + " out of " + pool.length + " in " + ctx.world;
+			q("#ncCount").textContent = items.length + (own ? " owned" : wishMode ? " starred" : " still needed") + " out of " + pool.length + " in " + ctx.world;
 			var my = ++token;
-			if (!items.length) { q("#ncOut").innerHTML = '<div class="col-msg">Nothing matches' + (own ? "." : " \u2014 you own everything here!") + '</div>'; lastCanvas = null; return; }
+			if (!items.length) { q("#ncOut").innerHTML = '<div class="col-msg">Nothing matches' + (own ? "." : wishMode ? ". Star items (&#9734;) to add them to your wishlist." : " \u2014 you own everything here!") + '</div>'; lastCanvas = null; return; }
 			if (!window.sctpShare) { q("#ncOut").innerHTML = '<div class="col-msg">The image maker failed to load \u2014 refresh the page.</div>'; return; }
 			var spec = {
-				type: "grid", eyebrow: (ctx.username ? ctx.username + "'s " : "") + (own ? "collection" : "wishlist") + " \u00b7 " + ctx.world,
-				title: q("#ncTitle").value, subtitle: items.length + (own ? " collected" : " to go"),
+				type: "grid", eyebrow: (ctx.username ? ctx.username + "'s " : "") + (own ? "collection" : wishMode ? "wishlist" : "still needed") + " \u00b7 " + ctx.world,
+				title: q("#ncTitle").value, subtitle: items.length + (own ? " collected" : wishMode ? " wanted" : " to go"),
 				footerUrl: "sctp.nl/collection", gridAspect: isRare ? 0.86 : 1.0,
 				items: items.map(function (x) {
 					return isRare ? { name: x.name, imageUrl: x.texture, pixel: true }

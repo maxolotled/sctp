@@ -8,6 +8,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.snailtools.shoplogger.config.Config;
 import com.snailtools.shoplogger.qol.Cooldowns;
+import com.snailtools.shoplogger.qol.EmptyHandItems;
 import com.snailtools.shoplogger.qol.QolHookManager;
 import com.snailtools.shoplogger.qol.RGBPreview;
 import net.minecraft.client.KeyMapping;
@@ -293,8 +294,13 @@ public class ShopLoggerClient {
 		if (togglePrintKey != null && togglePrintKey.consumeClick()) {
 			togglePrint(client);
 		}
+		EmptyHandItems.tick(client);
 		if (openLibraryKey != null && openLibraryKey.consumeClick()) {
-			if (TeleportHighlight.getInstance().isArmed()) {
+			if (EmptyHandItems.isCapturing()) {
+				// Settings > Empty hand > Add: X registers what's in your hand
+				EmptyHandItems.captureHeld(client);
+				client.setScreenAndShow(com.snailtools.shoplogger.gui.SettingsScreen.emptyHand(new com.snailtools.shoplogger.gui.HomeScreen()));
+			} else if (TeleportHighlight.getInstance().isArmed()) {
 				TeleportHighlight.getInstance().clear();
 			} else {
 				client.setScreenAndShow(new com.snailtools.shoplogger.gui.HomeScreen());

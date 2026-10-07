@@ -123,6 +123,7 @@
 
 	var allTopSellingItems = [];
 	var worldTotalSold = 0;
+	function sinceLabel(d){ return d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : "October 2026"; }
 	var BEST_SELLERS_DEFAULT_COUNT = 15;
 
 	function renderBestSellers(query){
@@ -134,10 +135,10 @@
 			: allTopSellingItems.slice(0, BEST_SELLERS_DEFAULT_COUNT);
 		el.innerHTML = rows.length
 			? rows.map(function(it, i){
-				var pct = worldTotalSold > 0 ? (it.totalInferredSold / worldTotalSold * 100) : 0;
+				var pct = worldTotalSold > 0 ? (it.totalSold / worldTotalSold * 100) : 0;
 				return '<li><span class="rank">' + (i+1) + '.</span>' +
 					'<span class="name"><a href="/items/' + esc(itemKeyToSlug(it.itemKey)) + '">' + esc(it.itemName) + '</a><span class="pct">' + pct.toFixed(pct < 1 ? 2 : 1) + '%</span></span>' +
-					'<span class="qty">' + fmtNum(it.totalInferredSold) + ' sold (est.)</span></li>';
+					'<span class="qty">' + fmtNum(it.totalSold) + ' sold</span></li>';
 			}).join("")
 			: (q ? '<li class="empty">No items matched "' + esc(query) + '".</li>' : '<li class="empty">Not enough history yet.</li>');
 	}
@@ -174,11 +175,11 @@
 						'<ol class="best-sellers" id="worldBestSellers" style="list-style:none;margin-top:8px;"></ol>' +
 					'</div>' +
 				'</div>' +
-				'<p class="estimate-note">"Best-selling" is estimated from stock changes across all sellers, which can include shops removing items. % is that item\'s share of all estimated units sold on this world.</p>' +
+				'<p class="estimate-note">Real sales only: an item counts as sold when a shop\'s stock went down <i>and</i> its payment showed up in that chest between two scans. Restocking or removing items doesn\'t count. Counted since ' + sinceLabel(data.salesSince) + '. % is that item\'s share of all units sold on this world.</p>' +
 			'</div>';
 
 		allTopSellingItems = data.topSellingItems || [];
-		worldTotalSold = allTopSellingItems.reduce(function(a, it){ return a + it.totalInferredSold; }, 0);
+		worldTotalSold = allTopSellingItems.reduce(function(a, it){ return a + it.totalSold; }, 0);
 		document.getElementById("bestSellerSearch").addEventListener("input", function(){ renderBestSellers(this.value); });
 
 		var ctx = document.getElementById("worldChartCanvas").getContext("2d");

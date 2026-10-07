@@ -3,6 +3,7 @@ package com.snailtools.shoplogger;
 import net.minecraft.core.BlockPos;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -21,6 +22,10 @@ public final class ShopLog {
 	// out, chest emptied, or the chest/shop no longer exists at all). See
 	// ShopUploader.
 	private static final Set<String> SCANNED_POSITIONS = new LinkedHashSet<>();
+
+	/** Payment (sign currency) found in a scanned shop: how many, which currency, when. Same keys as SCANNED_POSITIONS. */
+	public record Payment(int count, String currency, long scannedAtMillis) {}
+	private static final Map<String, Payment> PAYMENTS = new HashMap<>();
 
 	private ShopLog() {}
 
@@ -94,7 +99,25 @@ public final class ShopLog {
 		return List.copyOf(SCANNED_POSITIONS);
 	}
 
+	/**
+	 * Remembers the payment found in a shop that was just scanned (call right
+	 * after replaceForPosition). Ignored when that scan was discarded — a
+	 * payment with no matching scan would be meaningless to the Worker.
+	 */
+	public static synchronized void setPayment(String world, BlockPos pos, Integer count, String currency) {
+		if (world == null || pos == null || count == null) return;
+		String key = world + "|" + pos.toShortString();
+		if (!SCANNED_POSITIONS.contains(key)) return;
+		PAYMENTS.put(key, new Payment(count, currency, System.currentTimeMillis()));
+	}
+
+	/** The payment for a "world|position" key from getScannedPositions(), or null if unknown. */
+	public static synchronized Payment getPayment(String scannedPositionKey) {
+		return PAYMENTS.get(scannedPositionKey);
+	}
+
 	public static synchronized void clearScannedPositions() {
 		SCANNED_POSITIONS.clear();
+		PAYMENTS.clear();
 	}
 }

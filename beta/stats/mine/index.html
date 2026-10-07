@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My Shop Statistics - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D; --info:#8C93E8;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:900px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	.nav-links{display:flex;gap:16px;align-items:center;}
+	.nav-links a{color:var(--shell);text-decoration:none;font-size:14px;font-weight:600;}
+	.nav-links a:hover{color:var(--accent);}
+
+	main{padding:32px 0 60px;}
+	.lede{color:var(--muted);font-size:13.5px;margin:0 0 24px;max-width:640px;}
+
+	.tile-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px;}
+	.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+	.tile .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-family:var(--font-mono);margin-bottom:6px;}
+	.tile .value{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--shell);}
+	.tile .sub{color:var(--muted);font-size:11.5px;margin-top:2px;}
+
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;}
+	.chart-wrap{position:relative;height:240px;margin-bottom:16px;}
+
+	.best-sellers{list-style:none;margin:8px 0 0;padding:0;}
+	.best-sellers li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+	.best-sellers li:last-child{border-bottom:none;}
+	.best-sellers .rank{color:var(--muted);font-family:var(--font-mono);width:20px;flex:0 0 auto;}
+	.best-sellers .name{flex:1;}
+	.best-sellers .qty{color:var(--accent);font-weight:600;white-space:nowrap;}
+
+	.estimate-note{color:var(--warn);font-size:12px;margin:10px 0 0;}
+	.empty{color:var(--muted);font-size:13.5px;padding:8px 0;}
+	.login-cta{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;text-align:center;color:var(--muted);font-size:13.5px;}
+	.login-cta a{font-weight:600;}
+	.hint-card{margin-top:16px;}
+	.hint-card h3{font-family:var(--font-display);font-size:16px;margin:0 0 4px;}
+	.hint-card .hsub{color:var(--muted);font-size:12.5px;margin:0 0 10px;}
+	.hint-list{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:6px;}
+	.hint-list li{background:var(--panel-alt);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;}
+	.hint-list .nm{font-weight:600;}
+	.hint-list .why{color:var(--muted);}
+	.hint-tag{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;border-radius:999px;padding:1px 8px;border:1px solid var(--line);}
+	.hint-tag.bad{color:#E2643D;border-color:rgba(226,100,61,0.5);}
+	.hint-tag.warn{color:#E2A33D;border-color:rgba(226,163,61,0.5);}
+	.hint-tag.good{color:var(--accent);border-color:rgba(var(--accent-rgb),0.5);}
+	[hidden]{display:none!important;}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/beta/beta.css">
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">🏪</div>
+			<h1>My Shop Statistics</h1>
+		</div>
+		<nav id="siteNavMount"></nav>
+	</div>
+</header>
+
+<main class="wrap">
+	<p class="lede">Your own shop's stats from the SCTP. Log in with a Minecraft-verified account to see your own shop's stats.</p>
+
+	<div id="loginCta" class="login-cta" hidden>You need to be logged in with an SCTP account that has a Minecraft username linked to see this. Log in from the button up top.</div>
+	<div id="mineContent"></div>
+</main>
+
+<script src="/beta/nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var mineChart = null;
+
+	function esc(s){
+		return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+			return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+		});
+	}
+	function fmtNum(n){ return Math.round(n).toLocaleString(); }
+	function fmtDia(n){
+		if(n >= 9) return (n/9).toFixed(1).replace(/\.0$/,"") + " db";
+		return (Math.round(n*10)/10) + " dia";
+	}
+
+	function load(){
+		var session = window.sctpAccount ? window.sctpAccount.getSession() : null;
+		if(!session){
+			document.getElementById("loginCta").hidden = false;
+			document.getElementById("mineContent").innerHTML = "";
+			return;
+		}
+		document.getElementById("loginCta").hidden = true;
+		document.getElementById("mineContent").innerHTML = '<p class="empty">Loading…</p>';
+
+		fetch(API_BASE + "/stats/mine", { headers: { "Authorization": "Bearer " + session.token } })
+			.then(function(res){ return res.json().then(function(d){ return { ok: res.ok, data: d }; }); })
+			.then(function(res){
+				if(!res.ok){
+					document.getElementById("mineContent").innerHTML = '<div class="login-cta">' + esc(res.data.error || "Couldn't load your stats.") + '</div>';
+					return;
+				}
+				if(!res.data.hasData){
+					document.getElementById("mineContent").innerHTML = '<p class="empty">No shop data tracked yet for your account — check back after your shop has been scanned and a daily snapshot has run.</p>';
+					return;
+				}
+				render(res.data);
+			})
+			.catch(function(){ document.getElementById("mineContent").innerHTML = '<p class="empty">Couldn\'t load your stats.</p>'; });
+	}
+
+	// "What to restock / reprice" + undercut alerts, computed by the Worker from
+	// your listings vs everyone else's and your own recent sales.
+	function hintsHtml(h){
+		if(!h) return "";
+		function section(title, sub, items, li){
+			return '<h3>' + title + '</h3><p class="hsub">' + sub + '</p>' +
+				(items.length ? '<ul class="hint-list">' + items.map(li).join("") + '</ul>' : '<p class="hsub" style="color:var(--accent);">Nothing to flag — looking good.</p>');
+		}
+		return '<div class="card hint-card">' +
+			section("Undercut alerts", "Someone else currently sells the same item cheaper than you (per single item, in diamond-equivalent).", h.undercut || [], function(u){
+				return '<li><span class="nm">' + esc(u.itemName) + ' <span class="why">(' + esc(u.world) + ')</span></span>' +
+					'<span class="hint-tag bad">' + u.pctCheaper + '% cheaper elsewhere</span>' +
+					'<span class="why">you ' + fmtDia(u.yourPrice) + ' &middot; ' + esc(u.cheapestSeller) + ' ' + fmtDia(u.cheapestPrice) + '</span></li>';
+			}) +
+			section("What to reprice", "Priced well away from the market median for the same item (needs at least 2 other sellers).", h.reprice || [], function(r){
+				var hi = r.direction === "high";
+				return '<li><span class="nm">' + esc(r.itemName) + ' <span class="why">(' + esc(r.world) + ')</span></span>' +
+					'<span class="hint-tag ' + (hi ? "warn" : "good") + '">' + (hi ? r.pct + '% above market' : r.pct + '% below market') + '</span>' +
+					'<span class="why">you ' + fmtDia(r.yourPrice) + ' &middot; median ' + fmtDia(r.marketMedian) + ' (' + r.others + ' others)' + (hi ? ' &mdash; may sell slowly' : ' &mdash; you could charge more') + '</span></li>';
+			}) +
+			section("What to restock", "Things that have been selling for you but are nearly (or completely) out of stock.", h.restock || [], function(r){
+				return '<li><span class="nm">' + esc(r.itemName) + ' <span class="why">(' + esc(r.world) + ')</span></span>' +
+					'<span class="hint-tag ' + (r.stock === 0 ? "bad" : "warn") + '">' + (r.stock === 0 ? "out of stock" : "~" + r.daysLeft + " days left") + '</span>' +
+					'<span class="why">~' + fmtNum(r.sold14) + ' sold recently</span></li>';
+			}) +
+			'</div>';
+	}
+
+	function sinceLabel(d){ return d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "Oct 2026"; }
+
+	function render(d){
+		var host = document.getElementById("mineContent");
+		host.innerHTML =
+			'<div class="tile-row">' +
+				'<div class="tile"><div class="label">Active listings</div><div class="value">' + fmtNum(d.activeListings) + '</div></div>' +
+				'<div class="tile"><div class="label">Distinct items</div><div class="value">' + fmtNum(d.distinctItemsActive) + '</div></div>' +
+				'<div class="tile"><div class="label">Current stock value</div><div class="value">' + fmtDia(d.currentStockValueDiamonds) + '</div></div>' +
+				'<div class="tile"><div class="label">Sold, last 30d</div><div class="value">' + fmtNum(d.recentSold) + '</div><div class="sub">' + fmtDia(d.recentRevenue) + '</div></div>' +
+				'<div class="tile"><div class="label">Sold since ' + esc(sinceLabel(d.salesSince)) + '</div><div class="value">' + fmtNum(d.totalSold) + '</div><div class="sub">' + fmtDia(d.totalRevenue) + '</div></div>' +
+			'</div>' +
+			'<div class="card">' +
+				'<div class="chart-wrap"><canvas id="mineChartCanvas"></canvas></div>' +
+				'<b style="font-size:13px;color:var(--shell);">Your best sellers</b>' +
+				'<ol class="best-sellers" id="mineBestSellers"></ol>' +
+				(d.busiestDay ? '<p class="sub" style="color:var(--muted);font-size:12px;margin-top:10px;">Busiest day: ' + esc(d.busiestDay.date) + ' — ' + fmtNum(d.busiestDay.sold) + ' sold</p>' : '') +
+				'<p class="estimate-note">Tracking since ' + esc(d.trackingStartDate) + ' (' + d.trackingDays + ' day' + (d.trackingDays===1?"":"s") + ' of data). "Sold" counts real sales only: stock that went down while the payment showed up in that chest, between two scans by anyone with the mod (since ' + esc(sinceLabel(d.salesSince)) + '). Restocking or taking items out doesn\'t count. If you collect your payment before the next scan, that sale can be missed, so these can be a little low.</p>' +
+			'</div>';
+
+		host.insertAdjacentHTML("beforeend", hintsHtml(d.hints));
+
+		var ctx = document.getElementById("mineChartCanvas").getContext("2d");
+		if(mineChart) mineChart.destroy();
+		mineChart = new Chart(ctx, {
+			type: "bar",
+			data: {
+				labels: d.trend.map(function(t){ return t.date; }),
+				datasets: [{ label: "Units sold", data: d.trend.map(function(t){ return t.sold; }), backgroundColor: "#B7E23D" }],
+			},
+			options: {
+				responsive: true, maintainAspectRatio: false,
+				scales: {
+					x: { ticks: { color: "#8FA593", maxTicksLimit: 10 }, grid: { color: "#22332A" } },
+					y: { ticks: { color: "#8FA593" }, grid: { color: "#22332A" } },
+				},
+				plugins: { legend: { display: false } },
+			},
+		});
+
+		var bestEl = document.getElementById("mineBestSellers");
+		bestEl.innerHTML = d.bestSellers.length
+			? d.bestSellers.map(function(it, i){
+				return '<li><span class="rank">' + (i+1) + '.</span><span class="name">' + esc(it.itemName) + ' (' + esc(it.world) + ')</span><span class="qty">' + fmtNum(it.sold) + ' sold</span></li>';
+			}).join("")
+			: '<li class="empty">No sales counted yet.</li>';
+	}
+
+	window.sctpOnAccountChange = load;
+	if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", load);
+	else load();
+})();
+</script>
+</body>
+</html>

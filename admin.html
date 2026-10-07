@@ -336,6 +336,29 @@
 		<summary>Settings &amp; accounts</summary>
 		<div class="category-body">
 
+		<section data-perm="siteNotice">
+		<details class="section-toggle">
+		<summary>Homepage notice</summary>
+		<div class="card">
+			<div class="meta" style="margin-bottom:10px;">A banner at the top of the website's homepage (the new <a href="/beta/" style="color:var(--accent);">/beta/</a> homepage for now). Visitors can close it; saving a new notice shows it to everyone again.</div>
+			<label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+				<input type="checkbox" id="siteNoticeEnabled"> Show it
+			</label>
+			<label for="siteNoticeLevel" style="margin-top:10px;display:block;">Colour</label>
+			<select id="siteNoticeLevel" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;max-width:220px;"><option value="info">Info (blue)</option><option value="success">Good news (green)</option><option value="warn">Warning (orange)</option></select>
+			<label for="siteNoticeMessage">Message</label>
+			<textarea id="siteNoticeMessage" rows="2" maxlength="400" placeholder="The server restarts at 20:00 tonight. Listings may be a bit behind for an hour." style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;"></textarea>
+			<div style="display:flex;gap:10px;flex-wrap:wrap;">
+				<div style="flex:2;min-width:200px;"><label for="siteNoticeLink">Button link (optional)</label><input type="text" id="siteNoticeLink" placeholder="/auction/ or https://…" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;"></div>
+				<div style="flex:1;min-width:140px;"><label for="siteNoticeLinkLabel">Button text</label><input type="text" id="siteNoticeLinkLabel" maxlength="40" placeholder="Read more" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;"></div>
+			</div>
+			<div class="meta" id="siteNoticeMeta"></div>
+			<button id="siteNoticeSaveBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;margin-top:8px;">Save</button>
+			<div class="err" id="siteNoticeErr"></div>
+		</div>
+		</details>
+		</section>
+
 		<section data-perm="updateNotice">
 		<details class="section-toggle">
 		<summary>Update notice</summary>
@@ -514,7 +537,7 @@
 
 	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
 	var EDITABLE_FIELDS = ["itemName","baseItem","price","priceLabel","stackSize","amount","stacksInStock","currency","seller","world","position"];
-	var ALL_PERMS = ["reports","sharedShopRequests","manualListings","blockedSellers","marketplaceListings","updateNotice","suggestions","bugReports","playerReports","manageMapart","manageForms","auctions"];
+	var ALL_PERMS = ["reports","sharedShopRequests","manualListings","blockedSellers","marketplaceListings","updateNotice","suggestions","bugReports","playerReports","manageMapart","manageForms","auctions","siteNotice"];
 	var PERM_LABELS = {
 		reports: "Reports", sharedShopRequests: "Shared-shop requests",
 		manualListings: "Manual listings", blockedSellers: "Blocked sellers",
@@ -523,6 +546,7 @@
 		manageMapart: "Manage mapart (edit artist/world/category, mapart reports)",
 		manageForms: "Manage forms (create/edit forms, view responses) — see /admin-forms.html",
 		auctions: "Auctions (create auctions, record results) — see /auction/admin/",
+		siteNotice: "Homepage notice",
 	};
 	var PLAYER_REPORT_REASON_LABELS = {
 		scamming: "Scamming", inappropriate_content: "Inappropriate shop content",
@@ -544,6 +568,7 @@
 	var marketplaceModSearched = false; // same "haven't searched yet" vs "found nothing" distinction as adminsSearched
 	var lastMarketplaceModSearch = "";
 	var updateNotice = null;
+	var siteNotice = null;
 	var suggestions = [];
 	var bugReports = [];
 	var playerReports = [];
@@ -620,6 +645,7 @@
 		if(hasPerm("blockedSellers")) blockedSellers = await api("/admin/blocked-sellers");
 		if(hasPerm("reports")) bannedListings = await api("/admin/listings/bans");
 		if(hasPerm("updateNotice")) updateNotice = await api("/admin/update-notice");
+		if(hasPerm("siteNotice")) siteNotice = await api("/admin/site-notice");
 		if(hasPerm("suggestions")) suggestions = await api("/admin/suggestions");
 		if(hasPerm("bugReports")) bugReports = await api("/admin/bug-reports");
 		if(hasPerm("playerReports")) playerReports = await api("/admin/player-reports");
@@ -638,6 +664,7 @@
 		renderAdmins();
 		renderMarketplaceMod();
 		renderUpdateNotice();
+		renderSiteNotice();
 		renderSuggestions();
 		renderBugReports();
 		renderPlayerReports();
@@ -674,6 +701,46 @@
 			renderUpdateNotice();
 			errEl.style.color = "var(--accent)";
 			errEl.textContent = "Saved.";
+		} catch(err){
+			errEl.style.color = "var(--danger)";
+			errEl.textContent = "Failed: " + err.message;
+		}
+	}
+
+	// ---------------- homepage notice ----------------
+
+	function renderSiteNotice(){
+		if(!siteNotice) return;
+		document.getElementById("siteNoticeEnabled").checked = !!siteNotice.enabled;
+		document.getElementById("siteNoticeLevel").value = siteNotice.level || "info";
+		document.getElementById("siteNoticeMessage").value = siteNotice.message || "";
+		document.getElementById("siteNoticeLink").value = siteNotice.linkUrl || "";
+		document.getElementById("siteNoticeLinkLabel").value = siteNotice.linkLabel || "";
+		document.getElementById("siteNoticeMeta").textContent = siteNotice.updatedAt
+			? "Last saved " + new Date(siteNotice.updatedAt).toLocaleString() + (siteNotice.updatedBy ? " by " + siteNotice.updatedBy : "")
+			: "";
+	}
+
+	async function saveSiteNotice(){
+		var errEl = document.getElementById("siteNoticeErr");
+		errEl.style.color = "var(--danger)";
+		errEl.textContent = "";
+		try {
+			await api("/admin/site-notice/set", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					enabled: document.getElementById("siteNoticeEnabled").checked,
+					level: document.getElementById("siteNoticeLevel").value,
+					message: document.getElementById("siteNoticeMessage").value.trim(),
+					linkUrl: document.getElementById("siteNoticeLink").value.trim(),
+					linkLabel: document.getElementById("siteNoticeLinkLabel").value.trim(),
+				}),
+			});
+			siteNotice = await api("/admin/site-notice");
+			renderSiteNotice();
+			errEl.style.color = "var(--accent)";
+			errEl.textContent = "Saved. It can take a minute to show on the site.";
 		} catch(err){
 			errEl.style.color = "var(--danger)";
 			errEl.textContent = "Failed: " + err.message;
@@ -2061,6 +2128,7 @@
 	}
 
 	document.getElementById("updateNoticeSaveBtn").addEventListener("click", saveUpdateNotice);
+	document.getElementById("siteNoticeSaveBtn").addEventListener("click", saveSiteNotice);
 
 	// ---------------- manually-added listings ----------------
 

@@ -1,6 +1,39 @@
 # Changelog
 Thank you for using the SCTP! Download the newest mod files via the website. Newest updates are at the top.
 
+## 2.4: Rare-dle in-game, auctions and wishlists
+::: details Rare-dle in-game
+- Play today's Rare-dle without leaving the game: open the menu (X) and pick the new Rare-dle tile.
+- It's the same puzzle, streak and leaderboard as on the website, on your sctp.nl account. No password needed: it signs you in with your Minecraft name (verify that name on sctp.nl first).
+:::
+::: details Empty hand for doors and chests
+- Got an item that does something when you right-click (a rare, a tool)? Add it in Settings › Empty hand: press Add, hold the item, press X.
+- From then on, clicking doors, chests, buttons and other blocks uses an empty hand instead, so the item doesn't go off. Sneak-click to use the item on purpose.
+:::
+::: details Double chest shops
+- Double chests are scanned now too. The sign on the left half is the price (the right half's sign counts if the left has none).
+:::
+::: details New highlights
+- When something sold from your shop, the chest gets a bright green outline you can see through walls.
+- New teleport styles: a chest outline that shows through walls, or a real beacon beam rising out of the shop.
+- Empty shops you just walked past get a grey marker instead of red.
+:::
+::: details Real sales
+- "Sold" on the website now only counts real sales: stock that went down while the payment showed up in that chest. Restocking or taking items out no longer looks like a sale.
+:::
+::: details Stock holograms
+- Turn on Settings › Look & tools › Stock holograms to see a small "64 in stock" line on the front of shop chests you've scanned. Off by default.
+:::
+::: details Smaller things
+- The ender chest / backpack arrows are now one button with an icon.
+- Hide [DISPLAY] shops in your searches: the Display chip on the Listings screen, or Settings.
+:::
+::: details Website: auctions and wishlists
+- Rare auctions at sctp.nl/auction: enter your rares in a quick table, set your prices or let the host pick, and see where to drop off your shulker. The homepage shows the next auction.
+- Star the rares and mapart you want on My Collection to make a wishlist, and share it with a link.
+- Shop Logger is on Modrinth now!
+:::
+
 ## 2.3: all-new mod menus
 ::: details A brand new look
 - Every Shop Logger screen was redesigned to match the website: dark green cards, lime accents, real on/off switches and cleaner lists.

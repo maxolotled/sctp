@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Website Walkthrough - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A guided tour of every feature on the Snailcraft Trading Post website.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D; --jobs:#4FC3F7;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.55;}
+	a{color:var(--accent);}
+	.wrap{max-width:1180px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:20px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:36px;height:36px;border-radius:9px;background:var(--panel-alt);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:18px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:20px;margin:0;}
+	.tag{color:var(--muted);font-size:13px;margin:2px 0 0;}
+
+	/* progress bar */
+	#topProgress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-2,#6FE3C8));width:0%;z-index:200;transition:width .1s linear;}
+
+	/* hero */
+	.hero{padding:54px 0 36px;border-bottom:1px solid var(--line);}
+	.hero .kicker{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;margin:0 0 10px;}
+	.hero h2{font-family:var(--font-display);font-size:clamp(28px,4.2vw,44px);font-weight:700;margin:0 0 14px;line-height:1.1;max-width:16ch;}
+	.hero p{color:var(--shell);font-size:16px;max-width:62ch;margin:0 0 22px;}
+	.hero-actions{display:flex;gap:10px;flex-wrap:wrap;}
+	.btn{display:inline-block;background:var(--accent);color:var(--accent-ink);border:none;border-radius:999px;padding:11px 20px;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none;font-family:inherit;}
+	.btn:hover{background:var(--accent-dim);}
+	.btn-ghost{display:inline-block;background:transparent;border:1px solid var(--line);color:var(--text);border-radius:999px;padding:10px 20px;font-weight:600;font-size:14px;cursor:pointer;text-decoration:none;font-family:inherit;}
+	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.hero-meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:26px;font-size:12.5px;color:var(--muted);}
+	.hero-meta b{color:var(--text);}
+
+	/* layout */
+	.layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:40px;padding:36px 0 80px;align-items:start;}
+	@media (max-width:860px){.layout{grid-template-columns:1fr;}}
+
+	nav.toc{position:sticky;top:20px;display:flex;flex-direction:column;gap:2px;max-height:calc(100vh - 40px);overflow-y:auto;}
+	nav.toc a{display:block;padding:7px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;border-left:2px solid transparent;}
+	nav.toc a:hover{color:var(--text);}
+	nav.toc a.active{color:var(--accent);background:rgba(var(--accent-rgb),0.08);border-left-color:var(--accent);}
+	nav.toc .toc-num{display:inline-block;width:20px;color:var(--muted);font-family:var(--font-mono);font-size:11px;}
+	@media (max-width:860px){
+		nav.toc{position:static;flex-direction:row;overflow-x:auto;overflow-y:visible;max-height:none;gap:6px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch;}
+		nav.toc a{white-space:nowrap;flex:none;border-left:none;border-bottom:2px solid transparent;}
+		nav.toc a.active{border-left-color:transparent;border-bottom-color:var(--accent);}
+	}
+
+	.steps{display:flex;flex-direction:column;gap:64px;min-width:0;}
+	section.step{scroll-margin-top:16px;opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease;}
+	section.step.in{opacity:1;transform:none;}
+	@media (prefers-reduced-motion:reduce){section.step{opacity:1;transform:none;transition:none;}}
+	.step-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;}
+	.step-num{font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--accent-ink);background:var(--accent);width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:13px;}
+	.step-head h3{font-family:var(--font-display);font-size:24px;font-weight:700;margin:0;}
+	.step-lede{color:var(--shell);font-size:14.5px;margin:0 0 18px;max-width:66ch;}
+	.step-body{display:grid;grid-template-columns:1.05fr 1fr;gap:24px;align-items:start;}
+	.step-body.wide{grid-template-columns:1fr;}
+	.step-body.reverse{direction:rtl;}
+	.step-body.reverse > *{direction:ltr;}
+	@media (max-width:760px){.step-body{grid-template-columns:1fr !important;direction:ltr !important;}}
+
+	.shot{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);box-shadow:0 12px 30px rgba(0,0,0,0.35);}
+	.shot img{display:block;width:100%;height:auto;}
+	.shot-cap{padding:8px 12px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);font-family:var(--font-mono);}
+
+	.notes{display:flex;flex-direction:column;gap:10px;}
+	.notes p{margin:0;font-size:14px;}
+	.notes ul{margin:0;padding-left:20px;font-size:14px;}
+	.notes li{margin-bottom:6px;}
+	.tip{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text);}
+	.tip b{color:var(--accent);}
+	.new-pill{display:inline-block;background:linear-gradient(135deg,var(--accent),var(--accent-2,#6FE3C8));color:var(--accent-ink);font-size:10px;font-weight:800;letter-spacing:.04em;padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:2px;}
+
+	/* live component demos (real site CSS, not screenshots) */
+	.demo-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px;background:var(--panel);border:1px dashed var(--line);border-radius:10px;}
+	.demo-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);width:100%;margin-bottom:2px;}
+	.col-chip{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;}
+	.col-chip:hover{border-color:var(--accent-dim);}
+	.col-chip.on{background:var(--accent);border-color:transparent;color:var(--accent-ink);}
+	.job-rating{display:flex;gap:10px;font-size:12.5px;font-weight:600;}
+	.job-rating .up{color:var(--accent);}
+	.job-rating .down{color:var(--bad);}
+	.seller-rating{font-size:11.5px;border-radius:999px;padding:2px 10px;border:1px solid rgba(var(--accent-rgb),0.5);color:var(--accent);font-weight:600;}
+	.seller-rating .n{color:var(--muted);font-weight:400;}
+	.mock-btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13px;cursor:default;}
+	.mock-btn.admin{opacity:.5;cursor:not-allowed;background:var(--panel-alt);color:var(--muted);border:1px dashed var(--line);}
+
+	footer.site{border-top:1px solid var(--line);padding:40px 0;margin-top:20px;}
+	.foot-grid{display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;font-size:13.5px;color:var(--muted);}
+	.foot-links{display:flex;gap:18px;flex-wrap:wrap;}
+	.foot-links a{color:var(--text);text-decoration:none;font-weight:600;}
+	.foot-links a:hover{color:var(--accent);}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/beta/beta.css">
+</head>
+<body>
+<div id="topProgress"></div>
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">🐌</div>
+			<div><h1>Snailcraft Trading Post</h1><p class="tag">Website walkthrough</p></div>
+		</div>
+		<nav id="siteNavMount"></nav>
+	</div>
+</header>
+
+<div class="wrap hero">
+	<p class="kicker">Onboarding &middot; Website</p>
+	<h2>Everything the site can do, in one guided tour</h2>
+	<p>SCTP tracks every shop on the server automatically via the Shop Logger mod, then gives you search, price history, a mapart catalog, a player-to-player marketplace, collections, profiles and a daily rare-guessing game on top of it. This page walks through all of it with real screenshots &mdash; skim the list on the left or just scroll.</p>
+	<div class="hero-actions">
+		<a class="btn" href="/">Open the Trading Post &rarr;</a>
+		<a class="btn-ghost" href="/onboarding/mod">Set up the mod instead &rarr;</a>
+	</div>
+	<div class="hero-meta">
+		<span><b>No install needed</b> &mdash; the site works in any browser</span>
+		<span><b>Free account</b> &mdash; only required for marketplace, collections &amp; Rare-dle</span>
+		<span><b>Updated</b> September 2026</span>
+	</div>
+</div>
+
+<div class="wrap layout">
+	<nav class="toc" id="toc">
+		<a href="#account"><span class="toc-num">01</span>Your account</a>
+		<a href="#search"><span class="toc-num">02</span>Search &amp; browse</a>
+		<a href="#rares"><span class="toc-num">03</span>Rare items</a>
+		<a href="#item-detail"><span class="toc-num">04</span>Price history</a>
+		<a href="#mapart"><span class="toc-num">05</span>Mapart catalog</a>
+		<a href="#collections"><span class="toc-num">06</span>Collections</a>
+		<a href="#marketplace"><span class="toc-num">07</span>Marketplace items</a>
+		<a href="#jobs"><span class="toc-num">08</span>Jobs &amp; reviews</a>
+		<a href="#profiles"><span class="toc-num">09</span>Shops &amp; profiles</a>
+		<a href="#raredle"><span class="toc-num">10</span>Rare-dle</a>
+		<a href="#mod-link"><span class="toc-num">11</span>Get the mod</a>
+		<a href="#help"><span class="toc-num">12</span>Get help</a>
+	</nav>
+
+	<div class="steps">
+
+		<section class="step" id="account">
+			<div class="step-head"><div class="step-num">1</div><h3>Create your account</h3></div>
+			<p class="step-lede">Browsing the site needs nothing at all &mdash; but logging in (top right, any page) unlocks the marketplace, collections, watchlist stuff in the mod, and Rare-dle. Registration takes your real Minecraft username, since that's how the site links your listings and mapart back to you.</p>
+			<div class="step-body">
+				<div class="shot"><img src="/onboarding/web/img/register.png" alt="The Register page: choose Java or Bedrock Edition, enter your Minecraft username, set a password." loading="lazy"><div class="shot-cap">/register/</div></div>
+				<div class="notes">
+					<p>Click <b>Log in</b> in the top-right corner of any page to open this:</p>
+					<div class="shot"><img src="/onboarding/web/img/login-modal.png" alt="The login modal, with username/password fields and a Register button." loading="lazy"></div>
+					<div class="tip"><b>Important:</b> your username has to be your <i>real</i> Minecraft username used on the server &mdash; anything else gets your account disabled. Want it verified (a checkmark badge on your shop)? DM the details on the register page.</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="search">
+			<div class="step-head"><div class="step-num">2</div><h3>Search &amp; browse listings</h3></div>
+			<p class="step-lede">The home page is a live, searchable table of every shop listing the mod has ever scanned &mdash; both worlds, updated continuously as people play. Search by item, base item, or seller name, then filter and sort from there.</p>
+			<div class="step-body wide">
+				<div class="shot"><img src="/onboarding/web/img/home.png" alt="Home page: nav bar, promo strip with today's mapart / Rare-dle / marketplace, and the search bar." loading="lazy"><div class="shot-cap">sctp.nl</div></div>
+			</div>
+			<div class="notes" style="margin-top:14px;">
+				<ul>
+					<li>The promo strip up top always has <b>today's featured mapart</b>, a Rare-dle teaser, and a marketplace ad.</li>
+					<li>Recent &amp; saved searches live under the "Recent ▾" dropdown next to the search box.</li>
+					<li>Every column can be hidden from the results table if you only care about a few of them.</li>
+					<li>Prices in a foreign currency (diamond blocks, stacks) convert to a diamond-equivalent automatically &mdash; toggle it off per-table if you'd rather see raw prices.</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="rares">
+			<div class="step-head"><div class="step-num">3</div><h3>The Item Library &amp; rare items</h3></div>
+			<p class="step-lede">/items/ has three tabs: every vanilla item, every cataloged rare (SC's custom collectibles/wearables/useables), and the mapart catalog. Rares get their own filter set &mdash; category, source, release date, type/slot, dyeable, and glow particles.</p>
+			<div class="step-body">
+				<div class="shot"><img src="/onboarding/web/img/items-vanilla.png" alt="Item Library, Vanilla Items tab, grid of item icons with names." loading="lazy"><div class="shot-cap">/items/</div></div>
+				<div class="shot"><img src="/onboarding/web/img/rare-items-tab.png" alt="Item Library, Rare Items tab, with category/source/release/type/dyeable/particle filters and a filtered grid." loading="lazy"><div class="shot-cap">/items/#rare</div></div>
+			</div>
+			<div class="notes" style="margin-top:14px;">
+				<p>Type a name to search, or stack the dropdown filters &mdash; "Obtained from: Aquatic Crate" plus "Particles: any glow" narrows it down fast. Click any card to open its detail page.</p>
+			</div>
+		</section>
+
+		<section class="step" id="item-detail">
+			<div class="step-head"><div class="step-num">4</div><h3>Item pages &amp; price history</h3></div>
+			<p class="step-lede">Every item &mdash; vanilla or rare &mdash; has its own page: a live price check across both worlds, full attribute list, and price/stock charts going back as far as the daily snapshot history reaches.</p>
+			<div class="step-body wide">
+				<div class="shot"><img src="/onboarding/web/img/item-detail.png" alt="A rare item's detail page: price check box for Firefly/Honeybee, attribute grid, and three price/stock line charts." loading="lazy"><div class="shot-cap">/items/&lt;item-slug&gt;</div></div>
+			</div>
+			<div class="notes" style="margin-top:14px;">
+				<ul>
+					<li><b>Price check</b> at the top gives a general value per item, averaged from every active listing &mdash; handy before you buy or sell something you don't have a feel for the price of.</li>
+					<li>Charts switch between <b>per item</b> and <b>per stack of 64</b> pricing with one click.</li>
+					<li>Below the charts, the full listing table for that item shows every seller currently stocking it, with a "did you mean…" nudge if your search was close but not exact.</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="mapart">
+			<div class="step-head"><div class="step-num">5</div><h3>Mapart catalog<span class="new-pill">NEW in 2.0</span></h3></div>
+			<p class="step-lede">Every piece of mapart anyone's found around Snailcraft, with who made it, where to buy it, and a picture &mdash; searchable by title, artist, category, world, or by uploading a reference image to find visual matches.</p>
+			<div class="step-body">
+				<div class="shot"><img src="/onboarding/web/img/mapart-catalog.png" alt="Mapart catalog grid: search bar, category filter, search-by-image button, world toggle, and a grid of mapart thumbnails with artist/world/category tags." loading="lazy"><div class="shot-cap">/mapart/</div></div>
+				<div class="shot"><img src="/onboarding/web/img/mapart-detail.png" alt="A single mapart's detail page: large preview, title, artist link, category and world tags, a verified-by-artist badge, where-to-buy info, Share and Report buttons." loading="lazy"><div class="shot-cap">/mapart/&lt;slug&gt;</div></div>
+			</div>
+			<div class="notes" style="margin-top:14px;">
+				<ul>
+					<li><b>Search by image</b> lets you drop in a screenshot and find visually similar mapart already in the catalog.</li>
+					<li>Pieces with a <b>✓ verified by artist</b> badge have been claimed by their maker (Mapart Management, in the account menu) &mdash; unclaimed ones can be claimed the same way if it's yours.</li>
+					<li>Spot something wrong (wrong artist, wrong world/category, or an inappropriate image)? Hit <b>Report</b> right on the page.</li>
+					<li>Collab pieces list every artist; commissioned pieces show who commissioned it and the price, if the artist added one.</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="collections">
+			<div class="step-head"><div class="step-num">6</div><h3>Collections<span class="new-pill">NEW in 2.0</span></h3></div>
+			<p class="step-lede">A personal checklist of rare items and mapart you own, per world. Toggle anything on from its card or detail page, then track progress from one place under <b>Collections</b> in the account menu.</p>
+			<div class="step-body">
+				<div class="notes">
+					<p>Once you're logged in, a small toggle chip appears on rare item and mapart detail pages (and a round toggle in the corner of grid cards):</p>
+					<div class="demo-row">
+						<span class="demo-label">Example &mdash; not live, just showing the toggle</span>
+						<button type="button" class="col-chip on">✓ Firefly</button>
+						<button type="button" class="col-chip">+ Honeybee</button>
+					</div>
+					<p style="margin-top:12px;">Click once to mark it owned in that world, click again to remove it. Your collection page groups everything by kind and world, and can be set private from Account Settings if you'd rather keep it to yourself.</p>
+				</div>
+				<div class="notes">
+					<ul>
+						<li>Works for both <b>rare items</b> and <b>mapart</b>, tracked separately per world (Firefly / Honeybee).</li>
+						<li>Anyone can view someone else's public collection at <code>/collection/&lt;username&gt;</code>.</li>
+						<li>Your own collection page (<code>/collection/</code>) doubles as a checklist &mdash; tick things off as you go.</li>
+					</ul>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="marketplace">
+			<div class="step-head"><div class="step-num">7</div><h3>Marketplace: item listings</h3></div>
+			<p class="step-lede">Post something you're selling or looking for, take bids from other players, and get notified the moment someone responds &mdash; all without leaving the site. Bidder identity stays private until you accept an offer.</p>
+			<div class="step-body">
+				<div class="shot"><img src="/onboarding/web/img/marketplace-items.png" alt="Marketplace page, Items tab, with world/type filters and a grid of listing cards showing item name, price/bid info, and seller." loading="lazy"><div class="shot-cap">/marketplace/</div></div>
+				<div class="shot"><img src="/onboarding/web/img/new-listing.png" alt="The New Listing modal: Selling/Looking for toggle, item name, world, quantity, asking price and currency, starting bid and currency, notes." loading="lazy"><div class="shot-cap">+ New Listing</div></div>
+			</div>
+			<div class="notes" style="margin-top:14px;">
+				<ul>
+					<li>Post as <b>Selling</b> (set a price, or open it to bids) or <b>Looking for</b> (name your budget).</li>
+					<li>Check <b>My Marketplace</b> to see bids you've placed and offers you've received, and to accept/decline.</li>
+					<li>The <b>Notifications</b> tab tells you the moment someone bids, gets accepted, or responds.</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="jobs">
+			<div class="step-head"><div class="step-num">8</div><h3>Marketplace: jobs &amp; reviews<span class="new-pill">NEW</span></h3></div>
+			<p class="step-lede">The Jobs tab is for hiring (you want a task done) or offering your own labor (For Hire). Expressing interest reveals contact info immediately on both sides &mdash; no bidding, no waiting. Every job post can now be rated with a thumbs up or down, and that feeds into the poster's overall rating on their profile.</p>
+			<div class="step-body">
+				<div class="shot"><img src="/onboarding/web/img/marketplace-jobs.png" alt="Marketplace page, Jobs tab, with Hiring/For Hire filters and a New Job Post button." loading="lazy"><div class="shot-cap">/marketplace/#jobs</div></div>
+				<div class="shot"><img src="/onboarding/web/img/new-job.png" alt="The New Job Post modal: Hiring/For Hire toggle, title, description, world, needed-by date, reward and currency." loading="lazy"><div class="shot-cap">+ New Job Post</div></div>
+			</div>
+			<div class="notes" style="margin-top:14px;">
+				<p>Once a job's open, its card and detail view show a rating built from everyone who's rated it:</p>
+				<div class="demo-row">
+					<span class="demo-label">Example &mdash; not live, just showing the rating UI</span>
+					<span class="job-rating"><span class="up">👍 12</span><span class="down">👎 1</span></span>
+				</div>
+				<ul style="margin-top:12px;">
+					<li>Anyone but the poster can rate a job (once each &mdash; rating again changes your vote).</li>
+					<li>Ratings roll up into a <b>seller rating</b> shown on the poster's public profile (more on that below).</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="profiles">
+			<div class="step-head"><div class="step-num">9</div><h3>Shops &amp; public profiles</h3></div>
+			<p class="step-lede">Every seller has a shop page — their listings in one world, filterable and sortable — plus tabs for their Mapart, Collection and Marketplace history when they have any. Share a link to any player's page straight from their name anywhere on the site.</p>
+			<div class="step-body wide">
+				<div class="shot"><img src="/onboarding/web/img/profile.png" alt="A seller's shop page: avatar, username, world badge, stats (listings / distinct items / avg price), Shop and Mapart tabs, filters sidebar, and a listings table." loading="lazy"><div class="shot-cap">/s/ff/&lt;username&gt; or /s/hb/&lt;username&gt;</div></div>
+			</div>
+			<div class="notes" style="margin-top:14px;">
+				<p>Posted job listings that have been rated add a seller rating pill to the profile header:</p>
+				<div class="demo-row">
+					<span class="demo-label">Example &mdash; not live, just showing the rating pill</span>
+					<span class="seller-rating">92% positive <span class="n">(13 ratings)</span></span>
+				</div>
+				<ul style="margin-top:12px;">
+					<li>Mapart artists can open commissions and add contact info &mdash; it shows right on their profile.</li>
+					<li>"Also sells at" links between a player's Firefly and Honeybee shops when they have both.</li>
+					<li>Filters include hiding display-only listings, converting currencies, and price/stock ranges.</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="raredle">
+			<div class="step-head"><div class="step-num">10</div><h3>Rare-dle<span class="new-pill">NEW in 2.0</span></h3></div>
+			<p class="step-lede">A daily guessing game, Wordle-style: one secret Snailcraft rare a day, same for everyone, 8 tries. Each guess compares category, release date, source, type/slot, dyeable and particles against the secret rare, plus a pixel hint that sharpens the longer you're stuck.</p>
+			<div class="step-body wide">
+				<div class="shot"><img src="/onboarding/web/img/raredle.png" alt="Rare-dle page: log-in prompt, public leaderboards (Today / All-time / Streaks tabs), and the How to play rules." loading="lazy"><div class="shot-cap">/rare-dle/</div></div>
+			</div>
+			<div class="notes" style="margin-top:14px;">
+				<ul>
+					<li>Scoring rewards fewer guesses (1000 down to 120 points), plus a streak bonus for playing consecutive days.</li>
+					<li>A <b>+125 no-peek bonus</b> applies if you don't visit the Rare Items pages while your game is in progress &mdash; no sneaking a lookup mid-guess.</li>
+					<li><b>Random Practice</b> mode lets you play unlimited unranked rounds any time, separate from the daily game.</li>
+					<li>Leaderboards are public even if you're logged out; playing requires an account.</li>
+				</ul>
+			</div>
+		</section>
+
+		<section class="step" id="mod-link">
+			<div class="step-head"><div class="step-num">11</div><h3>None of this works without the mod</h3></div>
+			<p class="step-lede">Every listing on the site comes from players running the Shop Logger mod &mdash; it scans shop chests as you walk past them and uploads what it finds. No mod, no data. Grab it from the download button on the home page.</p>
+			<div class="step-body">
+				<div class="shot"><img src="/onboarding/web/img/download-modal.png" alt="The Download Shop Logger modal: mod loader toggle (Fabric/NeoForge), Minecraft version toggle, and a download button." loading="lazy"><div class="shot-cap">Download mod (top of every page)</div></div>
+				<div class="notes">
+					<p>Pick your mod loader (Fabric or NeoForge) and your Minecraft version, and the right .jar downloads directly &mdash; no digging through GitHub releases.</p>
+					<a class="btn" href="/onboarding/mod">Continue to the mod walkthrough &rarr;</a>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="help">
+			<div class="step-head"><div class="step-num">12</div><h3>Stuck? Get help</h3></div>
+			<p class="step-lede">The Info menu in the nav bar (top right, every page) has the FAQ, installation guide and full feature changelog. Can't find your answer there? It says right on the page who to message.</p>
+			<div class="step-body wide">
+				<div class="shot"><img src="/onboarding/web/img/faq.png" alt="The FAQ page: how to reach the maintainer for bug reports/suggestions, and a list of frequently asked questions." loading="lazy"><div class="shot-cap">/docs/faq</div></div>
+			</div>
+		</section>
+
+	</div>
+</div>
+
+<footer class="site">
+	<div class="wrap foot-grid">
+		<span>Snailcraft Trading Post &middot; onboarding</span>
+		<div class="foot-links">
+			<a href="/onboarding/mod">Mod walkthrough</a>
+			<a href="/onboarding/update">What's new</a>
+			<a href="/docs/faq">FAQ</a>
+			<a href="/">Back to the Trading Post</a>
+		</div>
+	</div>
+</footer>
+
+<script src="/beta/nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+<script>
+(function(){
+	"use strict";
+	// top progress bar
+	var bar = document.getElementById("topProgress");
+	function onScroll(){
+		var h = document.documentElement;
+		var pct = (h.scrollTop) / ((h.scrollHeight - h.clientHeight) || 1) * 100;
+		bar.style.width = Math.min(100, Math.max(0, pct)) + "%";
+	}
+	document.addEventListener("scroll", onScroll, { passive: true });
+	onScroll();
+
+	// reveal-on-scroll for each step
+	var steps = document.querySelectorAll("section.step");
+	if("IntersectionObserver" in window){
+		var io = new IntersectionObserver(function(entries){
+			entries.forEach(function(e){ if(e.isIntersecting) e.target.classList.add("in"); });
+		}, { threshold: 0.08, rootMargin: "0px 0px -8% 0px" });
+		steps.forEach(function(s){ io.observe(s); });
+	} else {
+		steps.forEach(function(s){ s.classList.add("in"); });
+	}
+
+	// scroll-spy for the TOC
+	var links = document.querySelectorAll("#toc a");
+	var map = {};
+	links.forEach(function(a){ map[a.getAttribute("href").slice(1)] = a; });
+	if("IntersectionObserver" in window){
+		var spy = new IntersectionObserver(function(entries){
+			entries.forEach(function(e){
+				var a = map[e.target.id];
+				if(!a) return;
+				if(e.isIntersecting) { links.forEach(function(l){ l.classList.remove("active"); }); a.classList.add("active"); }
+			});
+		}, { rootMargin: "-40% 0px -55% 0px" });
+		steps.forEach(function(s){ spy.observe(s); });
+	}
+})();
+</script>
+</body>
+</html>

@@ -156,10 +156,12 @@
 			section("What to restock", "Things that have been selling for you but are nearly (or completely) out of stock.", h.restock || [], function(r){
 				return '<li><span class="nm">' + esc(r.itemName) + ' <span class="why">(' + esc(r.world) + ')</span></span>' +
 					'<span class="hint-tag ' + (r.stock === 0 ? "bad" : "warn") + '">' + (r.stock === 0 ? "out of stock" : "~" + r.daysLeft + " days left") + '</span>' +
-					'<span class="why">~' + fmtNum(r.sold14) + ' sold in the last 14 days (est.)</span></li>';
+					'<span class="why">~' + fmtNum(r.sold14) + ' sold recently</span></li>';
 			}) +
 			'</div>';
 	}
+
+	function sinceLabel(d){ return d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "Oct 2026"; }
 
 	function render(d){
 		var host = document.getElementById("mineContent");
@@ -168,15 +170,15 @@
 				'<div class="tile"><div class="label">Active listings</div><div class="value">' + fmtNum(d.activeListings) + '</div></div>' +
 				'<div class="tile"><div class="label">Distinct items</div><div class="value">' + fmtNum(d.distinctItemsActive) + '</div></div>' +
 				'<div class="tile"><div class="label">Current stock value</div><div class="value">' + fmtDia(d.currentStockValueDiamonds) + '</div></div>' +
-				'<div class="tile"><div class="label">Sold, last 30d (est.)</div><div class="value">' + fmtNum(d.recentInferredSold) + '</div><div class="sub">' + fmtDia(d.recentInferredRevenue) + '</div></div>' +
-				'<div class="tile"><div class="label">Sold, all-time (est.)</div><div class="value">' + fmtNum(d.totalInferredSold) + '</div><div class="sub">' + fmtDia(d.totalInferredRevenue) + '</div></div>' +
+				'<div class="tile"><div class="label">Sold, last 30d</div><div class="value">' + fmtNum(d.recentSold) + '</div><div class="sub">' + fmtDia(d.recentRevenue) + '</div></div>' +
+				'<div class="tile"><div class="label">Sold since ' + esc(sinceLabel(d.salesSince)) + '</div><div class="value">' + fmtNum(d.totalSold) + '</div><div class="sub">' + fmtDia(d.totalRevenue) + '</div></div>' +
 			'</div>' +
 			'<div class="card">' +
 				'<div class="chart-wrap"><canvas id="mineChartCanvas"></canvas></div>' +
 				'<b style="font-size:13px;color:var(--shell);">Your best sellers</b>' +
 				'<ol class="best-sellers" id="mineBestSellers"></ol>' +
-				(d.busiestDay ? '<p class="sub" style="color:var(--muted);font-size:12px;margin-top:10px;">Busiest day: ' + esc(d.busiestDay.date) + ' — ' + fmtNum(d.busiestDay.inferredSold) + ' sold (est.)</p>' : '') +
-				'<p class="estimate-note">Tracking since ' + esc(d.trackingStartDate) + ' (' + d.trackingDays + ' day' + (d.trackingDays===1?"":"s") + ' of data). "Sold" is estimated from your listings\' stock dropping (or disappearing) between daily snapshots, so may not be accurate.</p>' +
+				(d.busiestDay ? '<p class="sub" style="color:var(--muted);font-size:12px;margin-top:10px;">Busiest day: ' + esc(d.busiestDay.date) + ' — ' + fmtNum(d.busiestDay.sold) + ' sold</p>' : '') +
+				'<p class="estimate-note">Tracking since ' + esc(d.trackingStartDate) + ' (' + d.trackingDays + ' day' + (d.trackingDays===1?"":"s") + ' of data). "Sold" counts real sales only: stock that went down while the payment showed up in that chest, between two scans by anyone with the mod (since ' + esc(sinceLabel(d.salesSince)) + '). Restocking or taking items out doesn\'t count. If you collect your payment before the next scan, that sale can be missed, so these can be a little low.</p>' +
 			'</div>';
 
 		host.insertAdjacentHTML("beforeend", hintsHtml(d.hints));
@@ -187,7 +189,7 @@
 			type: "bar",
 			data: {
 				labels: d.trend.map(function(t){ return t.date; }),
-				datasets: [{ label: "Estimated units sold", data: d.trend.map(function(t){ return t.inferredSold; }), backgroundColor: "#B7E23D" }],
+				datasets: [{ label: "Units sold", data: d.trend.map(function(t){ return t.sold; }), backgroundColor: "#B7E23D" }],
 			},
 			options: {
 				responsive: true, maintainAspectRatio: false,
@@ -202,9 +204,9 @@
 		var bestEl = document.getElementById("mineBestSellers");
 		bestEl.innerHTML = d.bestSellers.length
 			? d.bestSellers.map(function(it, i){
-				return '<li><span class="rank">' + (i+1) + '.</span><span class="name">' + esc(it.itemName) + ' (' + esc(it.world) + ')</span><span class="qty">' + fmtNum(it.inferredSold) + ' sold (est.)</span></li>';
+				return '<li><span class="rank">' + (i+1) + '.</span><span class="name">' + esc(it.itemName) + ' (' + esc(it.world) + ')</span><span class="qty">' + fmtNum(it.sold) + ' sold</span></li>';
 			}).join("")
-			: '<li class="empty">No sales inferred yet.</li>';
+			: '<li class="empty">No sales counted yet.</li>';
 	}
 
 	window.sctpOnAccountChange = load;

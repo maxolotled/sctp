@@ -66,7 +66,9 @@ public class SellerProfileScreen extends UiScreen {
 	private void loadData() {
 		WebDataClient.fetchListings().thenAccept(all -> minecraft.execute(() -> {
 			List<Listing> mine = new ArrayList<>();
+			boolean hideDisplay = com.snailtools.shoplogger.SearchPreferences.hideDisplayListings();
 			for (Listing l : all) {
+				if (hideDisplay && l.isDisplay()) continue;
 				if (username.equalsIgnoreCase(l.seller)) mine.add(l);
 			}
 			allListings = mine;

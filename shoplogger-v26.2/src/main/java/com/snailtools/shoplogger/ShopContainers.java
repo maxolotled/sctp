@@ -24,10 +24,10 @@ public final class ShopContainers {
 	}
 
 	/**
-	 * Double chests are never scanned, silently or manually: a shop can't be
-	 * a double chest on Snailcraft, so anything found in one isn't a real
-	 * listing. This also means every scan expects a 3-row screen, which is
-	 * what ShopAutoScanner.accepts() checks against.
+	 * Double chests are real shops too (since 2.4): one shop for both halves,
+	 * known by its left half (see SignFinder.shopPos) and priced by the left
+	 * half's sign. They open as a 6-row screen instead of 3 — see
+	 * ShopAutoScanner.accepts().
 	 */
 	public static boolean isDoubleChest(BlockState state) {
 		return state.hasProperty(ChestBlock.TYPE) && state.getValue(ChestBlock.TYPE) != ChestType.SINGLE;

@@ -43,9 +43,11 @@ public class ShopScanner {
 		if (client.level == null) return;
 
 		BlockState state = client.level.getBlockState(containerPos);
-		ShopSign found = ShopContainers.isDoubleChest(state) ? null : SignFinder.find(client.level, containerPos, state);
+		ShopSign found = SignFinder.find(client.level, containerPos, state);
+		// either half of a double chest opens the same shop — log it under its left half
+		BlockPos shopPos = SignFinder.shopPos(client.level, containerPos, state).immutable();
 
-		this.pendingContainerPos = found != null ? containerPos : null;
+		this.pendingContainerPos = found != null ? shopPos : null;
 		this.pendingSign = found;
 		this.pendingSetAtMillis = System.currentTimeMillis();
 	}
@@ -73,6 +75,8 @@ public class ShopScanner {
 			ShopWorld world = WorldSelection.get();
 			if (world != null) {
 				ShopLog.replaceForPosition(world.label(), containerPos, entries);
+				ShopLog.setPayment(world.label(), containerPos, OwnShopSaleTracker.paymentCount(sign, handler), sign.currency());
+				StockHolograms.record(world.label(), containerPos, entries);
 			}
 			// Deliberately NOT markScanned() here — manual opens don't participate
 			// in the "recently scanned" particle marker (or the auto-scanner's own

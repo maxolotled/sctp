@@ -42,6 +42,11 @@ public class Listing {
 	public String marketplaceType;
 	public String marketplaceListingId;
 
+	/** A [DISPLAY] sign: shown off, not for sale. */
+	public boolean isDisplay() {
+		return "display".equalsIgnoreCase(currency);
+	}
+
 	/** Price per single item in diamonds — same basis as the website's priceInDiamonds()/stackSize. */
 	public double pricePerItemInDiamonds() {
 		if ("display".equalsIgnoreCase(currency)) return Double.POSITIVE_INFINITY;

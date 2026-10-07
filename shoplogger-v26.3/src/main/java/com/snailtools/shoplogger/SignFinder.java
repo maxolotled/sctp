@@ -20,17 +20,39 @@ public final class SignFinder {
 
 	private SignFinder() {}
 
-	/** Returns the parsed sign for this container, checking both halves if it's a double chest. */
+	/**
+	 * Returns the parsed sign for this container. For a double chest the sign
+	 * on the left half (as you stand facing the chest) is the price for the
+	 * whole chest; only if that half has no sign does the right half's count.
+	 */
 	public static ShopSign find(Level world, BlockPos containerPos, BlockState state) {
-		ShopSign own = findOnPos(world, containerPos, state);
-		if (own != null) return own;
+		BlockPos partner = findDoubleChestPartner(world, containerPos, state);
+		if (partner == null) return findOnPos(world, containerPos, state);
 
-		BlockPos otherHalf = findDoubleChestPartner(world, containerPos, state);
-		if (otherHalf != null) {
-			BlockState otherState = world.getBlockState(otherHalf);
-			return findOnPos(world, otherHalf, otherState);
-		}
-		return null;
+		BlockPos left = leftHalf(containerPos, state, partner);
+		BlockPos right = left.equals(containerPos) ? partner : containerPos;
+		ShopSign leftSign = findOnPos(world, left, world.getBlockState(left));
+		return leftSign != null ? leftSign : findOnPos(world, right, world.getBlockState(right));
+	}
+
+	/**
+	 * The position a shop is known by: the container itself, or for a double
+	 * chest always its left half (facing the chest) — so both halves map to
+	 * one shop, whichever half you click and whichever half carries the sign.
+	 */
+	public static BlockPos shopPos(Level world, BlockPos containerPos, BlockState state) {
+		BlockPos partner = findDoubleChestPartner(world, containerPos, state);
+		return partner == null ? containerPos : leftHalf(containerPos, state, partner);
+	}
+
+	/**
+	 * Vanilla's ChestType is named from the chest's own point of view, so the
+	 * half typed RIGHT is the one on YOUR left when you face its front (a
+	 * LEFT-typed half's partner sits at facing.getClockWise(), which is the
+	 * viewer's left).
+	 */
+	private static BlockPos leftHalf(BlockPos pos, BlockState state, BlockPos partner) {
+		return state.getValue(BlockStateProperties.CHEST_TYPE) == ChestType.RIGHT ? pos : partner;
 	}
 
 	private static ShopSign findOnPos(Level world, BlockPos pos, BlockState state) {
@@ -55,7 +77,7 @@ public final class SignFinder {
 	}
 
 	/** For a double chest, finds the adjacent half so we can check its front face too. */
-	private static BlockPos findDoubleChestPartner(Level world, BlockPos pos, BlockState state) {
+	public static BlockPos findDoubleChestPartner(Level world, BlockPos pos, BlockState state) {
 		if (!state.hasProperty(BlockStateProperties.CHEST_TYPE)) return null;
 		ChestType type = state.getValue(BlockStateProperties.CHEST_TYPE);
 		if (type == ChestType.SINGLE) return null;

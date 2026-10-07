@@ -136,7 +136,9 @@ public class ItemDetailScreen extends UiScreen {
 	private void loadData() {
 		WebDataClient.fetchListings().thenAccept(all -> minecraft.execute(() -> {
 			List<Listing> matched = new ArrayList<>();
+			boolean hideDisplay = com.snailtools.shoplogger.SearchPreferences.hideDisplayListings();
 			for (Listing l : all) {
+				if (hideDisplay && l.isDisplay()) continue;
 				if (isRare) {
 					if (MatchUtil.isRareNameMatch(l.itemName, name)) matched.add(l);
 				} else {

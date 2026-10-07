@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mapart Management - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><rect x='40' y='40' width='120' height='120' rx='14' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--info:#8C93E8; --warn:#E2A33D; --bad:#E2643D;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:1240px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:28px 0 22px;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:14px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:40px;height:40px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:21px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:28px;margin:0 0 4px;}
+	header.site .tag{color:var(--muted);font-size:14px;margin:0;}
+	main{padding:28px 0 60px;}
+	h2.section{font-family:var(--font-display);font-size:20px;margin:28px 0 12px;}
+	.dup-warn{margin-top:10px;background:rgba(226,163,61,0.1);border:1px solid var(--warn,#E2A33D);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--text);}
+	.dup-warn a{color:var(--accent);}
+	.comm-card textarea{width:100%;min-height:90px;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-family:inherit;font-size:14px;resize:vertical;}
+	.notice{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;color:var(--muted);font-size:14px;}
+	.notice.warn{border-color:var(--warn);color:var(--warn);background:rgba(226,163,61,0.1);}
+	.notice strong{color:var(--text);}
+
+	.mine-search{width:100%;max-width:380px;margin-bottom:6px;}
+	.mine-count{color:var(--muted);font-size:13px;margin:0 0 14px;}
+	.mine-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+	@media (max-width:900px){.mine-grid{grid-template-columns:1fr;}}
+	.mine-card{display:grid;grid-template-columns:150px 1fr;gap:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0;}
+	@media (max-width:520px){.mine-card{grid-template-columns:1fr;}}
+	.thumb{background:var(--img-bg,#0C140F);border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;height:200px;padding:8px;}
+	.mine-card .thumb{height:150px;}
+	.thumb img{max-width:100%;max-height:100%;image-rendering:pixelated;display:block;}
+	.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
+	@media (max-width:640px){.form-grid{grid-template-columns:1fr;}}
+	.field{display:flex;flex-direction:column;gap:4px;}
+	.field.full{grid-column:1 / -1;}
+	.field label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+	input[type=text],select{
+		width:100%;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
+		border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px;
+	}
+	input:focus,select:focus{outline:none;border-color:var(--accent-dim);}
+	.check{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--text);margin-top:2px;}
+	.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center;}
+	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit;}
+	.btn:hover{background:var(--accent-dim);}
+	.btn:disabled{opacity:.5;cursor:default;}
+	.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;}
+	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.btn-danger{background:transparent;border:1px solid var(--bad);color:var(--bad);border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
+	.status{font-size:12.5px;color:var(--accent);}
+	.status.err{color:var(--bad);}
+	.card-title{font-family:var(--font-display);font-size:17px;font-weight:600;margin:0 0 10px;}
+
+	input[type=number]{width:100%;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px;}
+	input[type=number]:focus{outline:none;border-color:var(--accent-dim);}
+	.takedown-note{margin-top:10px;background:rgba(226,163,61,0.1);border:1px solid var(--warn);color:var(--warn);border-radius:8px;padding:8px 12px;font-size:12.5px;font-weight:600;}
+	.top-links{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px;}
+	.upload-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;}
+	.upload-card .help{color:var(--muted);font-size:13px;margin:0 0 14px;}
+	.upload-layout{display:grid;grid-template-columns:minmax(0,440px) 1fr;gap:20px;align-items:start;}
+	@media (max-width:860px){.upload-layout{grid-template-columns:1fr;}}
+	.crop-box{background:var(--img-bg,#0C140F);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:8px;}
+	.crop-box canvas{max-width:100%;border-radius:4px;cursor:grab;touch-action:none;background:#000;}
+	.crop-box canvas.dragging{cursor:grabbing;}
+	.crop-hint{color:var(--muted);font-size:12px;text-align:center;}
+	.zoom-row{display:flex;align-items:center;gap:10px;width:100%;color:var(--muted);font-size:12px;}
+	.zoom-row input[type=range]{flex:1;accent-color:var(--accent);}
+	.size-row{display:flex;align-items:center;gap:8px;}
+	.size-row input{width:80px;}
+	.disclaimer{background:rgba(226,163,61,0.1);border:1px solid var(--warn);color:var(--warn);border-radius:10px;padding:10px 14px;font-size:13.5px;font-weight:600;margin-top:12px;}
+	.claim-filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;}
+	.claim-filters .claim-search{flex:1 1 260px;max-width:380px;margin-bottom:0;}
+	.claim-filters select{width:auto;}
+	.claim-search{width:100%;max-width:380px;margin-bottom:12px;}
+	.claim-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
+	.claim-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;}
+	.claim-card .thumb{height:140px;}
+	.claim-card .t{font-weight:600;font-size:14px;}
+	.claim-card .a{color:var(--muted);font-size:12.5px;}
+	.empty{color:var(--muted);padding:24px 0;font-size:14px;}
+	footer.site{padding:20px 0 40px;color:var(--muted);font-size:12.5px;text-align:center;}
+	[hidden]{display:none!important;}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/beta/beta.css">
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap">
+		<div class="header-row">
+			<div class="brand-row">
+				<div class="brand-mark">🖼️</div>
+				<div>
+					<h1>Mapart Management</h1>
+					<p class="tag">Edit the mapart you own, or claim pieces that were listed wrongly.</p>
+				</div>
+			</div>
+			<nav id="siteNavMount"></nav>
+		</div>
+	</div>
+</header>
+
+<main class="wrap">
+	<div id="gate" class="notice" hidden></div>
+
+	<div id="content" hidden>
+		<div class="top-links">
+			<a class="btn-ghost" href="/store/manage/">Manage my store &rarr;</a>
+		</div>
+		<h2 class="section" style="margin-top:0;">Your mapart</h2>
+		<input type="text" class="mine-search" id="mineSearch" placeholder="Search your mapart by title, artist, category or keyword…" hidden>
+			<p class="mine-count" id="mineCount" hidden></p>
+			<div id="mineList"></div>
+
+		<h2 class="section">Upload a missing mapart</h2>
+		<div class="upload-card">
+			<p class="help">Can't find a piece in the catalog? Upload it yourself: pick a picture, say how many maps wide and tall it is, and drag/zoom the window to choose what gets cropped. It goes live straight away and is listed under your name. Exact duplicates of pieces already in the gallery are rejected.</p>
+			<div class="upload-layout">
+				<div>
+					<div class="field"><label>Picture</label><input type="file" id="upFile" accept="image/*"></div>
+					<div class="crop-box" id="cropBox" hidden style="margin-top:12px;">
+						<canvas id="cropCanvas"></canvas>
+						<div class="zoom-row"><span>Zoom</span><input type="range" id="upZoom" min="1" max="6" step="0.01" value="1"><span id="upZoomVal">1.0&times;</span></div>
+						<div class="crop-hint">Drag the picture to move it, scroll or use the slider to zoom. What you see is exactly what gets uploaded.</div>
+					</div>
+				</div>
+				<div>
+					<div class="form-grid">
+						<div class="field full"><label>Size (in maps)</label>
+							<div class="size-row"><input type="number" id="upW" min="1" max="10" value="1"> <span>wide &times;</span> <input type="number" id="upH" min="1" max="10" value="1"> <span>tall</span></div>
+						</div>
+						<div class="field full"><label>Title</label><input type="text" id="upTitle" maxlength="100" placeholder="Name of the mapart"></div>
+						<div class="field full"><label>Artist(s) &mdash; use the arrow for collabs</label><div id="upArtistHost"></div></div>
+						<div class="field"><label>World</label><select id="upWorld"><option value="Firefly">Firefly</option><option value="Honeybee">Honeybee</option></select></div>
+						<div class="field"><label>Category</label><select id="upCategory"></select></div>
+						<div class="field"><label>Type</label><select id="upType"><option value="">Not specified</option><option value="flat">Flat</option><option value="staircased">Staircased</option></select></div>
+						<div class="field full"><label>Keywords <span style="color:var(--muted);font-weight:400;">(up to 5, separated by commas &mdash; people can search for these)</span></label><input type="text" id="upKeywords" maxlength="160" placeholder="e.g. zelda, link, landscape"></div>
+						<div class="field"><label>Where to buy</label><input type="text" id="upWhere" maxlength="200" placeholder="Blank = /shop artist"></div>
+						<div class="field"><label>Price (optional)</label><input type="text" id="upPrice" maxlength="60" placeholder="e.g. 5 diamonds"></div>
+						<div class="field full"><label class="check"><input type="checkbox" id="upCommissioned"> This was a commission (artist = who built it)</label></div>
+						<div class="field full" id="upCommByRow" hidden><label>Commissioned by</label><input type="text" id="upCommBy" maxlength="40" placeholder="Who it was built for"></div>
+						<div class="field full"><label class="check"><input type="checkbox" id="upNotForSale"> Not for sale (hides where-to-buy)</label></div>
+						<div class="field full"><label class="check"><input type="checkbox" id="upSmooth" checked> Smooth resize (turn off for pixel art so edges stay sharp)</label></div>
+					</div>
+					<div class="actions">
+						<button type="button" class="btn" id="upSubmit" disabled>Upload mapart</button>
+						<span class="status" id="upStatus"></span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<h2 class="section">Commission info</h2>
+		<div class="upload-card comm-card">
+			<p class="help">Shown on your public profile so people can ask you to build something. Leave commissions closed to hide the contact details.</p>
+			<div class="form-grid">
+				<div class="field full"><label class="check"><input type="checkbox" id="commOpen"> I'm open for commissions</label></div>
+				<div class="field full"><label>Prices &amp; details</label><textarea id="commInfo" maxlength="1000" placeholder="e.g. 1x1 from 5 diamonds, 2x2 from 20 diamonds. Turnaround about a week. Send a reference picture."></textarea></div>
+				<div class="field"><label>Discord</label><input type="text" id="commDiscord" maxlength="60" placeholder="e.g. username"></div>
+			</div>
+			<div class="actions"><button type="button" class="btn" id="commSave">Save commission info</button><span class="status" id="commStatus"></span></div>
+		</div>
+
+		<h2 class="section">Claim a mapart</h2>
+		<p class="notice" style="margin-bottom:14px;">Found a piece of yours that's listed under the wrong name, or with no artist? Claim it to fix it. Pieces already claimed by someone else can't be taken &mdash; ask a head admin if that's wrong.</p>
+		<div class="claim-filters">
+			<input type="text" class="claim-search" id="claimSearch" placeholder="Search unclaimed mapart by title or artist…">
+			<select id="claimWorld"><option value="">Both worlds</option><option value="Firefly">Firefly</option><option value="Honeybee">Honeybee</option></select>
+		</div>
+		<p class="help" id="claimTip" style="color:var(--muted);font-size:13px;margin:-4px 0 10px;">Tip: Look for 'Untitled Mapart' if your maps don't have a name or artist!</p>
+		<p class="help" id="claimCount" style="color:var(--muted);font-size:13px;margin:0 0 12px;"></p>
+		<div class="claim-list" id="claimList"></div>
+	</div>
+</main>
+
+<footer class="site"><div class="wrap"><a href="/mapart/">&larr; Back to the mapart catalog</a></div></footer>
+
+<script src="/beta/nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+<script src="/artist-field.js" defer></script>
+<script src="/mapart-search.js" defer></script>
+<script>
+(function(){
+	"use strict";
+
+	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var CATEGORIES = ["Pets","Anime","TV/Animation","Games","Art","Memes","Nature","Photography","Letters","Seasonal","Advertisement","Misc","Flags"];
+	var VERIFY_DISCLAIMER = "If you would like to verify your account, please dm maxolotled on discord! (@ectf)";
+	var catalog = [];
+	var mine = [];
+
+	function esc(s){
+		return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+			return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+		});
+	}
+	function imageUrl(m){ return API_BASE + "/mapart/image?id=" + encodeURIComponent(m.id) + "&v=" + encodeURIComponent(m.imageHash || ""); }
+	function session(){ return window.sctpAccount ? window.sctpAccount.getSession() : null; }
+	function authFetch(path, opts){
+		var s = session();
+		opts = opts || {};
+		opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {}, s ? { Authorization: "Bearer " + s.token } : {});
+		return fetch(API_BASE + path, opts).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, status: r.status, data: d }; }); });
+	}
+
+	function gate(msg, warn){
+		var g = document.getElementById("gate");
+		g.className = "notice" + (warn ? " warn" : "");
+		g.innerHTML = msg;
+		g.hidden = false;
+		document.getElementById("content").hidden = true;
+	}
+
+	function mineSearchText(m){
+		return [m.title, m.artist, m.category, m.world, (m.keywords || []).join(" "), m.mapType].join(" ").toLowerCase();
+	}
+	// Filters by toggling cards (not re-rendering) so unsaved edits in other cards survive typing.
+	function filterMine(){
+		var q = document.getElementById("mineSearch").value.trim().toLowerCase();
+		var cards = document.querySelectorAll("#mineList .mine-card");
+		var shown = 0;
+		cards.forEach(function(c){
+			var ok = !q || (c.getAttribute("data-search") || "").indexOf(q) !== -1;
+			c.hidden = !ok;
+			if(ok) shown++;
+		});
+		var count = document.getElementById("mineCount");
+		count.hidden = !cards.length;
+		count.textContent = q ? "Showing " + shown + " of " + cards.length : cards.length + " mapart" + (cards.length === 1 ? "" : "s");
+		var nm = document.getElementById("mineNoMatch");
+		if(nm) nm.hidden = shown > 0;
+	}
+
+	function renderMine(){
+		var host = document.getElementById("mineList");
+		if(!mine.length){
+			document.getElementById("mineSearch").hidden = true;
+			document.getElementById("mineCount").hidden = true;
+			host.innerHTML = '<p class="empty">You don\'t own any mapart yet. Pieces where you\'re the artist are claimed for you automatically once your account is verified &mdash; or claim one below.</p>';
+			return;
+		}
+		document.getElementById("mineSearch").hidden = false;
+		host.innerHTML = '<div class="mine-grid">' + mine.map(function(m){
+			return '<div class="mine-card" data-id="' + esc(m.id) + '" data-search="' + esc(mineSearchText(m)) + '">' +
+				'<div class="thumb"><img src="' + esc(imageUrl(m)) + '" alt=""></div>' +
+				'<div>' +
+					'<div class="card-title">' + esc(m.title) + ' <span style="color:var(--muted);font-size:12px;font-weight:400;">(' + esc(m.world) + ', ' + m.width + '&times;' + m.height + ')</span></div>' +
+					'<div class="form-grid">' +
+						'<div class="field"><label>Title</label><input type="text" data-f="title" maxlength="100" value="' + esc(m.title) + '"></div>' +
+						'<div class="field full"><label data-artist-label>' + (m.commissioned ? 'Built by' : 'Artist(s) / seller') + ' &mdash; use the arrow for collabs</label><div data-artist-host></div></div>' +
+						'<div class="field full"><label class="check"><input type="checkbox" data-f="commissioned"' + (m.commissioned ? ' checked' : '') + '> This was a commission</label></div>' +
+						'<div class="field full" data-comm-by' + (m.commissioned ? '' : ' hidden') + '><label>Commissioned by</label><input type="text" data-f="commissionedBy" maxlength="40" value="' + esc(m.commissionedBy || '') + '" placeholder="Who it was built for"></div>' +
+						'<div class="field"><label>Category</label><select data-f="category"><option value="">No category</option>' +
+							CATEGORIES.map(function(c){ return '<option value="' + c + '"' + (m.category === c ? ' selected' : '') + '>' + c + '</option>'; }).join("") + '</select></div>' +
+						'<div class="field"><label>Type</label><select data-f="mapType"><option value="">Not specified</option><option value="flat"' + (m.mapType === "flat" ? ' selected' : '') + '>Flat</option><option value="staircased"' + (m.mapType === "staircased" ? ' selected' : '') + '>Staircased</option></select></div>' +
+						'<div class="field full"><label>Keywords <span style="color:var(--muted);font-weight:400;">(up to 5, separated by commas &mdash; people can search for these)</span></label><input type="text" data-f="keywords" maxlength="160" value="' + esc((m.keywords || []).join(", ")) + '" placeholder="e.g. zelda, link, landscape"></div>' +
+						'<div class="field"><label>Where to buy</label><input type="text" data-f="whereToBuy" maxlength="200" value="' + esc(m.whereToBuyCustom || "") + '" placeholder="' + esc(m.artist ? "/shop " + m.artist : "e.g. /shop Steve") + '"></div>' +
+						'<div class="field"><label>Price (optional)</label><input type="text" data-f="price" maxlength="60" value="' + esc(m.price || "") + '" placeholder="e.g. 5 diamonds"></div>' +
+						'<div class="field full"><label class="check"><input type="checkbox" data-f="notForSale"' + (m.notForSale ? ' checked' : '') + '> Not for sale (hides where-to-buy)</label></div>' +
+					'</div>' +
+					'<div class="actions">' +
+						'<button type="button" class="btn" data-act="save">Save changes</button>' +
+						'<a class="btn-ghost" href="/mapart/' + encodeURIComponent(m.slug) + '" target="_blank" rel="noopener">View page</a>' +
+						(m.uploaded
+							? '<button type="button" class="btn-danger" data-act="delete">Delete</button>'
+							: '<button type="button" class="btn-danger" data-act="abandon">Abandon</button>') +
+						(m.takedownPending
+							? '<button type="button" class="btn-ghost" data-act="cancel-takedown">Cancel takedown request</button>'
+							: '<button type="button" class="btn-ghost" data-act="takedown" title="Ask for this mapart to be removed from SCTP for good">Request takedown</button>') +
+						'<span class="status" data-role="status"></span>' +
+					'</div>' +
+					(m.takedownPending ? '<div class="takedown-note">Takedown requested &mdash; waiting for a head admin to approve it. Until then the piece stays up.</div>' : '') +
+				'</div>' +
+			'</div>';
+		}).join("") + '</div><p class="empty" id="mineNoMatch" hidden>None of your mapart matches that search.</p>';
+		filterMine();
+
+		host.querySelectorAll(".mine-card").forEach(function(card){
+			var id = card.getAttribute("data-id");
+			var cardMapart = mine.filter(function(x){ return x.id === id; })[0] || {};
+			var artistField = window.sctpArtistField.create(card.querySelector("[data-artist-host]"), { value: cardMapart.artist || "" });
+			var commBox = card.querySelector('[data-f="commissioned"]');
+			commBox.addEventListener("change", function(){
+				card.querySelector("[data-comm-by]").hidden = !commBox.checked;
+				card.querySelector("[data-artist-label]").innerHTML = (commBox.checked ? "Built by" : "Artist(s) / seller") + " &mdash; use the arrow for collabs";
+			});
+			var status = card.querySelector('[data-role="status"]');
+			function setStatus(t, err){ status.textContent = t; status.className = "status" + (err ? " err" : ""); }
+			card.querySelector('[data-act="save"]').addEventListener("click", function(){
+				var body = {
+					id: id,
+					title: card.querySelector('[data-f="title"]').value,
+					artist: artistField.getValue(),
+					price: card.querySelector('[data-f="price"]').value,
+					commissioned: commBox.checked,
+					commissionedBy: card.querySelector('[data-f="commissionedBy"]').value,
+					category: card.querySelector('[data-f="category"]').value || null,
+					mapType: card.querySelector('[data-f="mapType"]').value || null,
+					keywords: card.querySelector('[data-f="keywords"]').value,
+					whereToBuy: card.querySelector('[data-f="whereToBuy"]').value,
+					notForSale: card.querySelector('[data-f="notForSale"]').checked
+				};
+				setStatus("Saving…", false);
+				authFetch("/mapart/update", { method: "POST", body: JSON.stringify(body) }).then(function(res){
+					if(!res.ok){ setStatus(res.data.error || "Couldn't save.", true); return; }
+					setStatus("Saved!", false);
+					var i = mine.findIndex(function(x){ return x.id === id; });
+					if(i !== -1) mine[i] = res.data.mapart;
+					card.setAttribute("data-search", mineSearchText(res.data.mapart));
+					var card2 = card.querySelector(".card-title");
+					if(card2) card2.firstChild.textContent = res.data.mapart.title + " ";
+				});
+			});
+			var abandonBtn = card.querySelector('[data-act="abandon"]');
+			if(abandonBtn) abandonBtn.addEventListener("click", function(){
+				if(!confirm("Abandon this mapart? You'll lose the ability to edit it, and it won't be auto-claimed for you again.")) return;
+				authFetch("/mapart/abandon", { method: "POST", body: JSON.stringify({ id: id }) }).then(function(res){
+					if(!res.ok){ setStatus(res.data.error || "Couldn't abandon.", true); return; }
+					loadAll();
+				});
+			});
+			var takedownBtn = card.querySelector('[data-act="takedown"]');
+			if(takedownBtn) takedownBtn.addEventListener("click", function(){
+				if(!confirm("Request a permanent takedown of this mapart?\n\nIf a head admin approves it, the piece is deleted from SCTP and can never be uploaded again (no scan and no upload of the same picture). Until then it stays up.")) return;
+				var reason = prompt("Optional: why do you want it removed? (helps the admin decide)", "");
+				if(reason === null) return;
+				authFetch("/mapart/takedown", { method: "POST", body: JSON.stringify({ id: id, reason: reason }) }).then(function(res){
+					if(!res.ok){ setStatus(res.data.error || "Couldn't send the request.", true); return; }
+					loadAll();
+				});
+			});
+			var cancelTakedownBtn = card.querySelector('[data-act="cancel-takedown"]');
+			if(cancelTakedownBtn) cancelTakedownBtn.addEventListener("click", function(){
+				authFetch("/mapart/takedown/cancel", { method: "POST", body: JSON.stringify({ id: id }) }).then(function(res){
+					if(!res.ok){ setStatus(res.data.error || "Couldn't cancel.", true); return; }
+					loadAll();
+				});
+			});
+			var deleteBtn = card.querySelector('[data-act="delete"]');
+			if(deleteBtn) deleteBtn.addEventListener("click", function(){
+				if(!confirm("Delete this uploaded mapart for good? This can't be undone.")) return;
+				authFetch("/mapart/delete-own", { method: "POST", body: JSON.stringify({ id: id }) }).then(function(res){
+					if(!res.ok){ setStatus(res.data.error || "Couldn't delete.", true); return; }
+					loadAll();
+				});
+			});
+		});
+	}
+
+	function renderClaimable(){
+		var q = document.getElementById("claimSearch").value.trim().toLowerCase();
+		var world = document.getElementById("claimWorld").value;
+		var mineIds = {};
+		mine.forEach(function(m){ mineIds[m.id] = true; });
+		var rows = catalog.filter(function(m){
+			if(m.claimed || mineIds[m.id]) return false;
+			if(world && m.world !== world) return false;
+			if(!q) return true;
+			return (m.title || "").toLowerCase().indexOf(q) !== -1 || (m.artist || "").toLowerCase().indexOf(q) !== -1;
+		});
+		var host = document.getElementById("claimList");
+		document.getElementById("claimCount").textContent = rows.length + " unclaimed mapart" + (rows.length === 1 ? "" : "s");
+		if(!rows.length){ host.innerHTML = '<p class="empty">No unclaimed mapart matches.</p>'; return; }
+		host.innerHTML = rows.map(function(m){
+			return '<div class="claim-card">' +
+				'<div class="thumb"><img src="' + esc(imageUrl(m)) + '" alt="" loading="lazy"></div>' +
+				'<div class="t">' + esc(m.title) + '</div>' +
+				'<div class="a">' + (m.artist ? 'by ' + esc(m.artist) : 'Unknown artist') + ' &middot; ' + esc(m.world) + '</div>' +
+				'<button type="button" class="btn" data-claim="' + esc(m.id) + '">Claim</button>' +
+				'<span class="status err" data-err="' + esc(m.id) + '"></span>' +
+			'</div>';
+		}).join("");
+		host.querySelectorAll("[data-claim]").forEach(function(btn){
+			btn.addEventListener("click", function(){
+				var id = btn.getAttribute("data-claim");
+				btn.disabled = true;
+				authFetch("/mapart/claim", { method: "POST", body: JSON.stringify({ id: id }) }).then(function(res){
+					if(!res.ok){
+						btn.disabled = false;
+						host.querySelector('[data-err="' + id + '"]').textContent = res.data.error || "Couldn't claim.";
+						return;
+					}
+					loadAll();
+				});
+			});
+		});
+	}
+
+	function loadCommission(){
+		authFetch("/account/me").then(function(res){
+			if(!res.ok || !res.data.commission) return;
+			document.getElementById("commOpen").checked = !!res.data.commission.open;
+			document.getElementById("commInfo").value = res.data.commission.info || "";
+			document.getElementById("commDiscord").value = res.data.commission.discord || "";
+		});
+	}
+	document.getElementById("commSave").addEventListener("click", function(){
+		var st = document.getElementById("commStatus");
+		st.textContent = "Saving…"; st.className = "status";
+		authFetch("/account/commission", { method: "POST", body: JSON.stringify({
+			open: document.getElementById("commOpen").checked,
+			info: document.getElementById("commInfo").value,
+			discord: document.getElementById("commDiscord").value
+		}) }).then(function(res){
+			if(!res.ok){ st.textContent = res.data.error || "Couldn't save."; st.className = "status err"; return; }
+			st.textContent = "Saved!"; st.className = "status";
+		});
+	});
+
+	function loadAll(){
+		return Promise.all([
+			authFetch("/mapart/mine"),
+			fetch(API_BASE + "/mapart").then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; })
+		]).then(function(results){
+			var res = results[0];
+			if(res.status === 403){
+				gate('<strong>Your account isn\'t verified yet.</strong> Mapart management is only available to accounts with a verified Minecraft username.<div class="disclaimer">' + esc(VERIFY_DISCLAIMER) + '</div>', true);
+				return;
+			}
+			if(res.status === 401){
+				gate('Your login expired &mdash; please log in again from the account button up top.', true);
+				return;
+			}
+			if(!res.ok){ gate(esc(res.data.error || "Couldn't load your mapart."), true); return; }
+			mine = res.data;
+			catalog = results[1];
+			document.getElementById("gate").hidden = true;
+			document.getElementById("content").hidden = false;
+			loadCommission();
+			renderMine();
+			renderClaimable();
+		});
+	}
+
+	// ---------------- upload a missing mapart ----------------
+	// The picture is cropped/scaled here to exactly width*128 x height*128 (one
+	// Minecraft map = 128x128), so the server only ever receives a PNG that
+	// already fits the grid.
+	var upImg = null, upCx = 0, upCy = 0, upZoom = 1;
+	var upCanvas = document.getElementById("cropCanvas");
+	var upCtx = upCanvas.getContext("2d");
+	var upCatSel = document.getElementById("upCategory");
+	var upArtistField = null;
+	(function mountUpArtist(){
+		if(window.sctpArtistField) upArtistField = window.sctpArtistField.create(document.getElementById("upArtistHost"), { placeholder: "Head artist — blank = you" });
+		else setTimeout(mountUpArtist, 50);
+	})();
+	upCatSel.innerHTML = '<option value="">No category</option>' + CATEGORIES.map(function(c){ return '<option value="' + c + '">' + c + '</option>'; }).join("");
+
+	function upGrid(){
+		var w = Math.max(1, Math.min(10, parseInt(document.getElementById("upW").value, 10) || 1));
+		var h = Math.max(1, Math.min(10, parseInt(document.getElementById("upH").value, 10) || 1));
+		return { w: w, h: h };
+	}
+	// Source rectangle (in image pixels) currently inside the crop window.
+	function upRegion(){
+		var g = upGrid(), A = g.w / g.h;
+		var rw, rh;
+		if(upImg.width / upImg.height > A){ rh = upImg.height; rw = rh * A; } else { rw = upImg.width; rh = rw / A; }
+		rw /= upZoom; rh /= upZoom;
+		var cx = Math.min(Math.max(upCx, rw / 2), upImg.width - rw / 2);
+		var cy = Math.min(Math.max(upCy, rh / 2), upImg.height - rh / 2);
+		upCx = cx; upCy = cy;
+		return { sx: cx - rw / 2, sy: cy - rh / 2, sw: rw, sh: rh };
+	}
+	function upResetCrop(){
+		if(!upImg) return;
+		upZoom = 1;
+		document.getElementById("upZoom").value = 1;
+		upCx = upImg.width / 2; upCy = upImg.height / 2;
+		upDraw();
+	}
+	function upDraw(){
+		if(!upImg) return;
+		var g = upGrid(), A = g.w / g.h;
+		var maxW = Math.min(420, upCanvas.parentNode.clientWidth - 20 || 420), maxH = 420;
+		var cw = maxW, ch = cw / A;
+		if(ch > maxH){ ch = maxH; cw = ch * A; }
+		upCanvas.width = Math.max(1, Math.round(cw)); upCanvas.height = Math.max(1, Math.round(ch));
+		var r = upRegion();
+		upCtx.imageSmoothingEnabled = document.getElementById("upSmooth").checked;
+		upCtx.imageSmoothingQuality = "high";
+		upCtx.clearRect(0, 0, upCanvas.width, upCanvas.height);
+		upCtx.drawImage(upImg, r.sx, r.sy, r.sw, r.sh, 0, 0, upCanvas.width, upCanvas.height);
+		document.getElementById("upZoomVal").textContent = upZoom.toFixed(1) + "\u00d7";
+	}
+	function upSetStatus(t, err){
+		var s = document.getElementById("upStatus");
+		s.textContent = t; s.className = "status" + (err ? " err" : "");
+	}
+
+	document.getElementById("upCommissioned").addEventListener("change", function(){
+		document.getElementById("upCommByRow").hidden = !this.checked;
+	});
+	document.getElementById("upFile").addEventListener("change", function(){
+		var f = this.files && this.files[0];
+		if(!f) return;
+		// Look for a near-identical piece before they bother filling everything in.
+		var old = document.getElementById("dupWarn"); if(old) old.remove();
+		if(window.sctpMapartSearch) window.sctpMapartSearch.search(f).then(function(ms){
+			ms = ms.filter(function(m){ return m.similarity >= 90; });
+			if(!ms.length) return;
+			var w = document.createElement("div");
+			w.id = "dupWarn"; w.className = "dup-warn";
+			w.innerHTML = "<strong>This looks like something already in the gallery:</strong><br>" + ms.slice(0, 3).map(function(m){
+				return '<a href="/mapart/' + encodeURIComponent(m.slug) + '" target="_blank" rel="noopener">' + esc(m.title) + '</a> (' + esc(m.world) + ', ' + m.similarity + '% match)';
+			}).join("<br>") + "<br>Near-identical pictures are rejected on upload.";
+			document.getElementById("cropBox").parentNode.appendChild(w);
+		}).catch(function(){});
+		var url = URL.createObjectURL(f);
+		var img = new Image();
+		img.onload = function(){
+			upImg = img;
+			// Guess the grid from the picture's size (128px per map), then let them adjust.
+			document.getElementById("upW").value = Math.max(1, Math.min(10, Math.round(img.width / 128)));
+			document.getElementById("upH").value = Math.max(1, Math.min(10, Math.round(img.height / 128)));
+			document.getElementById("cropBox").hidden = false;
+			document.getElementById("upSubmit").disabled = false;
+			upSetStatus("", false);
+			if(!document.getElementById("upTitle").value) document.getElementById("upTitle").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").slice(0, 100);
+			upResetCrop();
+		};
+		img.onerror = function(){ upSetStatus("Couldn't read that image.", true); URL.revokeObjectURL(url); };
+		img.src = url;
+	});
+	["upW", "upH"].forEach(function(id){ document.getElementById(id).addEventListener("input", upResetCrop); });
+	document.getElementById("upSmooth").addEventListener("change", upDraw);
+	document.getElementById("upZoom").addEventListener("input", function(){ upZoom = parseFloat(this.value) || 1; upDraw(); });
+	upCanvas.addEventListener("wheel", function(e){
+		if(!upImg) return;
+		e.preventDefault();
+		upZoom = Math.min(6, Math.max(1, upZoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08)));
+		document.getElementById("upZoom").value = upZoom;
+		upDraw();
+	}, { passive: false });
+	var upDrag = null;
+	upCanvas.addEventListener("pointerdown", function(e){
+		if(!upImg) return;
+		upDrag = { x: e.clientX, y: e.clientY };
+		upCanvas.setPointerCapture(e.pointerId);
+		upCanvas.classList.add("dragging");
+	});
+	upCanvas.addEventListener("pointermove", function(e){
+		if(!upDrag || !upImg) return;
+		var r = upRegion();
+		var rect = upCanvas.getBoundingClientRect();
+		upCx -= (e.clientX - upDrag.x) * (r.sw / rect.width);
+		upCy -= (e.clientY - upDrag.y) * (r.sh / rect.height);
+		upDrag = { x: e.clientX, y: e.clientY };
+		upDraw();
+	});
+	["pointerup", "pointercancel"].forEach(function(t){
+		upCanvas.addEventListener(t, function(){ upDrag = null; upCanvas.classList.remove("dragging"); });
+	});
+	window.addEventListener("resize", function(){ if(upImg) upDraw(); });
+
+	document.getElementById("upSubmit").addEventListener("click", function(){
+		if(!upImg) return;
+		var title = document.getElementById("upTitle").value.trim();
+		if(!title){ upSetStatus("Give it a title first.", true); return; }
+		var g = upGrid();
+		var out = document.createElement("canvas");
+		out.width = g.w * 128; out.height = g.h * 128;
+		var octx = out.getContext("2d");
+		octx.imageSmoothingEnabled = document.getElementById("upSmooth").checked;
+		octx.imageSmoothingQuality = "high";
+		var r = upRegion();
+		octx.drawImage(upImg, r.sx, r.sy, r.sw, r.sh, 0, 0, out.width, out.height);
+		var btn = this;
+		btn.disabled = true;
+		upSetStatus("Uploading…", false);
+		out.toBlob(function(blob){
+			if(!blob){ upSetStatus("Couldn't prepare the image.", true); btn.disabled = false; return; }
+			if(blob.size > 4 * 1024 * 1024){ upSetStatus("That's over 4 MB as a PNG — pick a smaller size.", true); btn.disabled = false; return; }
+			var fr = new FileReader();
+			fr.onload = function(){
+				var b64 = String(fr.result).split(",")[1] || "";
+				authFetch("/mapart/submit", { method: "POST", body: JSON.stringify({
+					title: title,
+					artist: upArtistField.getValue(),
+					price: document.getElementById("upPrice").value.trim(),
+					commissioned: document.getElementById("upCommissioned").checked,
+					commissionedBy: document.getElementById("upCommBy").value.trim(),
+					world: document.getElementById("upWorld").value,
+					category: upCatSel.value || null,
+					mapType: document.getElementById("upType").value || null,
+					keywords: document.getElementById("upKeywords").value,
+					whereToBuy: document.getElementById("upWhere").value.trim(),
+					notForSale: document.getElementById("upNotForSale").checked,
+					width: g.w, height: g.h, png: b64
+				}) }).then(function(res){
+					btn.disabled = false;
+					if(!res.ok){ upSetStatus(res.data.error || "Couldn't upload.", true); return; }
+					upSetStatus("Uploaded! It's live in the catalog.", false);
+					upImg = null;
+					document.getElementById("cropBox").hidden = true;
+					document.getElementById("upFile").value = "";
+					document.getElementById("upCommissioned").checked = false; document.getElementById("upCommByRow").hidden = true; document.getElementById("upCommBy").value = "";
+					var dw = document.getElementById("dupWarn"); if(dw) dw.remove();
+					["upTitle", "upWhere", "upPrice", "upKeywords"].forEach(function(id){ document.getElementById(id).value = ""; });
+					document.getElementById("upType").value = "";
+					upArtistField = window.sctpArtistField.create(document.getElementById("upArtistHost"), { placeholder: "Head artist — blank = you" });
+					document.getElementById("upNotForSale").checked = false;
+					btn.disabled = true;
+					loadAll();
+				}).catch(function(){ btn.disabled = false; upSetStatus("Network problem — try again.", true); });
+			};
+			fr.readAsDataURL(blob);
+		}, "image/png");
+	});
+
+	document.getElementById("claimSearch").addEventListener("input", renderClaimable);
+	document.getElementById("claimWorld").addEventListener("change", renderClaimable);
+	document.getElementById("mineSearch").addEventListener("input", filterMine);
+
+	function start(){
+		if(!session()){
+			gate('<strong>Log in first.</strong> Use the account button up top, then come back here. Mapart management is available to accounts with a verified Minecraft username.<div class="disclaimer">' + esc(VERIFY_DISCLAIMER) + '</div>', false);
+			return;
+		}
+		loadAll();
+	}
+	// account-widget.js loads deferred — wait for it before reading the session.
+	if(document.readyState === "complete") start();
+	else window.addEventListener("load", start);
+	window.sctpOnAccountChange = function(){ location.reload(); };
+})();
+</script>
+</body>
+</html>

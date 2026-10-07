@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <script>
+	// /beta/... (the redesign preview): its own router lives at /beta/404.html, which
+	// reads the original path from ?p= and puts it back in the address bar.
+	if (/^\/beta(\/|$)/i.test(location.pathname)) location.replace("/beta/404.html?p=" + encodeURIComponent(location.pathname + location.search) + location.hash);
 	// /v<number> (any number of digits — /v2, /v3, /v49747, ...) is a short link to
 	// the "what's new" onboarding page. Redirect immediately, before loading anything
 	// else on this page — GitHub Pages routes any unmatched path here (see the rest of
@@ -1306,7 +1309,7 @@
 					'<div class="chart-card"><h3>Lowest price (<span id="lowestPriceUnit"></span>)</h3><div class="chart-wrap"><canvas id="chartLowestPrice"></canvas></div></div>'+
 					'<div class="chart-card"><h3>Distinct sellers</h3><div class="chart-wrap"><canvas id="chartSellers"></canvas></div></div>'+
 					'<div class="chart-card"><h3>Total stock</h3><div class="chart-wrap"><canvas id="chartStock"></canvas></div></div>'+
-					'<div class="chart-card" id="soldChartCard" hidden><h3>Items sold per day (est.)</h3><div class="chart-wrap"><canvas id="chartSold"></canvas></div></div>'+
+					'<div class="chart-card" id="soldChartCard" hidden><h3>Items sold per day</h3><div class="chart-wrap"><canvas id="chartSold"></canvas></div></div>'+
 				'</div>'+
 				'<section class="table-card">'+
 					'<div class="table-toolbar"><span class="count" id="itemResultCount"></span>'+
@@ -1374,7 +1377,7 @@
 			renderGraphs(lastHistory);
 		}
 
-		// All-time estimated sold / distinct-sellers-ever per world — not
+		// Confirmed sales (stock down + payment up, since data.salesSince) / distinct-sellers-ever per world — not
 		// available from /items/history (that's a daily trend of CURRENT state
 		// only). Skipped for the enchanted-book directory path, which merges
 		// several distinct itemKeys and has no single key to ask about.
@@ -1386,6 +1389,7 @@
 				.catch(function(){});
 		}
 
+		function sinceLabel(d){ return d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }) : ""; }
 		function renderItemStats(data){
 			var host = document.getElementById("itemStatsRow");
 			if(!host || !data.totalsByWorld || data.totalsByWorld.length === 0) return;
@@ -1396,15 +1400,15 @@
 				var cur = currentByWorld[t.world];
 				return '<div class="tile">'+
 					'<div class="label">'+esc(t.world)+'</div>'+
-					'<div class="value">'+fmtNum(t.totalInferredSold)+' sold</div>'+
-					'<div class="sub">est. &middot; '+fmtNum(t.distinctSellersEver)+' sellers ever'+(cur ? ' &middot; '+fmtNum(cur.sellerCount)+' now' : '')+'</div>'+
+					'<div class="value">'+fmtNum(t.totalSold)+' sold</div>'+
+					'<div class="sub" title="Real sales: counted only when a shop&#39;s stock went down and payment showed up in the chest">since '+esc(sinceLabel(data.salesSince))+' &middot; '+fmtNum(t.distinctSellersEver)+' sellers ever'+(cur ? ' &middot; '+fmtNum(cur.sellerCount)+' now' : '')+'</div>'+
 				'</div>';
 			}).join("");
 			if(data.trackingDays > 0){
 				tilesHtml += '<div class="tile">'+
 					'<div class="label">Avg sold/day</div>'+
 					'<div class="value">'+fmtNum(data.avgSoldPerDay)+'</div>'+
-					'<div class="sub">est. &middot; both worlds &middot; '+fmtNum(data.trackingDays)+' day'+(data.trackingDays===1?"":"s")+' tracked</div>'+
+					'<div class="sub">real sales &middot; both worlds &middot; '+fmtNum(data.trackingDays)+' day'+(data.trackingDays===1?"":"s")+' tracked</div>'+
 				'</div>';
 			}
 			host.innerHTML = '<div class="item-stats-row">' + tilesHtml + '</div>';

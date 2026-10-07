@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Privacy notice - SCTP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="What Snailcraft Trading Post and the Shop Logger mod collect, what's public, and how to get your data removed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.6;}
+	a{color:var(--accent);}
+	a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px;}
+	.wrap{max-width:780px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	.back-link{flex:0 0 auto;color:var(--shell);text-decoration:none;font-size:14px;font-weight:600;border:1px solid var(--line);border-radius:8px;padding:8px 14px;}
+	.back-link:hover{color:var(--accent);border-color:var(--accent-dim);}
+	main{padding:32px 0 60px;}
+
+	.meta{color:var(--muted);font-size:13px;margin:0 0 22px;}
+	.intro{font-size:15.5px;max-width:65ch;margin:0 0 26px;}
+
+	.summary{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin:0 0 34px;}
+	.summary h2{margin-top:0;}
+	.summary ul{margin:0;padding-left:20px;}
+	.summary li{margin:6px 0;}
+
+	nav.toc{margin:0 0 34px;}
+	nav.toc h2{font-size:12px;font-family:var(--font-body);text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin:0 0 8px;}
+	nav.toc ol{margin:0;padding-left:20px;columns:2;column-gap:28px;font-size:14px;}
+	nav.toc li{margin:3px 0;break-inside:avoid;}
+	nav.toc a{text-decoration:none;color:var(--shell);}
+	nav.toc a:hover{color:var(--accent);}
+
+	section{margin:0 0 38px;scroll-margin-top:16px;}
+	h2{font-family:var(--font-display);font-weight:600;font-size:22px;margin:0 0 10px;text-wrap:balance;}
+	h3{font-size:15px;font-weight:700;margin:22px 0 6px;color:var(--shell);}
+	p, li{max-width:68ch;}
+	p{margin:0 0 12px;}
+	ul{padding-left:20px;margin:0 0 12px;}
+	li{margin:5px 0;}
+	code{font-family:var(--font-mono);font-size:12.5px;background:var(--panel-alt);border:1px solid var(--line);border-radius:5px;padding:1px 5px;}
+	strong{color:#fff;font-weight:600;}
+
+	.not{border-left:3px solid var(--accent-dim);background:var(--panel);border-radius:0 10px 10px 0;padding:12px 16px;margin:14px 0;}
+	.not p:last-child, .not ul:last-child{margin-bottom:0;}
+
+	.table-scroll{overflow-x:auto;margin:10px 0 14px;border:1px solid var(--line);border-radius:12px;}
+	table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:520px;}
+	th, td{text-align:left;vertical-align:top;padding:10px 14px;border-bottom:1px solid var(--line);}
+	th{background:var(--panel-alt);font-size:11.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:600;}
+	tr:last-child td{border-bottom:none;}
+	td:first-child{font-weight:600;white-space:nowrap;}
+	.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:0.03em;border-radius:999px;padding:1px 8px;margin-right:4px;}
+	.pill.pub{background:rgba(var(--accent-rgb),0.14);color:var(--accent);}
+	.pill.priv{background:rgba(217,200,154,0.14);color:var(--shell);}
+
+	.contact{background:var(--panel);border:1px solid var(--accent-dim);border-radius:14px;padding:20px 24px;}
+	.contact h2{margin-top:0;}
+
+	footer.site{padding:20px 0 40px;color:var(--muted);font-size:12.5px;text-align:center;border-top:1px solid var(--line);}
+
+	@media (max-width:560px){
+		.wrap{padding:0 16px;}
+		header.site h1{font-size:20px;}
+		nav.toc ol{columns:1;}
+		.summary, .contact{padding:18px;}
+	}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/beta/beta.css">
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark">&#128274;</div>
+			<h1>Privacy notice</h1>
+		</div>
+		<a href="/" class="back-link">&larr; Home</a>
+	</div>
+</header>
+
+<main class="wrap">
+	<p class="meta">Last updated 26 September 2026</p>
+	<p class="intro">This page explains what <strong>Snailcraft Trading Post</strong> (sctp.nl) and the <strong>Shop Logger</strong> mod collect, what ends up public, and how to get your data changed or removed. SCTP is a community project for the Snailcraft Minecraft server. It isn't run by Snailcraft or its staff.</p>
+
+	<div class="summary">
+		<h2>The short version</h2>
+		<ul>
+			<li>The mod uploads what's in the <strong>shop chests</strong> it scans: seller name, items, prices, stock and chest location. It <strong>doesn't record who did the scanning</strong>.</li>
+			<li>To count how many people use the mod, it sends your Minecraft username when you join. We only keep a <strong>scrambled (hashed) version</strong> that can't be turned back into your name.</li>
+			<li>A website account needs a Minecraft username and a password. <strong>No email address</strong> is ever asked for, and passwords are stored hashed.</li>
+			<li><strong>No cookies, no analytics, no ads, no tracking.</strong> We don't store IP addresses.</li>
+			<li>Want something removed? <a href="#contact">Message us</a> and we'll sort it out.</li>
+		</ul>
+	</div>
+
+	<nav class="toc" aria-label="On this page">
+		<h2>On this page</h2>
+		<ol>
+			<li><a href="#who">Who runs SCTP</a></li>
+			<li><a href="#mod">The Shop Logger mod</a></li>
+			<li><a href="#accounts">Website accounts</a></li>
+			<li><a href="#features">Things you post or play</a></li>
+			<li><a href="#public">What's public</a></li>
+			<li><a href="#browser">Your browser: no cookies</a></li>
+			<li><a href="#third-parties">Other services involved</a></li>
+			<li><a href="#retention">How long we keep things</a></li>
+			<li><a href="#rights">Your rights</a></li>
+			<li><a href="#contact">Contact us</a></li>
+		</ol>
+	</nav>
+
+	<section id="who">
+		<h2>1. Who runs SCTP</h2>
+		<p>SCTP and the Shop Logger mod are made and run by a small group of Snailcraft players. The main maintainer is <strong>maxolotled</strong>, who decides what's collected and why. See <a href="#contact">Contact us</a>.</p>
+		<p>We use the data below only to run the trading post, the mod and the site's features. We never sell it, share it for advertising, or use it for anything unrelated to SCTP.</p>
+	</section>
+
+	<section id="mod">
+		<h2>2. The Shop Logger mod</h2>
+
+		<h3>What it uploads</h3>
+		<ul>
+			<li><strong>Shop chest contents.</strong> When you're near a player shop (a chest or barrel with a shop sign), the mod reads it and uploads: the <strong>seller's name</strong> from the sign, the items, the price and currency, how much is in stock, the world and the chest's coordinates, and when it was seen. It's the same thing anyone standing at that shop can already see in-game.</li>
+			<li><strong>Mapart.</strong> The mod can pick up maps in item frames and upload the picture, the map's name, its map ID and the world. Artist names are read from the map name when possible.</li>
+			<li><strong>Listing reports.</strong> If you press <em>[Report]</em> on a listing, the mod sends that listing's details so an admin can check it.</li>
+		</ul>
+		<div class="not">
+			<p><strong>What uploads don't include:</strong> your username, your UUID or any other ID. A scanned listing looks exactly the same whoever scanned it, and we can't tell which player uploaded what.</p>
+		</div>
+
+		<h3>What it sends when you join</h3>
+		<p>Each time you join Snailcraft, the mod sends your <strong>Minecraft username</strong> to our server so it can deliver your marketplace notifications (for example "someone bid on your listing").</p>
+		<p>We also use that same request to count how many people use the mod. For this, we <strong>don't store your username</strong>. We store a one-way keyed hash of it (HMAC-SHA256), plus when it was first and last seen and a count. That lets us answer "how many different players use the mod" but not "which players".</p>
+
+		<h3>What stays on your computer</h3>
+		<p>Your watchlist, ignored listings, settings, your local scan log and the world the mod detects (it reads this from the in-game <code>/help</code> menu) are stored only in your own Minecraft folder. The mod also downloads public data from the site, such as listings and item lists, to show in-game.</p>
+	</section>
+
+	<section id="accounts">
+		<h2>3. Website accounts</h2>
+		<p>You only need an account to post on the marketplace, play the daily Rare-dle, keep a collection, manage mapart or fill in some forms. Browsing is always open without one.</p>
+		<ul>
+			<li><strong>Minecraft username.</strong> This is your account name. Accounts can be marked as <em>verified</em> through a one-time link from an admin; otherwise the username is taken as typed.</li>
+			<li><strong>Password.</strong> Stored only as a salted PBKDF2-SHA256 hash (100,000 rounds). We can't see your password. If you forget it, an admin can give you a one-time reset link, which expires within a few days.</li>
+			<li><strong>Login session.</strong> Logging in creates a random session token. It lasts 24 hours and is kept in your browser's local storage (see <a href="#browser">section 6</a>).</li>
+			<li><strong>Optional contact details.</strong> A Discord name and time zone, if you add them. They're only shown to the other person once a marketplace trade is confirmed.</li>
+			<li><strong>Optional commission info</strong> (open/closed, prices, Discord), if you're an artist and fill it in. It's shown on your public profile.</li>
+			<li><strong>Admin details</strong>, for staff accounts only: permissions and who created the account.</li>
+		</ul>
+		<p>We don't ask for your email, real name, age or location.</p>
+	</section>
+
+	<section id="features">
+		<h2>4. Things you post or play</h2>
+		<ul>
+			<li><strong>Marketplace:</strong> listings, jobs, bids, "I'm interested" clicks, reviews and the notifications about them, all linked to your account.</li>
+			<li><strong>Your store:</strong> manual listings you add, and the managers you allow.</li>
+			<li><strong>Mapart:</strong> pieces you claim, edit, upload or ask to take down, plus the details you add (title, artists, category, keywords, price, where to buy).</li>
+			<li><strong>Collections:</strong> which rares and maparts you've ticked off, and whether your collection is private.</li>
+			<li><strong>Rare-dle:</strong> your daily games (guesses, score, start and finish time). Practice rounds work without an account. If you're logged in, your current practice round is saved to your account so you can pick it up again. Practice never counts toward points or leaderboards.</li>
+			<li><strong>Forms:</strong> your answers. If a form requires login, your username is stored with them. If not, a random token in your browser is used to stop duplicate submissions.</li>
+			<li><strong>Reports, bug reports and suggestions:</strong> what you write, the page it was about, and a name if you choose to give one.</li>
+			<li><strong>Player reports:</strong> the reported player's name, the world, your reason and details, and your name if you give one. These are only seen by admins.</li>
+		</ul>
+	</section>
+
+	<section id="public">
+		<h2>5. What's public</h2>
+		<p>The trading post is a public website, so a lot of it can be seen by anyone:</p>
+		<div class="table-scroll">
+			<table>
+				<thead><tr><th>Data</th><th>Who can see it</th></tr></thead>
+				<tbody>
+					<tr><td>Shop listings</td><td><span class="pill pub">Public</span>Seller name, items, prices, stock, world and coordinates, plus price history.</td></tr>
+					<tr><td>Your profile</td><td><span class="pill pub">Public</span>Your username, shop listings, claimed mapart, commission info and marketplace posts.</td></tr>
+					<tr><td>Collection</td><td><span class="pill pub">Public</span>by default. <span class="pill priv">Private</span>once you switch on the private toggle.</td></tr>
+					<tr><td>Mapart</td><td><span class="pill pub">Public</span>Picture, title, artists and the other details on the piece.</td></tr>
+					<tr><td>Rare-dle</td><td><span class="pill pub">Public</span>Your username and score on the leaderboards. Your guesses stay private.</td></tr>
+					<tr><td>Trade contact info</td><td><span class="pill priv">Private</span>Only the other person in a confirmed trade.</td></tr>
+					<tr><td>Reports and form answers</td><td><span class="pill priv">Private</span>Only admins with the permission to handle them.</td></tr>
+					<tr><td>Password, sessions</td><td><span class="pill priv">Private</span>Nobody. Passwords are hashed.</td></tr>
+				</tbody>
+			</table>
+		</div>
+		<p>Your Minecraft skin is shown through <a href="https://mc-heads.net" rel="noopener">mc-heads.net</a>, which looks it up from your public username.</p>
+	</section>
+
+	<section id="browser">
+		<h2>6. Your browser: no cookies</h2>
+		<p>SCTP sets <strong>no cookies</strong> and uses <strong>no analytics, tracking pixels or ads</strong>. The site uses your browser's <em>local storage</em>, which stays on your device and is never sent to us unless it's needed for the feature, like your login token. It holds:</p>
+		<ul>
+			<li>your login session (<code>sctp_session</code>);</li>
+			<li>display preferences, such as hidden table columns, the currency-conversion switch, saved searches, the page you were on, your chosen collection world and image-maker settings;</li>
+			<li>Rare-dle state, such as your current game, whether you peeked, and your practice-round token;</li>
+			<li>a random token per form you've filled in, so you aren't counted twice.</li>
+		</ul>
+		<p>You can clear all of this at any time by clearing site data for sctp.nl in your browser. You'll just be logged out and your preferences will reset.</p>
+	</section>
+
+	<section id="third-parties">
+		<h2>7. Other services involved</h2>
+		<p>When your browser or the mod connects to one of these services, that service sees your IP address and basic request details, like any website would. They process this under their own privacy policies. <strong>We don't store IP addresses ourselves.</strong></p>
+		<ul>
+			<li><strong>GitHub Pages</strong> hosts the website's pages.</li>
+			<li><strong>Cloudflare</strong> runs our server (Workers) and stores our database and images (D1, R2). It also serves some scripts through cdnjs.</li>
+			<li><strong>Google Fonts</strong> serves the fonts on the site.</li>
+			<li><strong>mc-heads.net</strong> serves player head avatars.</li>
+		</ul>
+	</section>
+
+	<section id="retention">
+		<h2>8. How long we keep things</h2>
+		<ul>
+			<li><strong>Shop listings</strong> are replaced every time a chest is scanned again, and removed when the shop is gone. Daily snapshots and price statistics are kept as price history.</li>
+			<li><strong>Login sessions</strong> expire after 24 hours. <strong>Reset and verification links</strong> expire after the time the admin picked (7 days by default) or once used.</li>
+			<li><strong>Accounts and what you've posted</strong> are kept until you ask us to remove them, or until an admin removes them for breaking the rules.</li>
+			<li><strong>Mod user counts</strong> (the hashed entries described above) are kept so we can see how usage changes over time.</li>
+			<li><strong>Reports</strong> are kept after they're resolved, so we can spot repeat problems.</li>
+		</ul>
+	</section>
+
+	<section id="rights">
+		<h2>9. Your rights</h2>
+		<p>You can ask us to:</p>
+		<ul>
+			<li><strong>show you</strong> what we have about you;</li>
+			<li><strong>correct</strong> anything that's wrong;</li>
+			<li><strong>delete</strong> your account and what's linked to it;</li>
+			<li><strong>stop listing your shop</strong>: sellers can ask to be left out of the trading post completely, and we'll block the name from being logged again;</li>
+			<li><strong>take down mapart</strong> of yours. Owners can also request this from the Mapart Management page.</li>
+		</ul>
+		<p>If you're in the EU or UK, these rights come from the GDPR. If you think we've handled your data wrongly, you can complain to your data protection authority. In the Netherlands, that's the <a href="https://autoriteitpersoonsgegevens.nl" rel="noopener">Autoriteit Persoonsgegevens</a>. We'd appreciate the chance to fix it first, though.</p>
+	</section>
+
+	<section id="contact">
+		<div class="contact">
+			<h2>10. Contact us</h2>
+			<p>For any privacy question or request, message <strong>maxolotled</strong> on Discord. Tell us your Minecraft username and what you'd like. We may ask you to confirm the account is yours before handing over or deleting anything.</p>
+			<p style="margin:0;">If this notice changes, we'll update the date at the top of this page.</p>
+		</div>
+	</section>
+</main>
+
+<footer class="site"><div class="wrap">Community-maintained · not affiliated with Snailcraft or its staff</div></footer>
+
+<script src="/account-widget.js" defer></script>
+<script src="/beta/nav.js" defer></script>
+</body>
+</html>

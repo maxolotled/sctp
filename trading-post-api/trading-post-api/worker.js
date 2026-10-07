@@ -87,8 +87,9 @@
 //   POST /mapart/report                      (API_KEY, like POST /reports) body: {id, reason: "wrong_artist"|"wrong_world"|"wrong_category"|"inappropriate_image", details?} -> lands in the `reports` queue as listingKey "mapart:<id>", handled by "manageMapart"
 //   POST /mapart/like                        (any account) body: {id, like: true|false} -> {likes}; every public mapart response carries `likes`
 //   GET  /mapart/my-likes                    (any account) -> {ids: [...]} the pieces you liked
-//   GET  /collection/mine, POST /collection/set {kind: "rare"|"mapart", world, ids[], owned}, POST /collection/privacy {private}   (any account) — personal collections, per world
-//   GET  /collection/public?username=        (public) -> {username, private, items?}
+//   GET  /collection/mine, POST /collection/set {kind: "rare"|"mapart", world, ids[], owned, list?: "wish"}, POST /collection/privacy {private}   (any account) — personal collections, per world
+//   GET  /collection/public?username=        (public) -> {username, private, items?, wishes?}
+//   POST /mod/login {username, serverId}    (public) — the mod signs in as the account with that VERIFIED Minecraft name, proven via Mojang's hasJoined (no password); returns a normal 24h session
 //   GET  /raredle/state, POST /raredle/guess {itemId}, POST /raredle/practice/new + mode=practice on state/guess (any account), GET /raredle/leaderboard (public) — the daily Rare-dle game; the answer never leaves the Worker until a game is finished. POST /raredle/reset exists but is QA-only (RAREDLE_ALLOW_RESET is false live).
 //   GET  /profile?username=                  (public, cached 2m) -> mapart (as artist/commissioner/owner), commission info, collection summary, marketplace history, jobRating (thumbs up/down summed across every job they've posted)
 //   POST /account/commission                 (verified account) body: {open, info?, discord?} — shown on the profile's Mapart tab
@@ -160,6 +161,8 @@
 // Permission bucket "updateNotice":
 //   GET  /admin/update-notice                -> current config {enabled, minVersion, message, updatedAt, updatedBy}
 //   POST /admin/update-notice/set            body: {enabled, minVersion, message}
+// Permission bucket "siteNotice":
+//   GET  /admin/site-notice, POST /admin/site-notice/set {enabled, level, message, linkUrl?, linkLabel?} — the homepage banner (public: GET /site-notice)
 // Permission bucket "suggestions":
 //   GET  /admin/suggestions
 //   POST /admin/suggestions/delete           body: {id}
@@ -581,7 +584,7 @@ async function firstBannedItem(env, seller, itemNames) {
 // accounts existed — see requireAnyAdmin.
 const ADMIN_PERMISSION_BUCKETS = new Set([
 	"reports", "sharedShopRequests", "faq", "worldMap", "manualListings", "blockedSellers", "marketplaceListings", "updateNotice",
-	"suggestions", "bugReports", "playerReports", "manageMapart", "manageForms", "auctions",
+	"suggestions", "bugReports", "playerReports", "manageMapart", "manageForms", "auctions", "siteNotice",
 ]);
 
 // Ranks bids for a seller's convenience using the shared CURRENCY_VALUE
@@ -1171,6 +1174,112 @@ async function handleAdminUnblockSeller(request, env) {
 	return json({ ok: true });
 }
 
+// ---------------- confirmed sales ----------------
+// Real sales, instead of "stock went down": a shop's stock dropping only counts
+// as a sale when the uncollected payment in that same chest went UP between the
+// same two scans. The mod (2.4+) sends the payment with every scanned position
+// (scannedPositions[].payment / paymentCurrency / scannedAt); containerScans keeps
+// the last scan of every chest as the baseline, whoever scanned it.
+//  - stock down + payment up   -> sale: the units that went missing, capped at
+//    what the new payment pays for (the rest was the seller taking stock out);
+//  - stock down, payment same or lower -> the seller restocked, moved items or
+//    collected — not counted;
+//  - a scan without payment info (older mods) only refreshes the stock baseline.
+// Known gap: a sale AND the seller collecting between two scans looks like "no
+// payment" and isn't counted, so these numbers can only undercount.
+const SALES_TRACKING_SINCE = "2026-10-07";
+
+function salesItemKey(baseItem, itemName) {
+	// same shape computeSellerItemStats uses, so the daily rows line up
+	return "v:" + String(baseItem || "").toLowerCase() + "|" + String(itemName || "").toLowerCase();
+}
+
+async function detectConfirmedSales(env, validRows, scannedPositions) {
+	const withPayment = scannedPositions.filter((sp) => Number.isFinite(Number(sp.payment)));
+	if (!withPayment.length) return 0;
+
+	const rowsByPos = new Map();
+	for (const r of validRows) {
+		if (String(r.currency || "").toLowerCase() === "display") continue;
+		const k = positionKey(r.world, r.position);
+		if (!rowsByPos.has(k)) rowsByPos.set(k, []);
+		rowsByPos.get(k).push(r);
+	}
+
+	const prevByPos = new Map();
+	for (const chunk of chunkArray(withPayment, MAX_QUERY_PARAMS_PER_CHUNK / 2)) {
+		const where = chunk.map(() => "(world = ? AND position = ?)").join(" OR ");
+		const args = [];
+		for (const sp of chunk) args.push(sp.world, sp.position);
+		const { results } = await env.DB.prepare(`SELECT * FROM containerScans WHERE ${where}`).bind(...args).all();
+		for (const r of results) prevByPos.set(positionKey(r.world, r.position), r);
+	}
+
+	const now = new Date().toISOString(), today = now.slice(0, 10);
+	const stmts = [];
+	let sales = 0;
+	for (const sp of withPayment) {
+		const key = positionKey(sp.world, sp.position);
+		const rows = rowsByPos.get(key) || [];
+		const scannedAt = Date.parse(sp.scannedAt) ? new Date(Date.parse(sp.scannedAt)).toISOString() : now;
+		const payment = Math.max(0, Math.round(Number(sp.payment)));
+		const currency = String(sp.paymentCurrency || (rows[0] && rows[0].currency) || "").toLowerCase();
+		const stock = {};
+		for (const r of rows) {
+			stock[r._key] = { a: Number(r.amount) || 0, p: priceInDiamonds(r) / (r.stackSize || 1), n: r.itemName, b: r.baseItem, s: r.seller };
+		}
+		const sellerKey = rows.length ? String(rows[0].seller).toLowerCase() : null;
+		const prev = prevByPos.get(key);
+		// an older scan arriving late must never become the new baseline
+		if (prev && Date.parse(prev.scannedAt) >= Date.parse(scannedAt)) continue;
+
+		if (prev && prev.paymentCount != null && payment > prev.paymentCount && (!sellerKey || !prev.sellerKey || prev.sellerKey === sellerKey)) {
+			const unit = CURRENCY_VALUE[currency] != null ? CURRENCY_VALUE[currency] : (CURRENCY_VALUE[String(prev.currency || "").toLowerCase()] || 1);
+			const paidDia = (payment - prev.paymentCount) * unit;
+			let before = {};
+			try { before = JSON.parse(prev.stockJson || "{}"); } catch (e) { before = {}; }
+			const drops = [];
+			let dropValue = 0;
+			for (const rk in before) {
+				const b = before[rk];
+				const left = stock[rk] ? stock[rk].a : 0;
+				const gone = (Number(b.a) || 0) - left;
+				if (gone <= 0) continue;
+				drops.push({ rk, b, gone });
+				dropValue += gone * (Number(b.p) || 0);
+			}
+			// what was paid covers this share of what went missing (rounding slack: 2%)
+			const share = dropValue > 0 ? Math.min(1, (paidDia * 1.02) / dropValue) : (drops.length ? 1 : 0);
+			for (const d of drops) {
+				const units = Math.round(d.gone * share);
+				if (units <= 0) continue;
+				const seller = d.b.s || (rows[0] && rows[0].seller) || "";
+				const revenue = units * (Number(d.b.p) || 0);
+				const itemKey = salesItemKey(d.b.b, d.b.n);
+				stmts.push(env.DB.prepare(
+					"INSERT INTO shopSales (world, position, seller, sellerKey, itemKey, itemName, baseItem, units, revenueDiamonds, date, detectedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+				).bind(sp.world, sp.position, seller, String(seller).toLowerCase(), itemKey, d.b.n || "", d.b.b || null, units, revenue, today, now));
+				stmts.push(env.DB.prepare(
+					`INSERT INTO sellerItemDailyStats (seller, sellerKey, itemKey, itemName, world, date, totalStock, listingCount, avgPriceDiamonds, confirmedSold, confirmedRevenueDiamonds)
+					 VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
+					 ON CONFLICT(sellerKey, itemKey, world, date) DO UPDATE SET
+					   confirmedSold = confirmedSold + excluded.confirmedSold,
+					   confirmedRevenueDiamonds = confirmedRevenueDiamonds + excluded.confirmedRevenueDiamonds`
+				).bind(seller, String(seller).toLowerCase(), itemKey, d.b.n || "", sp.world, today, units, revenue));
+				sales += units;
+			}
+		}
+
+		stmts.push(env.DB.prepare(
+			`INSERT INTO containerScans (world, position, sellerKey, currency, paymentCount, stockJson, scannedAt) VALUES (?, ?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(world, position) DO UPDATE SET sellerKey = excluded.sellerKey, currency = excluded.currency,
+			   paymentCount = excluded.paymentCount, stockJson = excluded.stockJson, scannedAt = excluded.scannedAt`
+		).bind(sp.world, sp.position, sellerKey, currency || null, payment, JSON.stringify(stock), scannedAt));
+	}
+	for (const c of chunkArray(stmts, 90)) await env.DB.batch(c);
+	return sales;
+}
+
 async function handleUploadListings(request, env) {
 	if (!isAuthorized(request, env.API_KEY)) return json({ error: "Unauthorized" }, 401);
 
@@ -1286,6 +1395,9 @@ async function handleUploadListings(request, env) {
 		}
 
 		if (stmts.length > 0) await env.DB.batch(stmts);
+
+		// Real sales: never allowed to fail the upload itself.
+		try { await detectConfirmedSales(env, validRows, validScannedPositions); } catch (e) { console.log("detectConfirmedSales failed: " + e); }
 
 		if (added === 0 && updated === 0 && removed === 0) {
 			return json({ added: 0, updated: 0, skipped, removed: 0, committed: false });
@@ -2928,6 +3040,46 @@ async function handleAdminSetUpdateNotice(request, env) {
 	return json({ ok: true });
 }
 
+// ---------------- site notice ----------------
+// GET /site-notice (public, cached) -> {enabled, level, message, linkUrl, linkLabel, id}
+// — the banner on the website's homepage. id changes with every save, so a
+// visitor who dismissed one notice still sees the next.
+// Permission bucket "siteNotice":
+//   GET  /admin/site-notice       -> the full row (bypasses the cache)
+//   POST /admin/site-notice/set   {enabled, level, message, linkUrl?, linkLabel?}
+const SITE_NOTICE_LEVELS = new Set(["info", "warn", "success"]);
+async function handleGetSiteNotice(request, env, ctx) {
+	return cachedGet(request, ctx, CACHE_TTL_SECONDS, async () => {
+		const row = await env.DB.prepare("SELECT * FROM siteNotice WHERE id = 1").first();
+		if (!row || !row.enabled || !row.message) return { enabled: false };
+		return { enabled: true, level: row.level, message: row.message, linkUrl: row.linkUrl || null, linkLabel: row.linkLabel || null, id: row.updatedAt || "" };
+	});
+}
+
+async function handleAdminGetSiteNotice(request, env) {
+	const auth = await requireAdminAuth(request, env, "siteNotice");
+	if (!auth.ok) return auth.response;
+	const row = await env.DB.prepare("SELECT * FROM siteNotice WHERE id = 1").first();
+	return json(row ? { ...row, enabled: !!row.enabled } : { enabled: false, level: "info", message: "" });
+}
+
+async function handleAdminSetSiteNotice(request, env) {
+	const auth = await requireAdminAuth(request, env, "siteNotice");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const enabled = !!body.enabled;
+	const level = SITE_NOTICE_LEVELS.has(body.level) ? body.level : "info";
+	const message = String(body.message || "").trim().slice(0, 400);
+	const linkUrl = String(body.linkUrl || "").trim().slice(0, 300);
+	const linkLabel = String(body.linkLabel || "").trim().slice(0, 40);
+	if (enabled && !message) return json({ error: "Write a message first (or switch the notice off)." }, 400);
+	if (linkUrl && !/^(https:\/\/|\/)/.test(linkUrl)) return json({ error: "The link must start with https:// or /" }, 400);
+	await env.DB.prepare("UPDATE siteNotice SET enabled = ?, level = ?, message = ?, linkUrl = ?, linkLabel = ?, updatedAt = ?, updatedBy = ? WHERE id = 1")
+		.bind(enabled ? 1 : 0, level, message, linkUrl || null, linkUrl ? (linkLabel || "Read more") : null, new Date().toISOString(), auth.admin.username).run();
+	return json({ ok: true });
+}
+
 const MANUAL_ID_PATTERN = /^M(\d+)$/;
 const MAX_MANUAL_ENTRIES_PER_BATCH = 100;
 
@@ -3304,9 +3456,8 @@ async function handleGetItemHistory(request, env, ctx) {
 }
 
 // Public — extends the per-day series above with all-time aggregates: total
-// ESTIMATED units sold and distinct sellers who've ever carried it, per
-// world (from sellerItemDailyStats — see computeSellerItemStats' doc comment
-// on why this is an estimate, never a verified sales count), plus the most
+// CONFIRMED units sold (see detectConfirmedSales) and distinct sellers who've ever carried it, per
+// world (from sellerItemDailyStats.confirmedSold), plus the most
 // recent day's snapshot for a quick "right now" summary.
 async function handleGetItemStats(request, env, ctx) {
 	const url = new URL(request.url);
@@ -3315,7 +3466,7 @@ async function handleGetItemStats(request, env, ctx) {
 
 	return cachedGet(request, ctx, HISTORY_CACHE_TTL_SECONDS, async () => {
 		const { results: totalsByWorld } = await env.DB.prepare(
-			`SELECT world, SUM(inferredSold) as totalInferredSold, SUM(inferredRevenueDiamonds) as totalInferredRevenue,
+			`SELECT world, SUM(confirmedSold) as totalSold, SUM(confirmedRevenueDiamonds) as totalRevenue,
 			 COUNT(DISTINCT sellerKey) as distinctSellersEver
 			 FROM sellerItemDailyStats WHERE itemKey = ? GROUP BY world`
 		).bind(itemKey).all();
@@ -3331,21 +3482,21 @@ async function handleGetItemStats(request, env, ctx) {
 		// Daily "units sold" trend (estimated, per world) for the item page's
 		// sold-per-day chart, plus a combined (both worlds) daily average.
 		const { results: soldTrendRows } = await env.DB.prepare(
-			`SELECT date, world, SUM(inferredSold) as sold FROM sellerItemDailyStats WHERE itemKey = ? GROUP BY date, world ORDER BY date`
-		).bind(itemKey).all();
+			`SELECT date, world, SUM(confirmedSold) as sold FROM sellerItemDailyStats WHERE itemKey = ? AND date >= ? GROUP BY date, world ORDER BY date`
+		).bind(itemKey, SALES_TRACKING_SINCE).all();
 		const soldByDate = new Map();
 		for (const r of soldTrendRows) soldByDate.set(r.date, (soldByDate.get(r.date) || 0) + r.sold);
 		const trackingDays = soldByDate.size;
 		const totalSoldAllWorlds = [...soldByDate.values()].reduce((a, v) => a + v, 0);
 		const avgSoldPerDay = trackingDays > 0 ? totalSoldAllWorlds / trackingDays : 0;
 
-		return { itemKey, asOfDate: latestDate, current, totalsByWorld, soldTrend: soldTrendRows, trackingDays, avgSoldPerDay };
+		return { itemKey, asOfDate: latestDate, current, totalsByWorld, soldTrend: soldTrendRows, trackingDays, avgSoldPerDay, salesSince: SALES_TRACKING_SINCE };
 	});
 }
 
 // Public — world-wide economy trend (from itemDailyStats/sellerItemDailyStats,
 // both already seller-anonymous at this aggregation level) plus a top-selling
-// items list. "Top selling" is an ESTIMATE — see computeSellerItemStats.
+// items list. "Top selling" counts confirmed sales — see detectConfirmedSales.
 async function handleGetWorldStats(request, env, ctx) {
 	const url = new URL(request.url);
 	const world = url.searchParams.get("world");
@@ -3371,12 +3522,12 @@ async function handleGetWorldStats(request, env, ctx) {
 		// and show the % share of ANY item that's ever sold here, not only
 		// whichever ones happen to be in the top of the list.
 		const { results: topSellingItems } = await env.DB.prepare(
-			`SELECT itemKey, itemName, SUM(inferredSold) as totalInferredSold
-			 FROM sellerItemDailyStats WHERE world = ? GROUP BY itemKey HAVING totalInferredSold > 0
-			 ORDER BY totalInferredSold DESC`
+			`SELECT itemKey, itemName, SUM(confirmedSold) as totalSold
+			 FROM sellerItemDailyStats WHERE world = ? GROUP BY itemKey HAVING totalSold > 0
+			 ORDER BY totalSold DESC`
 		).bind(world).all();
 
-		return { world, latest: trend.length ? trend[trend.length - 1] : null, trend, topSellingItems };
+		return { world, latest: trend.length ? trend[trend.length - 1] : null, trend, topSellingItems, salesSince: SALES_TRACKING_SINCE };
 	});
 }
 
@@ -3384,9 +3535,9 @@ async function handleGetWorldStats(request, env, ctx) {
 // username can see their own shop's stats — nobody else's. Verification is
 // currently disabled account-wide (see handleDirectRegistration), so this
 // only requires mcUsername to be set, not mcVerified — the same trust level
-// as everything else self-service right now. Everything derived from
-// inferredSold/inferredRevenueDiamonds is an ESTIMATE (see
-// computeSellerItemStats' doc comment) and must be presented as such.
+// as everything else self-service right now. Sales figures are CONFIRMED
+// sales (stock down + payment up, see detectConfirmedSales), counted since
+// SALES_TRACKING_SINCE; the old estimate (inferredSold) is no longer shown.
 async function handleGetMyStats(request, env) {
 	const auth = await requireAnyAdmin(request, env);
 	if (!auth.ok) return auth.response;
@@ -3396,7 +3547,7 @@ async function handleGetMyStats(request, env) {
 	const sellerKey = auth.admin.mcUsername.toLowerCase();
 
 	const { results: rows } = await env.DB.prepare(
-		`SELECT itemKey, itemName, world, date, totalStock, listingCount, avgPriceDiamonds, inferredSold, inferredRevenueDiamonds
+		`SELECT itemKey, itemName, world, date, totalStock, listingCount, avgPriceDiamonds, confirmedSold AS sold, confirmedRevenueDiamonds AS revenue
 		 FROM sellerItemDailyStats WHERE sellerKey = ? ORDER BY date`
 	).bind(sellerKey).all();
 
@@ -3410,39 +3561,40 @@ async function handleGetMyStats(request, env) {
 	const distinctItemsActive = current.length;
 	const currentStockValueDiamonds = current.reduce((a, r) => a + r.totalStock * r.avgPriceDiamonds, 0);
 
-	const totalInferredSold = rows.reduce((a, r) => a + r.inferredSold, 0);
-	const totalInferredRevenue = rows.reduce((a, r) => a + r.inferredRevenueDiamonds, 0);
+	const totalSold = rows.reduce((a, r) => a + r.sold, 0);
+	const totalRevenue = rows.reduce((a, r) => a + r.revenue, 0);
 
 	const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 	const recent = rows.filter((r) => r.date >= cutoff);
-	const recentInferredSold = recent.reduce((a, r) => a + r.inferredSold, 0);
-	const recentInferredRevenue = recent.reduce((a, r) => a + r.inferredRevenueDiamonds, 0);
+	const recentSold = recent.reduce((a, r) => a + r.sold, 0);
+	const recentRevenue = recent.reduce((a, r) => a + r.revenue, 0);
 
 	const byItem = new Map();
 	const byDate = new Map();
 	for (const r of rows) {
 		const itemKey2 = r.itemKey + "|" + r.world;
 		let ie = byItem.get(itemKey2);
-		if (!ie) { ie = { itemName: r.itemName, world: r.world, inferredSold: 0, inferredRevenue: 0 }; byItem.set(itemKey2, ie); }
-		ie.inferredSold += r.inferredSold;
-		ie.inferredRevenue += r.inferredRevenueDiamonds;
+		if (!ie) { ie = { itemName: r.itemName, world: r.world, sold: 0, revenue: 0 }; byItem.set(itemKey2, ie); }
+		ie.sold += r.sold;
+		ie.revenue += r.revenue;
 
+		if (r.date < SALES_TRACKING_SINCE) continue; // the sales chart starts when real sales tracking did
 		let de = byDate.get(r.date);
-		if (!de) { de = { date: r.date, inferredSold: 0, inferredRevenue: 0 }; byDate.set(r.date, de); }
-		de.inferredSold += r.inferredSold;
-		de.inferredRevenue += r.inferredRevenueDiamonds;
+		if (!de) { de = { date: r.date, sold: 0, revenue: 0 }; byDate.set(r.date, de); }
+		de.sold += r.sold;
+		de.revenue += r.revenue;
 	}
-	const bestSellers = [...byItem.values()].filter((e) => e.inferredSold > 0).sort((a, b) => b.inferredSold - a.inferredSold).slice(0, 10);
+	const bestSellers = [...byItem.values()].filter((e) => e.sold > 0).sort((a, b) => b.sold - a.sold).slice(0, 10);
 	const hints = await computeShopHints(env, sellerKey, rows, latestDate, dates.length).catch(() => ({ restock: [], reprice: [], undercut: [] }));
 	const trend = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-60);
-	const busiestDay = [...byDate.values()].sort((a, b) => b.inferredSold - a.inferredSold)[0] || null;
+	const busiestDay = [...byDate.values()].filter((d) => d.sold > 0).sort((a, b) => b.sold - a.sold)[0] || null;
 
 	return json({
 		hasData: true,
 		seller: auth.admin.mcUsername,
 		activeListings, distinctItemsActive, currentStockValueDiamonds,
-		totalInferredSold, totalInferredRevenue,
-		recentInferredSold, recentInferredRevenue,
+		totalSold, totalRevenue,
+		recentSold, recentRevenue, salesSince: SALES_TRACKING_SINCE,
 		bestSellers, trend, busiestDay, hints,
 		trackingStartDate: dates[0], trackingDays: dates.length,
 	});
@@ -5008,10 +5160,11 @@ async function getMapartGalleryRows(env) {
 // ---------------- collections ----------------
 // An account ticks off the rare items and mapart it owns, per world. Public by
 // default (anyone can open /collection/<username>); admins.collectionPrivate hides it.
-//   GET  /collection/mine              (any account) -> {private, items:[{kind, itemId, world}]}
-//   POST /collection/set               (any account) body: {kind: "rare"|"mapart", world, ids: [...], owned: bool}
+//   GET  /collection/mine              (any account) -> {private, items:[{kind, itemId, world}], wishes:[same]}
+//   POST /collection/set               (any account) body: {kind: "rare"|"mapart", world, ids: [...], owned: bool, list?: "wish"}
+//                                      list "wish" = the wishlist (starred items); marking items owned also unstars them
 //   POST /collection/privacy           (any account) body: {private: bool}
-//   GET  /collection/public?username=  (public) -> {username, private, items?} (items left out when private)
+//   GET  /collection/public?username=  (public) -> {username, private, items?, wishes?} (both left out when private)
 const COLLECTION_KINDS = new Set(["rare", "mapart"]);
 const COLLECTION_MAX_ITEMS = 10000;
 const COLLECTION_MAX_IDS_PER_CALL = 2000;
@@ -5020,7 +5173,8 @@ async function handleGetMyCollection(request, env) {
 	const base = await requireAnyAdmin(request, env);
 	if (!base.ok) return base.response;
 	const { results } = await env.DB.prepare("SELECT kind, itemId, world, addedAt FROM collectionItems WHERE accountId = ?").bind(base.admin.id).all();
-	return json({ username: base.admin.username, private: !!base.admin.collectionPrivate, items: results });
+	const { results: wishes } = await env.DB.prepare("SELECT kind, itemId, world, addedAt FROM wishlistItems WHERE accountId = ?").bind(base.admin.id).all();
+	return json({ username: base.admin.username, private: !!base.admin.collectionPrivate, items: results, wishes });
 }
 
 async function handleSetCollectionItems(request, env) {
@@ -5039,12 +5193,15 @@ async function handleSetCollectionItems(request, env) {
 	const idOk = kind === "rare" ? (x) => /^rare-[A-Za-z0-9_.-]{1,120}$/.test(x) : (x) => /^[0-9a-f-]{36}$/.test(x);
 	if (!ids.every(idOk)) return json({ error: "Invalid item id" }, 400);
 	const accountId = base.admin.id;
+	// list: "owned" (the collection, default) or "wish" (the wishlist — same ids, same rules)
+	const wish = body.list === "wish";
+	const table = wish ? "wishlistItems" : "collectionItems";
 
 	if (!body.owned) {
 		const stmts = [];
 		for (const chunk of chunkArray(ids, 80)) {
 			stmts.push(env.DB.prepare(
-				`DELETE FROM collectionItems WHERE accountId = ? AND kind = ? AND world = ? AND itemId IN (${chunk.map(() => "?").join(",")})`
+				`DELETE FROM ${table} WHERE accountId = ? AND kind = ? AND world = ? AND itemId IN (${chunk.map(() => "?").join(",")})`
 			).bind(accountId, kind, world, ...chunk));
 		}
 		for (const c of chunkArray(stmts, 90)) await env.DB.batch(c);
@@ -5063,12 +5220,20 @@ async function handleSetCollectionItems(request, env) {
 		ids = ids.filter((x) => known.has(x));
 		if (!ids.length) return json({ error: "None of those mapart exist in " + world }, 404);
 	}
-	const have = await env.DB.prepare("SELECT COUNT(*) AS c FROM collectionItems WHERE accountId = ?").bind(accountId).first();
-	if (have.c + ids.length > COLLECTION_MAX_ITEMS) return json({ error: "Your collection is full." }, 400);
+	const have = await env.DB.prepare(`SELECT COUNT(*) AS c FROM ${table} WHERE accountId = ?`).bind(accountId).first();
+	if (have.c + ids.length > COLLECTION_MAX_ITEMS) return json({ error: wish ? "Your wishlist is full." : "Your collection is full." }, 400);
 	const now = new Date().toISOString();
 	const stmts = ids.map((id) => env.DB.prepare(
-		"INSERT OR IGNORE INTO collectionItems (accountId, kind, itemId, world, addedAt) VALUES (?, ?, ?, ?, ?)"
+		`INSERT OR IGNORE INTO ${table} (accountId, kind, itemId, world, addedAt) VALUES (?, ?, ?, ?, ?)`
 	).bind(accountId, kind, id, world, now));
+	// owning something takes it off your wishlist
+	if (!wish) {
+		for (const chunk of chunkArray(ids, 80)) {
+			stmts.push(env.DB.prepare(
+				`DELETE FROM wishlistItems WHERE accountId = ? AND kind = ? AND world = ? AND itemId IN (${chunk.map(() => "?").join(",")})`
+			).bind(accountId, kind, world, ...chunk));
+		}
+	}
 	for (const c of chunkArray(stmts, 90)) await env.DB.batch(c);
 	return json({ ok: true });
 }
@@ -5089,7 +5254,8 @@ async function handleGetPublicCollection(request, env) {
 	if (!acct) return json({ error: "No account with that name" }, 404);
 	if (acct.collectionPrivate) return json({ username: acct.username, private: true });
 	const { results } = await env.DB.prepare("SELECT kind, itemId, world, addedAt FROM collectionItems WHERE accountId = ?").bind(acct.id).all();
-	return json({ username: acct.username, mcUsername: acct.mcUsername || null, private: false, items: results });
+	const { results: wishes } = await env.DB.prepare("SELECT kind, itemId, world, addedAt FROM wishlistItems WHERE accountId = ?").bind(acct.id).all();
+	return json({ username: acct.username, mcUsername: acct.mcUsername || null, private: false, items: results, wishes });
 }
 
 // ---------------- shop hints (restock / reprice / undercut) ----------------
@@ -5151,14 +5317,16 @@ async function computeShopHints(env, sellerKey, statRows, latestDate, trackingDa
 	}
 
 	// ---- restock: things that sell but are (nearly) gone
-	const windowDays = Math.max(1, Math.min(14, trackingDays));
-	const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+	// confirmed sales only exist since SALES_TRACKING_SINCE, so the window can be shorter than 14 days for now
+	const cutoff14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+	const cutoff = cutoff14 > SALES_TRACKING_SINCE ? cutoff14 : SALES_TRACKING_SINCE;
+	const windowDays = Math.max(1, Math.min(14, trackingDays, Math.round((Date.now() - Date.parse(cutoff)) / 864e5) + 1));
 	const byItem = new Map();
 	for (const r of statRows) {
 		const k = r.itemKey + "|" + r.world;
 		let e = byItem.get(k);
 		if (!e) { e = { itemName: r.itemName, world: r.world, sold14: 0, latestStock: null }; byItem.set(k, e); }
-		if (r.date >= cutoff) e.sold14 += r.inferredSold;
+		if (r.date >= cutoff) e.sold14 += r.sold;
 		if (r.date === latestDate) e.latestStock = r.totalStock;
 	}
 	for (const e of byItem.values()) {
@@ -6102,6 +6270,42 @@ async function handleRaredleGuess(request, env) {
 		.bind(JSON.stringify(ids), ids.length, status, score, finishedAt, usedRares, auth.admin.id, today, game.guessCount).run();
 	if (res.meta.changes === 0) return json({ error: "That guess didn't go through — try again." }, 409);
 	return json(await raredleStatePayload(env, auth.admin));
+}
+
+// ---------------- mod login ----------------
+// POST /mod/login {username, serverId} (public) — signs the mod in as the sctp.nl
+// account whose VERIFIED Minecraft name is the player's, with no password: the
+// same proof a Minecraft server uses when you join. The mod picks a random
+// serverId and calls Mojang's joinServer with the player's own game session;
+// here we ask Mojang whether that player really joined that serverId. Only the
+// name Mojang returns is trusted, never the one in the request. Returns a normal
+// 24h account session (Bearer token), e.g. for in-game Rare-dle.
+const MOD_LOGIN_SERVER_ID = /^[0-9a-f]{20,40}$/;
+async function handleModLogin(request, env) {
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const username = String(body.username || "").trim();
+	const serverId = String(body.serverId || "").trim().toLowerCase();
+	if (!MC_USERNAME.test(username) || !MOD_LOGIN_SERVER_ID.test(serverId)) return json({ error: "Bad login request." }, 400);
+
+	let profile = null;
+	try {
+		const res = await fetch("https://sessionserver.mojang.com/session/minecraft/hasJoined?username=" + encodeURIComponent(username) + "&serverId=" + serverId);
+		if (res.status === 200) profile = await res.json();
+	} catch (e) {
+		return json({ error: "Couldn't reach Minecraft's login servers, try again in a minute." }, 502);
+	}
+	if (!profile || !profile.name) return json({ error: "Couldn't confirm your Minecraft login. Restart the game and try again." }, 401);
+
+	const admin = await env.DB.prepare("SELECT * FROM admins WHERE mcVerified = 1 AND lower(mcUsername) = lower(?)").bind(profile.name).first();
+	if (!admin) return json({ error: "No sctp.nl account has " + profile.name + " verified yet. Make one (or verify your name) at sctp.nl to play.", code: "noAccount" }, 404);
+
+	const token = newToken();
+	const now = new Date();
+	const expiresAt = new Date(now.getTime() + ADMIN_SESSION_TTL_MS).toISOString();
+	await env.DB.prepare("INSERT INTO adminSessions (token, adminId, createdAt, expiresAt) VALUES (?, ?, ?, ?)")
+		.bind(token, admin.id, now.toISOString(), expiresAt).run();
+	return json({ token, username: admin.username, mcUsername: profile.name, expiresAt });
 }
 
 async function handleRaredleLeaderboard(request, env, ctx) {
@@ -7158,6 +7362,9 @@ const ROUTES = [
 	["GET", "/update-notice", handleGetUpdateNotice],
 	["GET", "/admin/update-notice", handleAdminGetUpdateNotice],
 	["POST", "/admin/update-notice/set", handleAdminSetUpdateNotice],
+	["GET", "/site-notice", handleGetSiteNotice],
+	["GET", "/admin/site-notice", handleAdminGetSiteNotice],
+	["POST", "/admin/site-notice/set", handleAdminSetSiteNotice],
 	["POST", "/world-map/claim", handleClaimSquare],
 	["POST", "/world-map/unclaim", handleUnclaimSquare],
 	["POST", "/world-map/complete", handleCompleteSquare],
@@ -7237,6 +7444,7 @@ const ROUTES = [
 	["POST", "/raredle/reset", handleRaredleReset],
 	["POST", "/raredle/practice/new", handleRaredlePracticeNew],
 	["GET", "/raredle/leaderboard", handleRaredleLeaderboard],
+	["POST", "/mod/login", handleModLogin],
 	["GET", "/collection/mine", handleGetMyCollection],
 	["POST", "/collection/set", handleSetCollectionItems],
 	["POST", "/collection/privacy", handleSetCollectionPrivacy],

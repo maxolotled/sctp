@@ -7,6 +7,7 @@ import com.snailtools.shoplogger.OwnShopSaleTracker;
 import com.snailtools.shoplogger.RareRentalHighlighter;
 import com.snailtools.shoplogger.ScanChatLogger;
 import com.snailtools.shoplogger.SearchPreferences;
+import com.snailtools.shoplogger.StockHolograms;
 import com.snailtools.shoplogger.ShopAutoScanner;
 import com.snailtools.shoplogger.ShopLog;
 import com.snailtools.shoplogger.ShopMarkerRenderer;
@@ -21,6 +22,7 @@ import com.snailtools.shoplogger.gui.ui.SettingRow;
 import com.snailtools.shoplogger.gui.ui.Theme;
 import com.snailtools.shoplogger.gui.ui.UiButton;
 import com.snailtools.shoplogger.gui.ui.UiScreen;
+import com.snailtools.shoplogger.qol.EmptyHandItems;
 import com.snailtools.shoplogger.qol.StorageSwitcher;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -43,6 +45,7 @@ public class SettingsScreen extends UiScreen {
 		SCANNING("Scanning", "How the mod reads shop chests"),
 		ALERTS("Alerts", "What gets posted in your chat"),
 		DISPLAY("Look & tools", "Colour theme, in-world highlights and shortcuts"),
+		EMPTY_HAND("Empty hand", "Click doors, chests and other blocks with an empty slot instead of these items"),
 		DATA("Data", "Export or upload what you've scanned"),
 		ADVANCED("Advanced", "Temporary testing tools");
 
@@ -65,6 +68,13 @@ public class SettingsScreen extends UiScreen {
 
 	public SettingsScreen(Screen parent) {
 		super("Settings", parent, Section.SETTINGS);
+	}
+
+	/** Opened on the Empty hand page — where you land after registering an item with X. */
+	public static SettingsScreen emptyHand(Screen parent) {
+		SettingsScreen s = new SettingsScreen(parent);
+		s.category = Category.EMPTY_HAND;
+		return s;
 	}
 
 	@Override
@@ -142,23 +152,42 @@ public class SettingsScreen extends UiScreen {
 							RareRentalHighlighter::isEnabled, RareRentalHighlighter::setEnabled),
 					SettingRow.toggle("Highlights inside shulkers", "Also highlight rentable rares inside shulker boxes",
 							RareRentalHighlighter::isInShulkersEnabled, RareRentalHighlighter::setInShulkersEnabled),
-					SettingRow.toggle("Ender chest / backpack arrows", "Arrows beside /ec and /bp to switch between them",
+					SettingRow.toggle("Ender chest / backpack button", "A button beside /ec and /bp that opens the other one",
 							StorageSwitcher::isEnabled, StorageSwitcher::setEnabled),
+					SettingRow.toggle("Stock holograms", "Small stock line on the front of scanned shop chests",
+							StockHolograms::isEnabled, StockHolograms::setEnabled),
 					SettingRow.choice("Teleport beam style", "The beam that points to a shop after TP",
 							Arrays.asList(TeleportHighlight.BeamStyle.values()), TeleportHighlight::getStyle, TeleportHighlight::setStyle,
 							v -> v.label),
 					SettingRow.choice("/search opens", "Where the /search command shows results",
 							List.of(Boolean.TRUE, Boolean.FALSE), SearchPreferences::isGuiSearch, SearchPreferences::setGuiSearch,
-							v -> v ? "This menu" : "Chat"));
+							v -> v ? "This menu" : "Chat"),
+					SettingRow.toggle("Hide display listings", "Leave out [DISPLAY] shops (not for sale) in searches and lists",
+							SearchPreferences::hideDisplayListings, SearchPreferences::setHideDisplayListings));
 			case DATA -> List.of(
 					SettingRow.action("Export to CSV + Excel", "Save all " + ShopLog.size() + " logged entries to run/shoplogger/",
 							"Export", this::exportBoth),
 					SettingRow.action("Upload to the Trading Post", "Send your scans to sctp.nl right now",
 							"Upload", () -> ShopUploader.uploadAsync(minecraft, true)));
+			case EMPTY_HAND -> emptyHandRows();
 			case ADVANCED -> List.of(
 					SettingRow.toggle("Show scan wait (temporary)", "Show the scanner's wait time, in ms, top-right",
 							TempScanWaitOverlay::isEnabled, TempScanWaitOverlay::setEnabled));
 		};
+	}
+
+	private List<SettingRow> emptyHandRows() {
+		List<SettingRow> out = new ArrayList<>();
+		out.add(SettingRow.toggle("Empty hand on block clicks", "Use an empty slot instead of the items below",
+				EmptyHandItems::isEnabled, EmptyHandItems::setEnabled));
+		out.add(SettingRow.action("Add an item", "Press Add, hold the item, then press X",
+				"Add", () -> { EmptyHandItems.startCapture(); minecraft.setScreenAndShow(null); }));
+		for (EmptyHandItems.Entry e : EmptyHandItems.items()) {
+			String named = e.name == null || e.name.isEmpty() ? "" : " (named)";
+			out.add(SettingRow.action(e.label, e.item.replace("minecraft:", "") + named,
+					"Remove", () -> { EmptyHandItems.remove(e); rebuild(); }));
+		}
+		return out;
 	}
 
 	private int rowsViewBottom() {

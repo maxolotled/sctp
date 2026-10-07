@@ -10,13 +10,15 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * For the player's OWN shops only: watches whether the sign's currency item
  * is sitting in the chest — i.e. a buyer paid and it hasn't been collected
- * yet. Turns the recently-scanned particle green on the transition to
+ * yet. Highlights the chest green (see WorldHighlights) on the transition to
  * "has payment" (with a one-time chat heads-up), and back to normal once the
  * seller collects it.
  *
@@ -43,6 +45,13 @@ public final class OwnShopSaleTracker {
 
 	public static boolean hasPendingPayment(BlockPos containerPos) {
 		return HAS_PENDING_PAYMENT.getOrDefault(containerPos, false);
+	}
+
+	/** Own shops with a payment waiting — WorldHighlights draws a green highlight around each. */
+	public static List<BlockPos> pendingPaymentPositions() {
+		List<BlockPos> out = new ArrayList<>();
+		HAS_PENDING_PAYMENT.forEach((pos, pending) -> { if (pending) out.add(pos); });
+		return out;
 	}
 
 	public static boolean isMessagesEnabled() {
@@ -84,6 +93,27 @@ public final class OwnShopSaleTracker {
 			}
 			client.player.sendSystemMessage(msg);
 		}
+	}
+
+	/**
+	 * How many of the sign's currency items sit in the shop right now (paid but
+	 * not collected), or null when the currency isn't one we can recognise.
+	 * Uploaded with every scan of ANY shop: the Worker counts a sale only when
+	 * stock went down AND this went up between two scans — see
+	 * detectConfirmedSales in worker.js.
+	 */
+	public static Integer paymentCount(ShopSign sign, AbstractContainerMenu handler) {
+		if (sign == null || sign.display()) return null;
+		String baseItemId = CURRENCY_BASE_ITEMS.get(sign.currency());
+		if (baseItemId == null || !(handler instanceof ChestMenu containerHandler)) return null;
+		int invSize = containerHandler.getContainer().getContainerSize();
+		int count = 0;
+		for (int i = 0; i < invSize && i < handler.slots.size(); i++) {
+			ItemStack stack = handler.getSlot(i).getItem();
+			if (stack == null || stack.isEmpty()) continue;
+			if (baseItemId.equalsIgnoreCase(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) count += stack.getCount();
+		}
+		return count;
 	}
 
 	/** Only the container's own slots — same bound ShopEntryFactory uses to exclude the player's own inventory slots later in the same handler. */

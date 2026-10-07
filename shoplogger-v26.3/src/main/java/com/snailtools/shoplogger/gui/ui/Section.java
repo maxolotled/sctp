@@ -4,6 +4,7 @@ import com.snailtools.shoplogger.gui.HomeScreen;
 import com.snailtools.shoplogger.gui.ItemLibraryScreen;
 import com.snailtools.shoplogger.gui.ListingsScreen;
 import com.snailtools.shoplogger.gui.MarketplaceScreen;
+import com.snailtools.shoplogger.gui.RaredleScreen;
 import com.snailtools.shoplogger.gui.SettingsScreen;
 import com.snailtools.shoplogger.gui.WatchlistScreen;
 import com.snailtools.shoplogger.mapart.MapartPreviewScreen;
@@ -19,6 +20,7 @@ public enum Section {
 	LISTINGS("Listings", "Browse every shop listing", Items.CHEST, p -> new ListingsScreen(p, null)),
 	VANILLA("Items", "Vanilla item library", Items.GRASS_BLOCK, p -> new ItemLibraryScreen(p, ItemLibraryScreen.Catalog.VANILLA)),
 	RARES("Rares", "Rare item library", Items.NETHER_STAR, p -> new ItemLibraryScreen(p, ItemLibraryScreen.Catalog.RARE)),
+	RAREDLE("Rare-dle", "Guess today's secret rare", Items.AMETHYST_SHARD, RaredleScreen::new),
 	WATCHLIST("Watchlist", "Items you're watching", Items.SPYGLASS, WatchlistScreen::new),
 	MARKET("Marketplace", "Player marketplace", Items.EMERALD, MarketplaceScreen::new),
 	MAPART("Mapart", "Mapart scanner", Items.FILLED_MAP, MapartPreviewScreen::new),

@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Template for beta/index.html (the redesign's homepage). Edit THIS file, then
+     run `node scripts/build-beta.js`: it fills in the {{…}} markers from the live
+     homepage (logo mark, download files) and writes beta/index.html. -->
+<title>Snailcraft Trading Post</title>
+<link rel="icon" href="/sctp-logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="description" content="Every shop on Snailcraft in one place: search listings, download the Shop Logger mod, play Rare-dle, trade on the marketplace.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/beta/nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20;
+		--panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--accent-2:#6FE3C8; --info:#8C93E8; --warn:#E2A33D;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%),var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.5;}
+	a{color:var(--accent);}
+	.wrap{max-width:1360px;margin:0 auto;padding:0 20px;}
+	[hidden]{display:none!important;}
+
+	/* title row (same shape as every beta page's header, so themes decorate it) */
+	header.site{border-bottom:1px solid var(--line);padding:12px 0 10px;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+	.brand-row{display:flex;align-items:center;gap:10px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:30px;height:30px;}
+	.brand-mark path{fill:var(--accent);}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:22px;margin:0;line-height:1.2;}
+	header.site .tag{color:var(--muted);font-size:12.5px;margin:1px 0 0;}
+	.live{display:flex;gap:6px;flex-wrap:wrap;}
+	.live span{font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap;}
+	.live b{color:var(--text);font-family:var(--font-mono);font-weight:600;}
+	.live .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:5px;vertical-align:1px;box-shadow:0 0 0 3px rgba(var(--accent-rgb),.18);}
+
+	main{padding:14px 0 36px;display:flex;flex-direction:column;gap:12px;}
+
+	/* notice + auction banners */
+	.banner{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--panel);}
+	.banner .ico{font-size:18px;flex:0 0 auto;}
+	.banner .txt{flex:1;min-width:0;font-size:14px;}
+	.banner .txt b{font-weight:700;}
+	.banner .act{flex:0 0 auto;display:flex;gap:8px;align-items:center;}
+	.banner .btn{display:inline-block;padding:6px 12px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;white-space:nowrap;}
+	.banner .x{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;}
+	.banner .x:hover{color:var(--text);}
+	.banner.info{border-color:rgba(140,147,232,.45);background:linear-gradient(90deg,rgba(140,147,232,.12),transparent 70%),var(--panel);}
+	.banner.info .btn{background:var(--info);color:#14163A;}
+	.banner.success{border-color:rgba(var(--accent-rgb),.45);background:linear-gradient(90deg,rgba(var(--accent-rgb),.12),transparent 70%),var(--panel);}
+	.banner.success .btn{background:var(--accent);color:var(--accent-ink);}
+	.banner.warn{border-color:rgba(226,163,61,.5);background:linear-gradient(90deg,rgba(226,163,61,.14),transparent 70%),var(--panel);}
+	.banner.warn .btn{background:var(--warn);color:#2A1A05;}
+	.banner.auction{border-color:rgba(255,196,77,.45);background:linear-gradient(90deg,rgba(255,196,77,.14),transparent 70%),var(--panel);}
+	.banner.auction .btn{background:linear-gradient(90deg,#FFD166,#FFAA3B);color:#2A1A05;}
+	.banner.auction .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text);}
+	.banner .meta{color:var(--muted);font-size:12.5px;}
+	.banner .meta code{font-family:var(--font-mono);color:#FFC44D;font-size:12px;}
+	@media (max-width:700px){.banner{flex-wrap:wrap;}.banner .act{width:100%;}}
+
+	/* the two big actions */
+	.big-row{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px;}
+	@media (max-width:900px){.big-row{grid-template-columns:minmax(0,1fr);}}
+	.big{border:1px solid var(--line);border-radius:16px;padding:18px 20px;background:var(--panel);display:flex;flex-direction:column;min-width:0;}
+	.kicker{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;}
+	.big h2{font-family:var(--font-display);font-weight:600;font-size:26px;line-height:1.15;margin:0 0 12px;}
+	.search-card{background:linear-gradient(150deg,rgba(var(--accent-rgb),0.11),transparent 55%),var(--panel);border-color:rgba(var(--accent-rgb),0.35);}
+	.sform{display:flex;gap:8px;}
+	.sform input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:13px 15px;font-size:16px;font-family:inherit;}
+	.sform input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.18);}
+	.sform button{background:var(--accent);color:var(--accent-ink);border:none;border-radius:11px;padding:0 22px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;}
+	.sform button:hover{background:var(--accent-dim);}
+	.quick{margin-top:10px;font-size:13px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+	.quick a{color:var(--text);text-decoration:none;background:var(--panel-alt);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:12.5px;}
+	.quick a:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.big .foot{margin-top:auto;padding-top:12px;font-size:12.5px;color:var(--muted);}
+	.big .foot a{color:var(--shell);}
+
+	.dl-card{background:linear-gradient(150deg,rgba(27,217,106,0.10),transparent 55%),var(--panel);border-color:rgba(27,217,106,0.32);}
+	.dl-card p{margin:-6px 0 14px;color:var(--muted);font-size:13.5px;}
+	.store{display:flex;align-items:center;gap:10px;text-decoration:none;border-radius:12px;padding:11px 14px;font-weight:800;}
+	.store svg{width:22px;height:22px;flex:0 0 auto;}
+	.store small{display:block;font-weight:500;font-size:11.5px;opacity:.85;}
+	.store.mr{background:#1BD96A;color:#06210F;font-size:16px;}
+	.store.mr:hover{filter:brightness(1.06);}
+	.store.cf{margin-top:8px;background:transparent;border:1px solid rgba(241,100,54,.6);color:var(--text);font-size:14px;padding:9px 14px;}
+	.store.cf:hover{background:rgba(241,100,54,.12);}
+	.file{margin-top:10px;font-size:13px;}
+	.file summary{cursor:pointer;color:var(--muted);}
+	.file summary:hover{color:var(--text);}
+	.file .pick{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;}
+	.file select{background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 8px;font:inherit;font-size:13px;}
+	.file a.get{background:var(--panel-alt);border:1px solid var(--line);border-radius:8px;padding:6px 11px;color:var(--text);text-decoration:none;font-weight:700;}
+	.file a.get:hover{border-color:var(--accent-dim);}
+	.dl-card.flash{animation:flash 1.6s ease;}
+	@keyframes flash{0%,100%{box-shadow:none;}30%{box-shadow:0 0 0 3px rgba(27,217,106,.55);}}
+
+	/* live numbers inside the search card */
+	.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px;}
+	@media (max-width:520px){.stats{gap:6px;}.stat{padding:6px 8px;}.stat b{font-size:16px;}.sform button{padding:0 14px;}}
+	.stat{background:rgba(var(--bg-rgb),0.55);border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:0;}
+	.stat b{display:block;font-family:var(--font-mono);font-size:19px;font-weight:600;color:var(--text);line-height:1.2;}
+	.stat span{font-size:12px;color:var(--muted);}
+	.stat.ff b{color:var(--shell);}
+
+	/* the three "smaller but important" cards */
+	.mid-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+	@media (max-width:900px){.mid-row{grid-template-columns:minmax(0,1fr);}}
+	.mid{display:flex;flex-direction:column;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0;}
+	.mid .top{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);}
+	.mid .top .ti{font-size:24px;line-height:1;}
+	.mid .top b{font-size:16px;}
+	.mid .top:hover b{color:var(--accent);}
+	.mid p{margin:0;color:var(--muted);font-size:13px;}
+	.mid .links{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;}
+	.mid .links a{font-size:12.5px;font-weight:600;color:var(--text);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;}
+	.mid .links a:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.mid .links a.go{background:var(--accent);color:var(--accent-ink);border-color:transparent;}
+	.mid .links a.go:hover{background:var(--accent-dim);color:var(--accent-ink);}
+	.mid .badge{margin-left:auto;font-style:normal;font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent);border-radius:999px;padding:2px 9px;white-space:nowrap;}
+	.mid.raredle{border-color:rgba(255,122,89,.4);background:linear-gradient(150deg,rgba(255,122,89,.10),transparent 60%),var(--panel);}
+	.mid.raredle .badge,.mid.raredle .links a.go{background:linear-gradient(90deg,#FFB347,#FF7A59);color:#2A1408;}
+	.mid.market{border-color:rgba(79,195,247,.35);background:linear-gradient(150deg,rgba(79,195,247,.09),transparent 60%),var(--panel);}
+	.mid.market .badge,.mid.market .links a.go{background:#4FC3F7;color:#06202B;}
+
+	/* everything else: one compact row */
+	.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
+	@media (max-width:1100px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr));}}
+	@media (max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr));}}
+	.tile{display:flex;gap:9px;align-items:center;text-decoration:none;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:9px 12px;min-width:0;transition:border-color .12s ease;}
+	.tile:hover{border-color:var(--accent-dim);}
+	.tile .ti{font-size:18px;line-height:1;flex:0 0 auto;}
+	.tile b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+	.tile span{display:block;color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+	.tile .badge{font-style:normal;font-size:10px;font-weight:700;color:#2A1A05;background:#FFC44D;border-radius:999px;padding:0 6px;margin-left:4px;vertical-align:1px;}
+
+	/* bottom row */
+	.low-row{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px;}
+	@media (max-width:900px){.low-row{grid-template-columns:minmax(0,1fr);}}
+	.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0;}
+	html.beta .low-row > .card.card{margin-top:0;}
+	.motd{display:flex;gap:14px;align-items:center;}
+	.motd .img{flex:0 0 150px;height:150px;display:flex;align-items:center;justify-content:center;background:#0C140F;border:1px solid var(--line);border-radius:10px;padding:8px;}
+	.motd .img img{max-width:100%;max-height:100%;image-rendering:pixelated;}
+	.motd h3{font-family:var(--font-display);font-weight:600;font-size:20px;margin:0 0 2px;}
+	.motd h3 a{color:var(--text);text-decoration:none;}
+	.motd h3 a:hover{color:var(--accent);}
+	.motd .by{color:var(--shell);font-size:13px;}
+	.motd .acts{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+	.pbtn{display:inline-block;padding:6px 12px;border-radius:9px;border:1px solid var(--line);color:var(--text);text-decoration:none;font-size:13px;font-weight:600;}
+	.pbtn:hover{border-color:var(--accent-dim);color:var(--accent);}
+	.pbtn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:700;}
+	@media (max-width:520px){.motd{flex-direction:column;align-items:stretch;}.motd .img{flex-basis:auto;height:180px;}}
+	.news ul{margin:6px 0 10px;padding-left:18px;font-size:13.5px;}
+	.news li{margin-bottom:3px;}
+	.muted{color:var(--muted);}
+
+	footer.site{border-top:1px solid var(--line);padding:16px 0;color:var(--muted);font-size:12.5px;}
+	footer.site .wrap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+	footer.site a{color:var(--shell);text-decoration:none;margin-left:12px;}
+	footer.site a:hover{color:var(--accent);}
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+<link rel="stylesheet" href="/beta/beta.css">
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			{{BRAND_MARK}}
+			<div>
+				<h1>Snailcraft Trading Post</h1>
+				<p class="tag">Every shop on the server, in one place.</p>
+			</div>
+		</div>
+	</div>
+</header>
+
+<main class="wrap">
+	<div class="banner" id="notice" hidden></div>
+	<div class="banner auction" id="auction" hidden></div>
+
+	<div class="big-row">
+		<section class="big search-card" aria-labelledby="searchH">
+			<div class="kicker">Search</div>
+			<h2 id="searchH">Find any item in any shop</h2>
+			<form class="sform" action="/beta/search/" method="get" role="search">
+				<input type="search" name="q" id="q" placeholder="An item or a seller, e.g. elytra, shulker, Steve…" autocomplete="off" aria-label="Search listings">
+				<button type="submit">Search</button>
+			</form>
+			<div class="quick">Popular:
+				<a href="/beta/search/?q=elytra">elytra</a><a href="/beta/search/?q=shulker">shulker</a><a href="/beta/search/?q=netherite">netherite</a><a href="/beta/search/?q=mending">mending</a><a href="/beta/search/?q=beacon">beacon</a>
+			</div>
+			<div class="stats" id="stats"><div class="stat"><b>&hellip;</b><span>listings right now</span></div><div class="stat ff"><b>&hellip;</b><span>Firefly sellers</span></div><div class="stat"><b>&hellip;</b><span>Honeybee sellers</span></div></div>
+			<div class="foot">Or browse the <a href="/beta/items/">item library</a>, search a whole <a href="/beta/list/">material list</a> at once, or open <a href="/beta/search/">all listings</a>.</div>
+		</section>
+
+		<section class="big dl-card" id="download" aria-labelledby="dlH">
+			<div class="kicker">Shop Logger mod</div>
+			<h2 id="dlH">Download the mod</h2>
+			<p>Scans shops as you walk past, alerts you about items you're watching, and puts every listing in your pocket. Fabric &amp; NeoForge, Minecraft 26.2 &amp; 26.3.</p>
+			<a class="store mr" href="https://modrinth.com/mod/sc-shoplogger" target="_blank" rel="noopener">
+				<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.25.004a11.78 11.77 0 0 0-8.92 3.73A11.37 11.36 0 0 0 .003 11.85c0 1.42.17 2.5.6 3.77.24.76.77 1.9 1.17 2.53a12.3 12.3 0 0 0 8.85 5.64c.44.05 2.54.07 2.76.02.2-.04.22.1-.26-1.7l-.36-1.37-1.01-.06a8.5 8.49 0 0 1-5.18-1.8 5.34 5.34 0 0 1-1.3-1.26c0-.05.34-.28.74-.5a37.57 37.55 0 0 1 2.88-1.63c.03 0 .5.45 1.06.98l1 .97 2.07-.43 2.06-.43 1.47-1.47c.8-.8 1.48-1.5 1.48-1.52 0-.09-.42-1.63-.46-1.7-.04-.06-.2-.03-1.02.18-.53.13-1.2.3-1.45.4l-.48.15-.53.53-.53.53-.93.1-.93.07-.52-.5a2.7 2.7 0 0 1-.96-1.7l-.13-.6.43-.57c.68-.9.68-.9 1.46-1.1.4-.1.65-.2.83-.33.13-.1.65-.58 1.14-1.07l.9-.9-.7-.7-.7-.7-1.95.54c-1.07.3-1.96.53-1.97.53-.03 0-2.23 2.48-2.63 2.97l-.29.35.28 1.03c.16.56.3 1.16.31 1.34l.03.3-.34.23c-.37.23-2.22 1.3-2.84 1.63-.36.2-.37.2-.44.1-.08-.1-.23-.6-.32-1.03-.18-.86-.17-2.75.02-3.73a8.84 8.84 0 0 1 7.9-6.93c.43-.03.77-.08.78-.1.06-.17.5-3 .47-3.04-.01-.02-.1-.02-.2-.03Zm3.68.67c-.2 0-.3.1-.37.38-.06.23-.46 2.42-.46 2.52 0 .04.1.11.22.16a8.51 8.5 0 0 1 2.99 2 8.38 8.38 0 0 1 2.16 3.45 6.9 6.9 0 0 1 .4 2.8c0 1.07 0 1.27-.1 1.73a9.37 9.37 0 0 1-1.76 3.77c-.32.4-.98 1.06-1.37 1.38-.38.32-1.54 1.1-1.7 1.14-.1.03-.1.06-.07.26.03.18.64 2.56.7 2.78l.06.06a12.07 12.06 0 0 0 7.27-9.4c.13-.77.13-2.58 0-3.4a11.96 11.95 0 0 0-5.73-8.58c-.7-.42-2.05-1.06-2.25-1.06Z"/></svg>
+				<span>Get it on Modrinth<small>Recommended: installs and updates for you</small></span>
+			</a>
+			<a class="store cf" href="https://www.curseforge.com/minecraft/mc-mods/sctp" target="_blank" rel="noopener">
+				<span>Get it on CurseForge</span>
+			</a>
+			<details class="file">
+				<summary>Or download the file yourself</summary>
+				<div class="pick">
+					<select id="dlLoader" aria-label="Mod loader"><option value="fabric">Fabric</option><option value="neoforge">NeoForge</option></select>
+					<select id="dlVersion" aria-label="Minecraft version"><option value="26.2">26.2</option><option value="26.3">26.3</option></select>
+					<a class="get" id="dlGet" href="#" download>Download</a>
+					<a href="/beta/onboarding/mod" class="muted" style="font-size:12.5px;">How to install &rarr;</a>
+				</div>
+			</details>
+		</section>
+	</div>
+
+	<div class="mid-row">
+		<section class="mid raredle">
+			<a class="top" href="/beta/rare-dle/"><span class="ti">&#128302;</span><b>Rare-dle</b><i class="badge" id="tRaredle" hidden></i></a>
+			<p>Guess today's secret rare in 8 tries. Keep your streak going, climb the leaderboard, or play in-game with the mod.</p>
+			<div class="links"><a class="go" href="/beta/rare-dle/">Play today's puzzle</a><a href="/beta/rare-dle/#lbBody">Leaderboard</a></div>
+		</section>
+		<section class="mid market">
+			<a class="top" href="/beta/marketplace/"><span class="ti">&#128722;</span><b>Marketplace</b><i class="badge" id="tMarket" hidden></i></a>
+			<p>Buy and sell with other players, take bids, and find people for jobs.</p>
+			<div class="links"><a class="go" href="/beta/marketplace/">Browse</a><a href="/beta/marketplace/#mine">Post a listing</a></div>
+		</section>
+		<section class="mid">
+			<a class="top" href="/docs/faq"><span class="ti">&#128161;</span><b>Info &amp; help</b></a>
+			<p>New here? How to install the mod, what every page does, and answers to common questions.</p>
+			<div class="links"><a class="go" href="/docs/faq">FAQ</a><a href="/beta/onboarding/mod">Install the mod</a><a href="/beta/onboarding/web">Website guide</a></div>
+		</section>
+	</div>
+
+	<nav class="tiles" aria-label="More on SCTP">
+		<a class="tile" href="/beta/items/"><span class="ti">&#128230;</span><div><b>Item library</b><span>Prices over time</span></div></a>
+		<a class="tile" href="/beta/mapart/"><span class="ti">&#127912;</span><div><b>Mapart</b><span>From around the server</span></div></a>
+		<a class="tile" href="/beta/auction/"><span class="ti">&#128296;</span><div><b>Auctions<i class="badge" id="tAuction" hidden></i></b><span>Sell your rares</span></div></a>
+		<a class="tile" href="/beta/collection/"><span class="ti">&#127942;</span><div><b>Collection</b><span>And your wishlist</span></div></a>
+		<a class="tile" href="/beta/world/"><span class="ti">&#128506;</span><div><b>World map</b><span>Firefly, mapped</span></div></a>
+		<a class="tile" href="/beta/stats/"><span class="ti">&#128202;</span><div><b>Statistics</b><span>Worlds &amp; shops</span></div></a>
+	</nav>
+
+	<div class="low-row">
+		<section class="card motd" id="motd"><div class="muted">Loading today's mapart&hellip;</div></section>
+		<section class="card news">
+			<div class="kicker">What's new</div>
+			<h3 style="font-family:var(--font-display);font-weight:600;font-size:20px;margin:0;">SCTP {{MOD_VERSION}}</h3>
+			<ul>
+				<li>Rare-dle in-game, plus empty-hand clicks</li>
+				<li>Double chest shops and see-through highlights</li>
+				<li>Rare auctions and wishlists on the site</li>
+			</ul>
+			<a class="pbtn" href="/beta/onboarding/update">Everything that's new &rarr;</a>
+		</section>
+	</div>
+</main>
+
+<footer class="site">
+	<div class="wrap">
+		<span>Snailcraft Trading Post &middot; the new design is a preview</span>
+		<span><a href="/beta/suggest/">Suggest something</a><a href="/beta/bug/">Report a bug</a><a href="/">Classic site</a></span>
+	</div>
+</footer>
+
+<script>
+(function(){
+	"use strict";
+	var API = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
+	var JARS = {{DOWNLOAD_JARS}};
+	function $(id){ return document.getElementById(id); }
+	function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]; }); }
+	function num(n){ return Number(n || 0).toLocaleString(); }
+	function getJson(path){ return fetch(API + path).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }); }
+
+	// ---- download: the file picker, and /beta/#download (the nav's Download button) ----
+	function updateFile(){
+		var f = JARS[$("dlLoader").value + "|" + $("dlVersion").value];
+		$("dlGet").href = "/" + f;
+		$("dlGet").setAttribute("download", f);
+		$("dlGet").title = f;
+	}
+	$("dlLoader").addEventListener("change", updateFile);
+	$("dlVersion").addEventListener("change", updateFile);
+	updateFile();
+	function showDownload(){
+		if(location.hash !== "#download") return;
+		var card = $("download");
+		card.scrollIntoView({ behavior: "smooth", block: "center" });
+		card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
+	}
+	window.addEventListener("hashchange", showDownload);
+	showDownload();
+
+	// ---- live numbers in the search card ----
+	Promise.all([getJson("/stats/world?world=Firefly"), getJson("/stats/world?world=Honeybee")]).then(function(r){
+		var ff = r[0] && r[0].latest, hb = r[1] && r[1].latest;
+		if(!ff && !hb){ $("stats").hidden = true; return; }
+		var b = $("stats").querySelectorAll("b");
+		b[0].textContent = num((ff ? ff.listings : 0) + (hb ? hb.listings : 0));
+		b[1].textContent = ff ? num(ff.sellers) : "–";
+		b[2].textContent = hb ? num(hb.sellers) : "–";
+	});
+
+	// ---- notice from the admin portal (closable; a new notice shows again) ----
+	getJson("/site-notice").then(function(n){
+		if(!n || !n.enabled) return;
+		var key = "sctp_hide_notice";
+		try { if(localStorage.getItem(key) === n.id) return; } catch(e){}
+		var el = $("notice");
+		el.className = "banner " + (n.level || "info");
+		var icon = n.level === "warn" ? "&#9888;&#65039;" : n.level === "success" ? "&#127881;" : "&#128226;";
+		el.innerHTML = '<span class="ico">' + icon + '</span><div class="txt">' + esc(n.message) + '</div><div class="act">' +
+			(n.linkUrl ? '<a class="btn" href="' + esc(n.linkUrl) + '">' + esc(n.linkLabel || "Read more") + '</a>' : "") +
+			'<button type="button" class="x" aria-label="Hide this notice">&times;</button></div>';
+		el.querySelector(".x").onclick = function(){ el.hidden = true; try { localStorage.setItem(key, n.id); } catch(e){} };
+		el.hidden = false;
+	});
+
+	// ---- the next auction ----
+	getJson("/auction/current").then(function(d){
+		if(!d || !d.auction) return;
+		var a = d.auction, at = new Date(a.auctionAt);
+		var left = Math.max(0, a.totalLimit - (d.entered || 0));
+		var when = at.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+		var el = $("auction");
+		el.innerHTML = '<span class="ico">&#128296;</span><div class="txt"><b>' + esc(a.title) + '</b> &middot; ' + esc(when) +
+			'<div class="meta">' + esc(a.world) + ' &middot; drop-off at <code>' + esc(a.dropOff || "/pw auction") + '</code>' + (a.hostName ? ' &middot; hosted by ' + esc(a.hostName) : "") +
+			' &middot; ' + (a.accepting ? (left ? left + " of " + a.totalLimit + " spots left" : "all spots taken") : "entries closed") + '</div></div>' +
+			'<div class="act">' + (a.accepting && left ? '<a class="btn" href="/beta/auction/#enter">Enter your rares</a>' : "") + '<a class="btn ghost" href="/beta/auction/">See the line-up</a></div>';
+		el.hidden = false;
+		var t = $("tAuction"); t.textContent = a.accepting && left ? "Open" : "Soon"; t.hidden = false;
+	});
+
+	// ---- live badges on the tiles ----
+	getJson("/raredle/leaderboard").then(function(d){
+		if(!d || !d.daily) return;
+		var t = $("tRaredle"); t.textContent = d.daily.length ? d.daily.length + (d.daily.length >= 25 ? "+" : "") + " solved today" : "New puzzle"; t.hidden = false;
+	});
+	getJson("/marketplace/listings").then(function(d){
+		var list = Array.isArray(d) ? d : (d && Array.isArray(d.listings) ? d.listings : null);
+		if(!list || !list.length) return;
+		var t = $("tMarket"); t.textContent = num(list.length) + " open"; t.hidden = false;
+	});
+
+	// ---- mapart of the day ----
+	getJson("/mapart/of-the-day").then(function(d){
+		var el = $("motd");
+		if(!d || !d.mapart){ el.innerHTML = '<div class="muted">No mapart to feature today.</div>'; return; }
+		var m = d.mapart, href = "/beta/mapart/" + encodeURIComponent(m.slug);
+		var img = API + "/mapart/image?id=" + encodeURIComponent(m.id) + "&v=" + encodeURIComponent(m.imageHash || "");
+		var names = String(m.artist || "").split(" & ").map(function(x){ return x.trim(); }).filter(Boolean);
+		el.innerHTML = '<a class="img" href="' + href + '"><img src="' + esc(img) + '" alt="' + esc(m.title) + '"></a>' +
+			'<div><div class="kicker">&#127912; Mapart of the day</div><h3><a href="' + href + '">' + esc(m.title) + '</a></h3>' +
+			'<div class="by">' + (names.length ? (m.commissioned ? "built by " : "by ") + names.map(esc).join(" &amp; ") : "Unknown artist") + '</div>' +
+			'<div class="muted" style="font-size:12.5px;margin-top:2px;">' + esc(m.world) + (m.width * m.height > 1 ? " &middot; " + m.width + "&times;" + m.height + " maps" : "") + (m.price ? " &middot; " + esc(m.price) : "") + '</div>' +
+			'<div class="acts"><a class="pbtn primary" href="' + href + '">View this piece &rarr;</a><a class="pbtn" href="/beta/mapart/">All mapart</a></div></div>';
+	});
+})();
+</script>
+</body>
+</html>

@@ -66,6 +66,8 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 	private final Map<BlockPos, ShopSign> knownShops = new HashMap<>();
 	private final Map<BlockPos, Long> lastScanned = new HashMap<>();
+	/** Containers whose latest silent scan found nothing for sale — their marker particle turns grey. */
+	private final Set<BlockPos> emptyShops = new HashSet<>();
 	/**
 	 * Consecutive failed-validation count per position, used by
 	 * forgetGoneShops() below. A shop's chest chunk can be loaded while the
@@ -82,6 +84,8 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 	private boolean enabled = true;
 	private boolean armed = false;
 	private BlockPos armedContainerPos = null;
+	/** Rows the armed shop's screen should have: 3, or 6 for a double chest. */
+	private int armedRows = 3;
 	private ShopSign armedSign = null;
 	private int armedSyncId = -1;
 	/** True while onInventorySynced() is handling a result, so commands it sends itself (shop info) aren't mistaken for the player's. */
@@ -189,6 +193,11 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 		return recent;
 	}
 
+	/** True if the latest silent scan of this container found nothing for sale (only payment, or nothing at all). */
+	public boolean wasEmpty(BlockPos containerPos) {
+		return emptyShops.contains(containerPos);
+	}
+
 	/** The known ShopSign for a container position, if any — used to anchor the scan-marker particle to the sign instead of the container. */
 	public ShopSign getKnownSign(BlockPos containerPos) {
 		return knownShops.get(containerPos);
@@ -270,7 +279,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 	}
 
 	/** No custom name, lore or plugin data. Feathers and name tags don't count: Snailcraft builds several custom tools on them. */
-	private static boolean isPlainVanilla(ItemStack stack) {
+	public static boolean isPlainVanilla(ItemStack stack) {
 		if (stack.getItem() == Items.NAME_TAG || stack.getItem() == Items.FEATHER) return false;
 		return !stack.has(DataComponents.CUSTOM_NAME)
 				&& !stack.has(DataComponents.LORE)
@@ -307,10 +316,10 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 	private void openSilently(Minecraft client, BlockPos containerPos, ShopSign sign) {
 		if (client.gameMode == null || client.player == null) return;
-		// Became a double chest since discovery (a second chest placed next to
-		// it): never scan it. forgetGoneShops() drops it on its next pass.
 		BlockState state = client.level.getBlockState(containerPos);
-		if (ShopContainers.isDoubleChest(state)) {
+		// Became (part of) a double chest since discovery and this isn't the
+		// half the shop is known by: forgetGoneShops() swaps it on its next pass.
+		if (!SignFinder.shopPos(client.level, containerPos, state).equals(containerPos)) {
 			markScanned(containerPos);
 			return;
 		}
@@ -333,6 +342,7 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 		armed = true;
 		armedContainerPos = containerPos;
+		armedRows = ShopContainers.isDoubleChest(state) ? 6 : 3;
 		armedSign = sign;
 		armedSyncId = -1;
 		lastOpenAttempt = System.currentTimeMillis();
@@ -355,11 +365,11 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 	// ---- SilentScreenCoordinator.Listener ----
 
-	/** A shop (single chest or barrel — double chests are never scanned) opens as a plain 3-row chest menu; anything else isn't ours. */
+	/** A shop opens as a plain chest menu: 3 rows for a single chest or barrel, 6 for a double chest. Anything else isn't ours. */
 	@Override
 	public boolean accepts(AbstractContainerMenu handler) {
 		if (!armed) return true;
-		return handler instanceof ChestMenu chest && chest.getRowCount() == 3;
+		return handler instanceof ChestMenu chest && chest.getRowCount() == armedRows;
 	}
 
 	@Override
@@ -392,9 +402,13 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 		AbstractContainerMenu handler = client.player.containerMenu;
 		if (handler != null && handler.containerId == syncId && accepts(handler)) {
 			List<ShopEntry> entries = ShopEntryFactory.build(handler, armedSign, armedContainerPos);
+			if (entries.isEmpty()) emptyShops.add(armedContainerPos.immutable());
+			else emptyShops.remove(armedContainerPos);
 			ShopWorld world = WorldSelection.get();
 			if (world != null) {
 				ShopLog.replaceForPosition(world.label(), armedContainerPos, entries);
+				ShopLog.setPayment(world.label(), armedContainerPos, OwnShopSaleTracker.paymentCount(armedSign, handler), armedSign.currency());
+				StockHolograms.record(world.label(), armedContainerPos, entries);
 			}
 			ScanChatLogger.maybePrint(client, entries);
 			OwnShopSaleTracker.check(client, armedSign, armedContainerPos, handler, world != null ? world.label() : null);
@@ -459,7 +473,8 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 					if (knownShops.containsKey(pos)) continue;
 
 					BlockState state = world.getBlockState(pos);
-					if (ShopContainers.isDoubleChest(state)) continue;
+					// a double chest is one shop, found through its left half only
+					if (!SignFinder.shopPos(world, pos, state).equals(pos)) continue;
 					ShopSign sign = SignFinder.find(world, pos, state);
 					if (sign != null) {
 						knownShops.put(pos.immutable(), sign);
@@ -489,7 +504,9 @@ public class ShopAutoScanner implements SilentScreenCoordinator.Listener {
 
 			BlockEntity be = world.getBlockEntity(pos);
 			BlockState state = world.getBlockState(pos);
-			ShopSign current = ShopContainers.isShopContainer(be) && !ShopContainers.isDoubleChest(state)
+			// gone if it stopped being a shop, or it's now the right half of a
+			// double chest (the shop moves to the left half, found on discovery)
+			ShopSign current = ShopContainers.isShopContainer(be) && SignFinder.shopPos(world, pos, state).equals(pos)
 					? SignFinder.find(world, pos, state) : null;
 
 			if (current != null) {
