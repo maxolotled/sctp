@@ -729,15 +729,20 @@
 	html.beta .promo-motd .motd-pill{font-size:10.5px;padding:1px 7px;}
 	html.beta .promo-motd .promo-actions{margin-top:7px;gap:6px;}
 	html.beta .promo-motd .promo-btn{padding:4px 10px;font-size:12px;}
-	html.beta .promo-dl{flex-direction:row;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(var(--accent-rgb),0.10),transparent 60%),var(--panel);}
+	html.beta .promo-dl{flex-direction:row;align-items:center;gap:18px;padding:14px 18px;border-color:rgba(27,217,106,.35);background:radial-gradient(420px 160px at 100% 50%,rgba(27,217,106,.16),transparent 70%),linear-gradient(135deg,rgba(var(--accent-rgb),0.06),transparent 60%),var(--panel);}
 	html.beta .promo-dl .dl-copy{flex:1;min-width:0;}
-	html.beta .promo-dl .dl-copy b{display:block;font-size:15px;}
-	html.beta .promo-dl .dl-copy span{color:var(--muted);font-size:12.5px;}
-	html.beta .promo-dl .dl-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
-	html.beta .promo-dl .dl-btns a,html.beta .promo-dl .dl-btns button{font:inherit;font-size:12.5px;font-weight:700;padding:6px 11px;border-radius:8px;text-decoration:none;border:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer;white-space:nowrap;}
-	html.beta .promo-dl .dl-btns .mr{background:#1BD96A;color:#06210F;border-color:transparent;}
-	html.beta .promo-dl .dl-btns .cf{background:#F16436;color:#fff;border-color:transparent;}
-	@media (max-width:760px){html.beta .promo-strip{grid-template-columns:1fr;}html.beta .promo-dl{flex-wrap:wrap;}}
+	html.beta .promo-dl .dl-copy .promo-kicker{margin:0 0 3px;font-size:10px;color:#1BD96A;}
+	html.beta .promo-dl .dl-copy b{display:block;font-family:var(--font-display);font-weight:600;font-size:19px;line-height:1.2;}
+	html.beta .promo-dl .dl-copy span{display:block;color:var(--muted);font-size:12.5px;margin-top:3px;}
+	html.beta .promo-dl .dl-cta{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;}
+	html.beta .promo-dl .mr-big{display:flex;align-items:center;gap:10px;background:#1BD96A;color:#06210F;text-decoration:none;border-radius:12px;padding:10px 18px;box-shadow:0 6px 18px rgba(27,217,106,.25);transition:transform .12s ease,filter .12s ease;}
+	html.beta .promo-dl .mr-big:hover{filter:brightness(1.06);transform:translateY(-1px);}
+	html.beta .promo-dl .mr-big svg{width:26px;height:26px;flex:0 0 auto;}
+	html.beta .promo-dl .mr-big b{display:block;font-size:16px;font-weight:800;line-height:1.15;}
+	html.beta .promo-dl .mr-big small{display:block;font-size:11px;font-weight:600;opacity:.8;}
+	html.beta .promo-dl .dl-file{font-size:12px;color:var(--muted);text-decoration:underline;text-underline-offset:2px;cursor:pointer;background:none;border:none;font-family:inherit;padding:0;}
+	html.beta .promo-dl .dl-file:hover{color:var(--text);}
+	@media (max-width:760px){html.beta .promo-strip{grid-template-columns:1fr;}html.beta .promo-dl{flex-wrap:wrap;}html.beta .promo-dl .dl-cta{width:100%;}html.beta .promo-dl .mr-big{width:100%;justify-content:center;}}
 
 	html.beta .layout{display:block;padding-bottom:40px;}
 	html.beta aside.filters{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 12px;padding:10px 12px;margin-bottom:10px;border-radius:12px;position:relative;}
@@ -806,7 +811,7 @@
 	</section>
 	<section class="promo-strip" id="promoStrip" aria-label="Featured">
 		<article class="promo-card promo-motd" id="motd"><div class="promo-loading">Loading today's mapart…</div></article>
-		<article class="promo-card promo-dl"><div class="dl-copy"><b>Get the Shop Logger mod</b><span>Scan shops as you walk past and search everything in-game.</span></div><div class="dl-btns"><a class="mr" href="https://modrinth.com/mod/sc-shoplogger" target="_blank" rel="noopener">Modrinth</a><a class="cf" href="https://www.curseforge.com/minecraft/mc-mods/sctp" target="_blank" rel="noopener">CurseForge</a><button type="button" id="downloadMod">Download file</button></div></article>
+		<article class="promo-card promo-dl"><div class="dl-copy"><div class="promo-kicker">Shop Logger mod</div><b>Get the mod</b><span>Scans shops as you walk past, alerts you about watched items, and puts every listing in-game.</span></div><div class="dl-cta"><a class="mr-big" href="https://modrinth.com/mod/sc-shoplogger" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.25.004a11.78 11.77 0 0 0-8.92 3.73A11.37 11.36 0 0 0 .003 11.85c0 1.42.17 2.5.6 3.77.24.76.77 1.9 1.17 2.53a12.3 12.3 0 0 0 8.85 5.64c.44.05 2.54.07 2.76.02.2-.04.22.1-.26-1.7l-.36-1.37-1.01-.06a8.5 8.49 0 0 1-5.18-1.8 5.34 5.34 0 0 1-1.3-1.26c0-.05.34-.28.74-.5a37.57 37.55 0 0 1 2.88-1.63c.03 0 .5.45 1.06.98l1 .97 2.07-.43 2.06-.43 1.47-1.47c.8-.8 1.48-1.5 1.48-1.52 0-.09-.42-1.63-.46-1.7-.04-.06-.2-.03-1.02.18-.53.13-1.2.3-1.45.4l-.48.15-.53.53-.53.53-.93.1-.93.07-.52-.5a2.7 2.7 0 0 1-.96-1.7l-.13-.6.43-.57c.68-.9.68-.9 1.46-1.1.4-.1.65-.2.83-.33.13-.1.65-.58 1.14-1.07l.9-.9-.7-.7-.7-.7-1.95.54c-1.07.3-1.96.53-1.97.53-.03 0-2.23 2.48-2.63 2.97l-.29.35.28 1.03c.16.56.3 1.16.31 1.34l.03.3-.34.23c-.37.23-2.22 1.3-2.84 1.63-.36.2-.37.2-.44.1-.08-.1-.23-.6-.32-1.03-.18-.86-.17-2.75.02-3.73a8.84 8.84 0 0 1 7.9-6.93c.43-.03.77-.08.78-.1.06-.17.5-3 .47-3.04-.01-.02-.1-.02-.2-.03Zm3.68.67c-.2 0-.3.1-.37.38-.06.23-.46 2.42-.46 2.52 0 .04.1.11.22.16a8.51 8.5 0 0 1 2.99 2 8.38 8.38 0 0 1 2.16 3.45 6.9 6.9 0 0 1 .4 2.8c0 1.07 0 1.27-.1 1.73a9.37 9.37 0 0 1-1.76 3.77c-.32.4-.98 1.06-1.37 1.38-.38.32-1.54 1.1-1.7 1.14-.1.03-.1.06-.07.26.03.18.64 2.56.7 2.78l.06.06a12.07 12.06 0 0 0 7.27-9.4c.13-.77.13-2.58 0-3.4a11.96 11.95 0 0 0-5.73-8.58c-.7-.42-2.05-1.06-2.25-1.06Z"/></svg><span><b>Get it on Modrinth</b><small>Installs and updates for you</small></span></a><button type="button" class="dl-file" onclick="document.getElementById('downloadMod').click()">or download the file from here</button><button type="button" id="downloadMod" hidden></button></div></article>
 		<article class="promo-card promo-raredle" id="promoRaredle">
 			<div class="promo-kicker">Rare-dle</div>
 			<h2 class="promo-title">Guess the secret Snailcraft rare</h2>
