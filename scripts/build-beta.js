@@ -40,7 +40,7 @@ const PAGES = [
 	"mapart/manage/index.html", "marketplace/index.html", "onboarding/mod/index.html", "onboarding/update/index.html",
 	"onboarding/web/index.html", "privacy/index.html", "rare-dle/index.html", "register/index.html", "report/index.html",
 	"reset-password/index.html", "roadmap/index.html", "stats/index.html", "stats/mine/index.html", "store/manage/index.html",
-	"suggest/index.html", "verify-link/index.html", "world/index.html",
+	"suggest/index.html", "verify-link/index.html",
 ].map((p) => [p, p]).concat([["index.html", "search/index.html"], ["404.html", "404.html"]]);
 
 function read(p) { return fs.readFileSync(path.join(ROOT, p), "utf8").replace(/\r\n/g, "\n"); }
@@ -85,14 +85,17 @@ const SEARCH_CSS = `<style>
 	html.beta .promo-strip{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:12px 0 0;}
 	html.beta #promoRaredle,html.beta #promoMarket{display:none;}
 	html.beta .promo-card{min-height:0;padding:10px 12px;border-radius:12px;}
-	html.beta .promo-motd{flex-direction:row;align-items:center;gap:12px;}
-	html.beta .promo-motd .motd-img{flex:0 0 64px;max-width:64px;height:64px;padding:4px;border-radius:8px;}
-	html.beta .promo-motd .motd-img img{max-height:56px;box-shadow:none;}
-	html.beta .promo-motd .motd-meta,html.beta .promo-motd .motd-by + .motd-by{display:none;}
-	html.beta .promo-motd .promo-title{font-size:16px;margin:0 0 2px;}
+	html.beta .promo-motd{flex-direction:row;align-items:center;gap:14px;background:linear-gradient(120deg,rgba(var(--accent-rgb),0.08),transparent 55%),var(--panel);}
+	html.beta .promo-motd .motd-img{flex:0 0 96px;max-width:96px;height:96px;padding:5px;border-radius:10px;}
+	html.beta .promo-motd .motd-img img{max-height:86px;box-shadow:0 4px 14px rgba(0,0,0,.45);}
+	html.beta .promo-motd .motd-body{min-width:0;}
 	html.beta .promo-motd .promo-kicker{margin:0 0 2px;font-size:10px;}
+	html.beta .promo-motd .promo-title{font-size:17px;margin:0 0 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 	html.beta .promo-motd .motd-by{font-size:12.5px;}
-	html.beta .promo-motd .promo-actions{margin-top:6px;}
+	html.beta .promo-motd .motd-by + .motd-by{display:none;}
+	html.beta .promo-motd .motd-meta{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 0;}
+	html.beta .promo-motd .motd-pill{font-size:10.5px;padding:1px 7px;}
+	html.beta .promo-motd .promo-actions{margin-top:7px;gap:6px;}
 	html.beta .promo-motd .promo-btn{padding:4px 10px;font-size:12px;}
 	html.beta .promo-dl{flex-direction:row;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(var(--accent-rgb),0.10),transparent 60%),var(--panel);}
 	html.beta .promo-dl .dl-copy{flex:1;min-width:0;}

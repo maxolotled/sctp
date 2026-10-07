@@ -13,7 +13,7 @@
 
 	// First path segments that have a copy under /beta/ (scripts/build-beta.js
 	// writes the same list). "" is the homepage.
-	var BETA_SECTIONS = ["", "search", "items", "marketplace", "mapart", "rare-dle", "auction", "collection", "list", "stats", "world",
+	var BETA_SECTIONS = ["", "search", "items", "marketplace", "mapart", "rare-dle", "auction", "collection", "list", "stats",
 		"roadmap", "onboarding", "suggest", "bug", "report", "account", "store", "register", "reset-password", "verify-link", "privacy", "f", "s"];
 
 	var MAIN = [
@@ -32,7 +32,6 @@
 		] },
 		{ title: "Collect & explore", links: [
 			{ href: "/beta/collection/", label: "My collection & wishlist" },
-			{ href: "/beta/world/", label: "World map" },
 			{ href: "/beta/roadmap/", label: "Roadmap" },
 			{ href: "/beta/onboarding/update", label: "What's new" }
 		] },

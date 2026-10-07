@@ -67,8 +67,10 @@
 	@media (max-width:700px){.banner{flex-wrap:wrap;}.banner .act{width:100%;}}
 
 	/* the two big actions */
-	.big-row{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px;}
-	@media (max-width:900px){.big-row{grid-template-columns:minmax(0,1fr);}}
+	.big-row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,0.85fr) minmax(0,1fr);grid-template-areas:"search motd dl";gap:12px;}
+	.search-card{grid-area:search;} .motd-card{grid-area:motd;} .dl-card{grid-area:dl;}
+	@media (max-width:1200px){.big-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"search search" "motd dl";}}
+	@media (max-width:760px){.big-row{grid-template-columns:minmax(0,1fr);grid-template-areas:"search" "motd" "dl";}}
 	.big{border:1px solid var(--line);border-radius:16px;padding:18px 20px;background:var(--panel);display:flex;flex-direction:column;min-width:0;}
 	.kicker{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;}
 	.big h2{font-family:var(--font-display);font-weight:600;font-size:26px;line-height:1.15;margin:0 0 12px;}
@@ -131,36 +133,28 @@
 	.mid.market{border-color:rgba(79,195,247,.35);background:linear-gradient(150deg,rgba(79,195,247,.09),transparent 60%),var(--panel);}
 	.mid.market .badge,.mid.market .links a.go{background:#4FC3F7;color:#06202B;}
 
-	/* everything else: one compact row */
-	.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
-	@media (max-width:1100px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr));}}
-	@media (max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr));}}
-	.tile{display:flex;gap:9px;align-items:center;text-decoration:none;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:9px 12px;min-width:0;transition:border-color .12s ease;}
-	.tile:hover{border-color:var(--accent-dim);}
-	.tile .ti{font-size:18px;line-height:1;flex:0 0 auto;}
-	.tile b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-	.tile span{display:block;color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-	.tile .badge{font-style:normal;font-size:10px;font-weight:700;color:#2A1A05;background:#FFC44D;border-radius:999px;padding:0 6px;margin-left:4px;vertical-align:1px;}
-
 	/* bottom row */
-	.low-row{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px;}
-	@media (max-width:900px){.low-row{grid-template-columns:minmax(0,1fr);}}
-	.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0;}
-	html.beta .low-row > .card.card{margin-top:0;}
-	.motd{display:flex;gap:14px;align-items:center;}
-	.motd .img{flex:0 0 150px;height:150px;display:flex;align-items:center;justify-content:center;background:#0C140F;border:1px solid var(--line);border-radius:10px;padding:8px;}
-	.motd .img img{max-width:100%;max-height:100%;image-rendering:pixelated;}
-	.motd h3{font-family:var(--font-display);font-weight:600;font-size:20px;margin:0 0 2px;}
-	.motd h3 a{color:var(--text);text-decoration:none;}
-	.motd h3 a:hover{color:var(--accent);}
-	.motd .by{color:var(--shell);font-size:13px;}
-	.motd .acts{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+	/* mapart of the day (middle of the top row) */
+	.motd-card{background:linear-gradient(160deg,rgba(var(--accent-rgb),0.07),transparent 55%),var(--panel);}
+	.motd-card .img{display:flex;align-items:center;justify-content:center;background:#0C140F;border:1px solid var(--line);border-radius:10px;padding:8px;height:170px;margin:2px 0 10px;}
+	.motd-card .img img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;}
+	.motd-card h3{font-family:var(--font-display);font-weight:600;font-size:19px;line-height:1.2;margin:0 0 2px;}
+	.motd-card h3 a{color:var(--text);text-decoration:none;}
+	.motd-card h3 a:hover{color:var(--accent);}
+	.motd-card .by{color:var(--shell);font-size:13px;}
+	.motd-card .meta{color:var(--muted);font-size:12.5px;margin-top:2px;}
+	.motd-card .acts{margin-top:auto;padding-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
 	.pbtn{display:inline-block;padding:6px 12px;border-radius:9px;border:1px solid var(--line);color:var(--text);text-decoration:none;font-size:13px;font-weight:600;}
 	.pbtn:hover{border-color:var(--accent-dim);color:var(--accent);}
 	.pbtn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:700;}
-	@media (max-width:520px){.motd{flex-direction:column;align-items:stretch;}.motd .img{flex-basis:auto;height:180px;}}
-	.news ul{margin:6px 0 10px;padding-left:18px;font-size:13.5px;}
-	.news li{margin-bottom:3px;}
+	@media (max-width:760px){.motd-card .img{height:200px;}}
+
+	/* what's new: one slim strip */
+	.news{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;}
+	.news .kicker{margin:0;}
+	.news h3{font-family:var(--font-display);font-weight:600;font-size:18px;margin:0;white-space:nowrap;}
+	.news ul{display:flex;gap:6px 18px;flex-wrap:wrap;list-style:none;margin:0;padding:0;font-size:13px;color:var(--muted);flex:1;min-width:0;}
+	.news li::before{content:"\2022";color:var(--accent);margin-right:6px;}
 	.muted{color:var(--muted);}
 
 	footer.site{border-top:1px solid var(--line);padding:16px 0;color:var(--muted);font-size:12.5px;}
@@ -205,6 +199,8 @@
 			<div class="foot">Or browse the <a href="/beta/items/">item library</a>, search a whole <a href="/beta/list/">material list</a> at once, or open <a href="/beta/search/">all listings</a>.</div>
 		</section>
 
+		<section class="big motd-card" id="motd" aria-label="Mapart of the day"><div class="kicker">&#127912; Mapart of the day</div><div class="muted">Loading today's mapart&hellip;</div></section>
+
 		<section class="big dl-card" id="download" aria-labelledby="dlH">
 			<div class="kicker">Shop Logger mod</div>
 			<h2 id="dlH">Download the mod</h2>
@@ -246,28 +242,16 @@
 		</section>
 	</div>
 
-	<nav class="tiles" aria-label="More on SCTP">
-		<a class="tile" href="/beta/items/"><span class="ti">&#128230;</span><div><b>Item library</b><span>Prices over time</span></div></a>
-		<a class="tile" href="/beta/mapart/"><span class="ti">&#127912;</span><div><b>Mapart</b><span>From around the server</span></div></a>
-		<a class="tile" href="/beta/auction/"><span class="ti">&#128296;</span><div><b>Auctions<i class="badge" id="tAuction" hidden></i></b><span>Sell your rares</span></div></a>
-		<a class="tile" href="/beta/collection/"><span class="ti">&#127942;</span><div><b>Collection</b><span>And your wishlist</span></div></a>
-		<a class="tile" href="/beta/world/"><span class="ti">&#128506;</span><div><b>World map</b><span>Firefly, mapped</span></div></a>
-		<a class="tile" href="/beta/stats/"><span class="ti">&#128202;</span><div><b>Statistics</b><span>Worlds &amp; shops</span></div></a>
-	</nav>
-
-	<div class="low-row">
-		<section class="card motd" id="motd"><div class="muted">Loading today's mapart&hellip;</div></section>
-		<section class="card news">
-			<div class="kicker">What's new</div>
-			<h3 style="font-family:var(--font-display);font-weight:600;font-size:20px;margin:0;">SCTP {{MOD_VERSION}}</h3>
-			<ul>
-				<li>Rare-dle in-game, plus empty-hand clicks</li>
-				<li>Double chest shops and see-through highlights</li>
-				<li>Rare auctions and wishlists on the site</li>
-			</ul>
-			<a class="pbtn" href="/beta/onboarding/update">Everything that's new &rarr;</a>
-		</section>
-	</div>
+	<section class="news">
+		<div><div class="kicker">What's new</div><h3>SCTP {{MOD_VERSION}}</h3></div>
+		<ul>
+			<li>Rare-dle in-game, plus empty-hand clicks</li>
+			<li>Double chest shops and see-through highlights</li>
+			<li>Real sales in every statistic</li>
+			<li>Rare auctions and wishlists</li>
+		</ul>
+		<a class="pbtn" href="/beta/onboarding/update">Everything that's new &rarr;</a>
+	</section>
 </main>
 
 <footer class="site">
@@ -343,10 +327,9 @@
 			' &middot; ' + (a.accepting ? (left ? left + " of " + a.totalLimit + " spots left" : "all spots taken") : "entries closed") + '</div></div>' +
 			'<div class="act">' + (a.accepting && left ? '<a class="btn" href="/beta/auction/#enter">Enter your rares</a>' : "") + '<a class="btn ghost" href="/beta/auction/">See the line-up</a></div>';
 		el.hidden = false;
-		var t = $("tAuction"); t.textContent = a.accepting && left ? "Open" : "Soon"; t.hidden = false;
 	});
 
-	// ---- live badges on the tiles ----
+	// ---- live badges on the Rare-dle / Marketplace cards ----
 	getJson("/raredle/leaderboard").then(function(d){
 		if(!d || !d.daily) return;
 		var t = $("tRaredle"); t.textContent = d.daily.length ? d.daily.length + (d.daily.length >= 25 ? "+" : "") + " solved today" : "New puzzle"; t.hidden = false;
@@ -360,15 +343,16 @@
 	// ---- mapart of the day ----
 	getJson("/mapart/of-the-day").then(function(d){
 		var el = $("motd");
-		if(!d || !d.mapart){ el.innerHTML = '<div class="muted">No mapart to feature today.</div>'; return; }
+		var head = '<div class="kicker">&#127912; Mapart of the day</div>';
+		if(!d || !d.mapart){ el.innerHTML = head + '<div class="muted">No mapart to feature today.</div>'; return; }
 		var m = d.mapart, href = "/beta/mapart/" + encodeURIComponent(m.slug);
 		var img = API + "/mapart/image?id=" + encodeURIComponent(m.id) + "&v=" + encodeURIComponent(m.imageHash || "");
 		var names = String(m.artist || "").split(" & ").map(function(x){ return x.trim(); }).filter(Boolean);
-		el.innerHTML = '<a class="img" href="' + href + '"><img src="' + esc(img) + '" alt="' + esc(m.title) + '"></a>' +
-			'<div><div class="kicker">&#127912; Mapart of the day</div><h3><a href="' + href + '">' + esc(m.title) + '</a></h3>' +
+		el.innerHTML = head + '<a class="img" href="' + href + '"><img src="' + esc(img) + '" alt="' + esc(m.title) + '"></a>' +
+			'<h3><a href="' + href + '">' + esc(m.title) + '</a></h3>' +
 			'<div class="by">' + (names.length ? (m.commissioned ? "built by " : "by ") + names.map(esc).join(" &amp; ") : "Unknown artist") + '</div>' +
-			'<div class="muted" style="font-size:12.5px;margin-top:2px;">' + esc(m.world) + (m.width * m.height > 1 ? " &middot; " + m.width + "&times;" + m.height + " maps" : "") + (m.price ? " &middot; " + esc(m.price) : "") + '</div>' +
-			'<div class="acts"><a class="pbtn primary" href="' + href + '">View this piece &rarr;</a><a class="pbtn" href="/beta/mapart/">All mapart</a></div></div>';
+			'<div class="meta">' + esc(m.world) + (m.width * m.height > 1 ? " &middot; " + m.width + "&times;" + m.height + " maps" : "") + (m.price ? " &middot; " + esc(m.price) : "") + '</div>' +
+			'<div class="acts"><a class="pbtn primary" href="' + href + '">View this piece &rarr;</a><a class="pbtn" href="/beta/mapart/">All mapart</a></div>';
 	});
 })();
 </script>
