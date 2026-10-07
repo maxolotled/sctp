@@ -10,8 +10,6 @@ import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -19,27 +17,30 @@ import java.util.Locale;
 
 /**
  * One icon button to the left of your ender chest and backpack screens that
- * jumps to the other one: on the ender chest it shows a backpack (bundle) and
- * runs /bp, on the backpack it shows an ender chest and runs /ec. Screens are
- * recognised by their title.
+ * jumps to the other one: on the ender chest it shows the backpack icon and
+ * runs /bp, on the backpack it shows the ender chest icon and runs /ec. The
+ * icon opens up while you hover it. Screens are recognised by their title.
  */
 public class StorageSwitcher {
 
-	private record Page(String titleMatch, String command, String label, ItemStack icon) {}
+	private record Page(String titleMatch, String command, String label, Identifier icon, Identifier iconHover) {}
 
-	private static final Page ENDER_CHEST = new Page("ender chest", "ec", "Ender Chest", new ItemStack(Items.ENDER_CHEST));
-	private static final Page BACKPACK = new Page("backpack", "bp", "Backpack", new ItemStack(Items.BUNDLE));
+	private static final Page ENDER_CHEST = new Page("ender chest", "ec", "Ender Chest", tex("ec_closed"), tex("ec_open"));
+	private static final Page BACKPACK = new Page("backpack", "bp", "Backpack", tex("backpack_closed"), tex("backpack_open"));
 	private static final List<Page> PAGES = List.of(ENDER_CHEST, BACKPACK);
 
-	private static final int BTN_W = 24;
-	private static final int BTN_H = 24;
-	private static final int GAP = 6;
-	private static final Identifier BUTTON = Identifier.withDefaultNamespace("widget/button");
-	private static final Identifier BUTTON_HOVER = Identifier.withDefaultNamespace("widget/button_highlighted");
+	/** The icons are 32x32 pixel art with their own frame; drawn 1:1 so they stay crisp. */
+	private static final int BTN_W = 32;
+	private static final int BTN_H = 32;
+	private static final int GAP = 4;
 
 	private static final String CONFIG_ENABLED = "storageSwitcher/enabled";
 
 	private int btnX, btnY;
+
+	private static Identifier tex(String name) {
+		return Identifier.fromNamespaceAndPath("shoplogger", "textures/gui/storage/" + name + ".png");
+	}
 
 	public static boolean isEnabled() {
 		return Config.getOrCreate(CONFIG_ENABLED, Boolean.class, true);
@@ -78,8 +79,7 @@ public class StorageSwitcher {
 		updateBounds((AbstractContainerScreen<?>) screen);
 		Page target = other(page);
 		boolean over = inside(mouseX, mouseY);
-		gui.blitSprite(RenderPipelines.GUI_TEXTURED, over ? BUTTON_HOVER : BUTTON, btnX, btnY, BTN_W, BTN_H);
-		gui.item(target.icon(), btnX + (BTN_W - 16) / 2, btnY + (BTN_H - 16) / 2);
+		gui.blit(RenderPipelines.GUI_TEXTURED, over ? target.iconHover() : target.icon(), btnX, btnY, 0, 0, BTN_W, BTN_H, BTN_W, BTN_H);
 		if (over) {
 			gui.setTooltipForNextFrame(Minecraft.getInstance().font, Component.literal(target.label() + " (/" + target.command() + ")"), mouseX, mouseY);
 		}
