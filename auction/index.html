@@ -299,12 +299,15 @@
 	}
 	function fmtDia(d){
 		if(d == null) return "";
-		if(Math.round(d) !== d) return d >= 9 ? (Math.round(d / 9 * 10) / 10) + " DB" : (Math.round(d * 10) / 10) + " dia";
-		var db = Math.floor(d / 9), dia = d % 9;
-		if(!db) return dia + " dia";
-		return dia ? db + " DB " + dia + " dia" : db + " DB";
+		if(Math.round(d) !== d) return d >= 576 ? (Math.round(d / 576 * 10) / 10) + " STX" : d >= 9 ? (Math.round(d / 9 * 10) / 10) + " DB" : (Math.round(d * 10) / 10) + " dia";
+		// 1 STX = 64 DB = 576 dia
+		var stx = Math.floor(d / 576), db = Math.floor((d % 576) / 9), dia = d % 9, parts = [];
+		if(stx) parts.push(stx + " STX");
+		if(db) parts.push(db + " DB");
+		if(dia || !parts.length) parts.push(dia + " dia");
+		return parts.join(" ");
 	}
-	function toDia(value, unit){ var n = Number(value); if(!(n > 0)) return null; return Math.round(unit === "db" ? n * 9 : n); }
+	function toDia(value, unit){ var n = Number(value); if(!(n > 0)) return null; return Math.round(unit === "stx" ? n * 576 : unit === "db" ? n * 9 : n); }
 	function setMoney(inputId, unitId, dia){
 		if(dia == null){ $(inputId).value = ""; return; }
 		if(dia >= 9 && dia % 9 === 0){ $(inputId).value = dia / 9; $(unitId).value = "db"; }

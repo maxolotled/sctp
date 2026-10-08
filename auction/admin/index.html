@@ -40,6 +40,16 @@
 	.a-item span{font-size:12px;color:var(--muted);}
 	.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit;}
 	.btn:hover{background:var(--accent-dim);}
+	.price-cell{white-space:nowrap;}
+	.price-cell .pv{display:inline-flex;gap:14px;align-items:center;}
+	.price-cell .pen{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:6px;margin-left:4px;line-height:1;}
+	.price-cell .pen:hover{color:var(--accent);background:var(--panel-alt);}
+	.price-edit{display:flex;flex-direction:column;gap:5px;align-items:flex-start;}
+	.price-edit .pe-row{display:flex;gap:4px;align-items:center;font-size:12px;color:var(--muted);}
+	.price-edit .pe-row label{width:44px;}
+	.price-edit input{width:68px;padding:4px 6px;}
+	.price-edit select{padding:4px;}
+	.price-edit .pe-acts{display:flex;gap:6px;align-items:center;}
 	.hostpick{color:var(--warn);font-weight:600;font-size:12.5px;}
 	.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 11px;font-size:12.5px;cursor:pointer;font-family:inherit;}
 	.btn-ghost:hover{border-color:var(--accent-dim);color:var(--accent);}
@@ -125,10 +135,13 @@
 	}
 	function fmtDia(d){
 		if(d == null) return "–";
-		if(Math.round(d) !== d) return d >= 9 ? (Math.round(d / 9 * 10) / 10) + " DB" : (Math.round(d * 10) / 10) + " dia";
-		var db = Math.floor(d / 9), dia = d % 9;
-		if(!db) return dia + " dia";
-		return dia ? db + " DB " + dia + " dia" : db + " DB";
+		if(Math.round(d) !== d) return d >= 576 ? (Math.round(d / 576 * 10) / 10) + " STX" : d >= 9 ? (Math.round(d / 9 * 10) / 10) + " DB" : (Math.round(d * 10) / 10) + " dia";
+		// 1 STX = 64 DB = 576 dia
+		var stx = Math.floor(d / 576), db = Math.floor((d % 576) / 9), dia = d % 9, parts = [];
+		if(stx) parts.push(stx + " STX");
+		if(db) parts.push(db + " DB");
+		if(dia || !parts.length) parts.push(dia + " dia");
+		return parts.join(" ");
 	}
 	// same rule as the Worker's auctionCut()
 	function cutFor(soldDia, pct){
@@ -292,14 +305,14 @@
 			var payout = g.items.filter(function(i){ return i.status === "sold"; }).reduce(function(s, i){ return s + i.payoutDia; }, 0);
 			return '<div class="player"><div class="player-head"><span>Shulker: <code>Registered ' + esc(g.name) + '</code> · ' + g.items.filter(function(i){ return i.status !== "removed"; }).length + ' item(s)</span>' +
 				'<span class="pay">Pay out <b>' + fmtDia(payout) + '</b></span></div><div class="tbl-wrap"><table><thead><tr>' +
-				'<th>Item</th>' + (regular ? '<th>Starting price</th>' : '<th>Start</th><th>Lowest</th>') + '<th>SCTP value</th><th>Status</th><th>Sold for</th><th>Cut / payout</th><th></th></tr></thead><tbody>' +
+				'<th>Item</th>' + (regular ? '<th>Starting price</th>' : '<th colspan="2">Start &middot; Lowest</th>') + '<th>SCTP value</th><th>Status</th><th>Sold for</th><th>Cut / payout</th><th></th></tr></thead><tbody>' +
 				g.items.map(function(i){
-					var soldVal = i.soldDia ? (i.soldDia % 9 === 0 ? i.soldDia / 9 : i.soldDia) : "";
-					var soldUnit = i.soldDia && i.soldDia % 9 !== 0 ? "dia" : "db";
+					var soldUnit = !i.soldDia ? "db" : i.soldDia % 576 === 0 ? "stx" : i.soldDia % 9 === 0 ? "db" : "dia";
+					var soldVal = i.soldDia ? (soldUnit === "stx" ? i.soldDia / 576 : soldUnit === "db" ? i.soldDia / 9 : i.soldDia) : "";
 					return '<tr data-row="' + esc(i.id) + '" class="' + esc(i.status) + '"><td><div class="it"><img class="ico" src="' + esc(i.texture || "") + '" alt="">' + esc(i.itemName) + '</div></td>' +
-						(i.hostPicks ? '<td class="num"><span class="hostpick" title="The player left the price to the host">You pick</span></td>' + (regular ? '' : '<td class="num">–</td>') : '<td class="num">' + fmtDia(i.startDia) + '</td>' + (regular ? '' : '<td class="num">' + fmtDia(i.minDia) + '</td>')) + '<td class="num">' + (i.estimateDia != null ? "≈ " + fmtDia(i.estimateDia) : "–") + '</td>' +
+						'<td class="num price-cell"' + (regular ? '' : ' colspan="2"') + '>' + priceView(i, regular) + '</td>' + '<td class="num">' + (i.estimateDia != null ? "≈ " + fmtDia(i.estimateDia) : "–") + '</td>' +
 						'<td><span class="pill ' + esc(i.status) + '">' + esc(i.status) + '</span></td>' +
-						'<td><div class="sell"><input type="number" min="0" step="any" data-amt value="' + soldVal + '"><select data-unit><option value="db"' + (soldUnit === "db" ? " selected" : "") + '>DB</option><option value="dia"' + (soldUnit === "dia" ? " selected" : "") + '>dia</option></select></div></td>' +
+						'<td><div class="sell"><input type="number" min="0" step="any" data-amt value="' + soldVal + '"><select data-unit><option value="db"' + (soldUnit === "db" ? " selected" : "") + '>DB</option><option value="stx"' + (soldUnit === "stx" ? " selected" : "") + '>STX</option><option value="dia"' + (soldUnit === "dia" ? " selected" : "") + '>dia</option></select></div></td>' +
 						'<td class="preview" data-preview>' + (i.status === "sold" ? "cut " + fmtDia(i.cutDia) + " · gets " + fmtDia(i.payoutDia) : "") + '</td>' +
 						'<td><div class="acts"><button type="button" class="btn-ghost" data-act="sold">Sold</button><button type="button" class="btn-ghost" data-act="unsold">Unsold</button>' +
 						(i.status !== "entered" ? '<button type="button" class="btn-ghost" data-act="entered" title="Back to not-yet-auctioned">Reset</button>' : '') +
@@ -308,10 +321,58 @@
 		}).join("");
 	}
 
+	// The price cell: the price(s) plus a pencil that turns them into fields.
+	function priceView(i, regular){
+		var pen = '<button type="button" class="pen" data-edit title="Edit the price">&#9998;</button>';
+		if(i.hostPicks) return '<span class="pv"><span class="hostpick" title="The player left the price to the host">You pick</span>' + pen + '</span>';
+		return '<span class="pv"><span>' + fmtDia(i.startDia) + '</span>' + (regular ? '' : '<span>' + fmtDia(i.minDia) + '</span>') + pen + '</span>';
+	}
+	function unitFields(prefix, dia){
+		var unit = !dia ? "db" : dia % 576 === 0 ? "stx" : dia % 9 === 0 ? "db" : "dia";
+		var val = !dia ? "" : unit === "stx" ? dia / 576 : unit === "db" ? dia / 9 : dia;
+		return '<input type="number" min="0" step="any" data-pe="' + prefix + '" value="' + val + '"><select data-peu="' + prefix + '">' +
+			[["db", "DB"], ["stx", "STX"], ["dia", "dia"]].map(function(o){ return '<option value="' + o[0] + '"' + (o[0] === unit ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select>';
+	}
+	function readField(cell, prefix){
+		var v = Number(cell.querySelector('[data-pe="' + prefix + '"]').value);
+		if(!(v > 0)) return null;
+		var u = cell.querySelector('[data-peu="' + prefix + '"]').value;
+		return Math.round(u === "stx" ? v * 576 : u === "db" ? v * 9 : v);
+	}
+	function openPriceEditor(tr, a){
+		var cell = tr.querySelector(".price-cell"), id = tr.getAttribute("data-row");
+		var it = items.filter(function(i){ return i.id === id; })[0];
+		if(!cell || !it) return;
+		var regular = a.type === "regular";
+		cell.innerHTML = '<div class="price-edit">' +
+			'<div class="pe-row"><label>' + (regular ? "Price" : "Start") + '</label>' + unitFields("start", it.hostPicks ? 0 : it.startDia) + '</div>' +
+			(regular ? '' : '<div class="pe-row"><label>Lowest</label>' + unitFields("min", it.hostPicks ? 0 : it.minDia) + '</div>') +
+			'<div class="pe-acts"><button type="button" class="btn-ghost" data-pe-save>Save</button><button type="button" class="btn-ghost" data-pe-cancel>Cancel</button><span data-pe-msg></span></div></div>';
+		var first = cell.querySelector('[data-pe="start"]');
+		first.focus(); first.select();
+		cell.querySelector("[data-pe-cancel]").onclick = function(){ renderDetail(); };
+		var save = cell.querySelector("[data-pe-save]");
+		cell.querySelectorAll("input").forEach(function(inp){ inp.addEventListener("keydown", function(e){ if(e.key === "Enter") save.click(); if(e.key === "Escape") renderDetail(); }); });
+		save.onclick = function(){
+			var startDia = readField(cell, "start"), minDia = regular ? startDia : readField(cell, "min");
+			var msg = cell.querySelector("[data-pe-msg]");
+			if(!startDia || !minDia){ msg.innerHTML = '<span class="err" style="margin:0">Fill in the price' + (regular ? "" : "s") + '</span>'; return; }
+			if(!regular && minDia >= startDia){ msg.innerHTML = '<span class="err" style="margin:0">Lowest must be below start</span>'; return; }
+			save.disabled = true;
+			api("/admin/auctions/item-price", { method: "POST", body: { itemId: id, startDia: startDia, minDia: minDia } }).then(function(res){
+				save.disabled = false;
+				if(!res.ok){ msg.innerHTML = '<span class="err" style="margin:0">' + esc(res.d.error || "Couldn't save") + '</span>'; return; }
+				it.startDia = res.d.startDia; it.minDia = res.d.minDia; it.hostPicks = 0;
+				renderDetail();
+			});
+		};
+	}
+
 	function rowAmount(tr){
 		var v = Number(tr.querySelector("[data-amt]").value);
 		if(!(v > 0)) return null;
-		return Math.round(tr.querySelector("[data-unit]").value === "db" ? v * 9 : v);
+		var unit = tr.querySelector("[data-unit]").value;
+		return Math.round(unit === "stx" ? v * 576 : unit === "db" ? v * 9 : v);
 	}
 
 	function wireEntries(a){
@@ -321,6 +382,8 @@
 				var d = rowAmount(tr);
 				if(d){ var c = cutFor(d, a.cutPercent); preview.textContent = "cut " + fmtDia(c) + " · gets " + fmtDia(d - c); }
 			};
+			var pen = tr.querySelector("[data-edit]");
+			if(pen) pen.onclick = function(){ openPriceEditor(tr, a); };
 			tr.querySelector("[data-amt]").addEventListener("input", update);
 			tr.querySelector("[data-unit]").addEventListener("change", update);
 			tr.querySelector("[data-amt]").addEventListener("keydown", function(e){ if(e.key === "Enter") tr.querySelector('[data-act="sold"]').click(); });

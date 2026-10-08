@@ -36,7 +36,7 @@
 		".ae-val small{display:block;color:var(--muted);font-size:11px;white-space:normal;max-width:150px;}" +
 		".ae-money{display:flex;gap:4px;}" +
 		".ae-money input{width:76px;min-width:0;padding:7px 8px;}" +
-		".ae-money select{width:60px;padding:7px 4px;}" +
+		".ae-money select{width:64px;padding:7px 4px;}" +
 		".ae-note{font-size:11.5px;margin-top:3px;max-width:190px;}" +
 		".ae-note.warn{color:var(--warn);}" +
 		".ae-note.bad{color:var(--bad);font-weight:600;}" +
@@ -59,14 +59,18 @@
 	function norm(s){ return String(s || "").toLowerCase().replace(/[^a-z0-9']/g, ""); }
 	function fmtDia(d){
 		if(d == null) return "";
-		if(Math.round(d) !== d) return d >= 9 ? (Math.round(d / 9 * 10) / 10) + " DB" : (Math.round(d * 10) / 10) + " dia";
-		var db = Math.floor(d / 9), dia = d % 9;
-		if(!db) return dia + " dia";
-		return dia ? db + " DB " + dia + " dia" : db + " DB";
+		if(Math.round(d) !== d) return d >= 576 ? (Math.round(d / 576 * 10) / 10) + " STX" : d >= 9 ? (Math.round(d / 9 * 10) / 10) + " DB" : (Math.round(d * 10) / 10) + " dia";
+		// 1 STX = 64 DB = 576 dia
+		var stx = Math.floor(d / 576), db = Math.floor((d % 576) / 9), dia = d % 9, parts = [];
+		if(stx) parts.push(stx + " STX");
+		if(db) parts.push(db + " DB");
+		if(dia || !parts.length) parts.push(dia + " dia");
+		return parts.join(" ");
 	}
-	function toDia(value, unit){ var n = Number(value); if(!(n > 0)) return null; return Math.round(unit === "db" ? n * 9 : n); }
+	function toDia(value, unit){ var n = Number(value); if(!(n > 0)) return null; return Math.round(unit === "stx" ? n * 576 : unit === "db" ? n * 9 : n); }
 	function money(dia){
 		if(dia == null) return { val: "", unit: "db" };
+		if(dia >= 576 && dia % 576 === 0) return { val: String(dia / 576), unit: "stx" };
 		if(dia >= 9) return { val: dia % 9 === 0 ? String(dia / 9) : String(Math.round(dia / 9 * 100) / 100), unit: "db" };
 		return { val: String(dia), unit: "dia" };
 	}
@@ -189,7 +193,7 @@
 		}
 		function moneyHtml(field, m){
 			return '<div class="ae-money"><input type="number" min="0" step="any" data-f="' + field + '" value="' + esc(m.val) + '" aria-label="' + field + '">' +
-				'<select data-u="' + field + '" aria-label="' + field + ' unit"><option value="db"' + (m.unit === "db" ? " selected" : "") + '>DB</option><option value="dia"' + (m.unit === "dia" ? " selected" : "") + '>dia</option></select></div>';
+				'<select data-u="' + field + '" aria-label="' + field + ' unit"><option value="db"' + (m.unit === "db" ? " selected" : "") + '>DB</option><option value="stx"' + (m.unit === "stx" ? " selected" : "") + '>STX</option><option value="dia"' + (m.unit === "dia" ? " selected" : "") + '>dia</option></select></div>';
 		}
 		function valueHtml(row){
 			if(!row.est) return '<span class="ae-val">…</span>';

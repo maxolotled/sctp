@@ -83,9 +83,12 @@
 	}
 	function fmtDia(d){
 		if(d == null) return "–";
-		var db = Math.floor(d / 9), dia = d % 9;
-		if(!db) return dia + " dia";
-		return dia ? db + " DB " + dia + " dia" : db + " DB";
+		// 1 STX = 64 DB = 576 dia
+		var stx = Math.floor(d / 576), db = Math.floor((d % 576) / 9), dia = d % 9, parts = [];
+		if(stx) parts.push(stx + " STX");
+		if(db) parts.push(db + " DB");
+		if(dia || !parts.length) parts.push(dia + " dia");
+		return parts.join(" ");
 	}
 
 	function load(){

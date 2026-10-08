@@ -7022,10 +7022,13 @@ function auctionCut(soldDia, cutPercent) {
 
 /** 351 -> "39 DB", 352 -> "39 DB 1 dia", 4 -> "4 dia"; estimates (not whole) -> "12.4 DB". */
 function fmtDia(d) {
-	if (!Number.isInteger(d)) return d >= 9 ? `${Math.round((d / 9) * 10) / 10} DB` : `${Math.round(d * 10) / 10} dia`;
-	const db = Math.floor(d / 9), dia = d % 9;
-	if (!db) return `${dia} dia`;
-	return dia ? `${db} DB ${dia} dia` : `${db} DB`;
+	if (!Number.isInteger(d)) return d >= 576 ? `${Math.round((d / 576) * 10) / 10} STX` : d >= 9 ? `${Math.round((d / 9) * 10) / 10} DB` : `${Math.round(d * 10) / 10} dia`;
+	// 1 STX = 64 DB = 576 dia
+	const stx = Math.floor(d / 576), db = Math.floor((d % 576) / 9), dia = d % 9, parts = [];
+	if (stx) parts.push(`${stx} STX`);
+	if (db) parts.push(`${db} DB`);
+	if (dia || !parts.length) parts.push(`${dia} dia`);
+	return parts.join(" ");
 }
 
 function auctionPublic(a) {
@@ -7304,6 +7307,31 @@ async function handleAdminAuctionItems(request, env) {
 	return json({ items: results });
 }
 
+// POST /admin/auctions/item-price {itemId, startDia, minDia?} ("auctions") — the
+// host changes an entry's price (same rules as entering one: a regular auction
+// has one price, a Dutch one needs a lowest limit below the starting bid).
+// Setting a price on a "let the host pick" entry turns that off.
+async function handleAdminAuctionItemPrice(request, env) {
+	const auth = await requireAdminAuth(request, env, "auctions");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const item = await env.DB.prepare("SELECT * FROM auctionItems WHERE id = ?").bind(String(body.itemId || "")).first();
+	if (!item) return json({ error: "Item not found" }, 404);
+	const auction = await env.DB.prepare("SELECT type FROM auctions WHERE id = ?").bind(item.auctionId).first();
+	const startDia = Math.round(Number(body.startDia));
+	let minDia = Math.round(Number(body.minDia));
+	if (!(startDia > 0)) return json({ error: "Enter a starting price." }, 400);
+	if (auction && auction.type === "regular") minDia = startDia;
+	else {
+		if (!(minDia > 0)) return json({ error: "Enter a lowest limit." }, 400);
+		if (minDia >= startDia) return json({ error: "The lowest limit must be below the starting bid." }, 400);
+	}
+	await env.DB.prepare("UPDATE auctionItems SET startDia = ?, minDia = ?, hostPicks = 0, updatedAt = ? WHERE id = ?")
+		.bind(startDia, minDia, new Date().toISOString(), item.id).run();
+	return json({ ok: true, startDia, minDia, hostPicks: 0 });
+}
+
 async function handleAdminAuctionResult(request, env) {
 	const auth = await requireAdminAuth(request, env, "auctions");
 	if (!auth.ok) return auth.response;
@@ -7430,6 +7458,7 @@ const ROUTES = [
 	["GET", "/admin/auctions/items", handleAdminAuctionItems],
 	["POST", "/admin/auctions/add-items", handleAdminAddAuctionItems],
 	["POST", "/admin/auctions/result", handleAdminAuctionResult],
+	["POST", "/admin/auctions/item-price", handleAdminAuctionItemPrice],
 	["GET", "/mapart/of-the-day", handleGetMapartOfTheDay],
 	["POST", "/admin/mapart/otd/reroll", handleAdminRerollMapartOfTheDay],
 	["POST", "/mapart/search-image", handleSearchMapartImage],
