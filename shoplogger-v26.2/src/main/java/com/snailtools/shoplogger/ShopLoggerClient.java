@@ -238,6 +238,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 			WatchlistJoinCheck.tick(client);
 			UpdateNoticeCheck.tick(client);
 			OnboardingLinkCheck.tick(client);
+			NoticePopups.tick(client);
 			ShopVisitAlert.tick(client);
 			QolHookManager.onTick();
 

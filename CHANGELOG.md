@@ -3,7 +3,7 @@
 ## 2.4 (mod 2.4)
 
 ### Mod
-- **Rare-dle in-game:** a new Rare-dle tab (and dashboard tile) plays today's daily Rare-dle. It's the same puzzle, account, streak and leaderboard as sctp.nl/rare-dle. There's no password: the mod proves your Minecraft name the same way a server does when you join, and plays on the sctp.nl account that has that name verified. Guesses show the same coloured hints, the pixel hint sharpens as you go, and the answer shows when you're done.
+- **Rare-dle in-game:** a new Rare-dle tab (and dashboard tile) plays today's daily Rare-dle. It's the same puzzle, account, streak and leaderboard as sctp.nl/rare-dle. There's no password: the mod plays on the sctp.nl account linked to your Minecraft name, with a sign-in that only works for Rare-dle. Guesses show the same coloured hints, the pixel hint sharpens as you go, and the answer shows when you're done.
 - **Empty hand for block clicks:** a new Settings › Empty hand page. Press Add, hold an item, press X, and from then on clicking doors, chests, buttons, levers, crafting tables and every other clickable block uses an empty hotbar slot (or a plain vanilla item) instead of that item, so its own right-click doesn't fire. Works everywhere, for as many items as you like. Items match exactly (same item and same name), so your named sword doesn't affect plain swords. Sneak-clicking still uses the item, and the page lists your items with a Remove button.
 - **Double chest shops:** double chests are scanned now, as one shop. The sign on the left half (as you face the chest) is the price; if only the right half has a sign, that one counts.
 - **Highlights that show through walls:** your own shop chests with a payment waiting get a bright green outline, visible through blocks, instead of green particles. The teleport beam's "Glowing chest outline" style is now this same outline ("Chest highlight (through walls)").
@@ -12,6 +12,7 @@
 - **Ender chest ⇄ backpack:** the two arrows are now one icon button on the left that opens whichever one you're not in (a bundle for your backpack, an ender chest for /ec).
 - **Stock holograms** (off by default, Settings › Look & tools): a small line on the front of each scanned shop chest, under its sign: "64 in stock · 3m ago" or "Empty". It sits flat on the chest like sign text (it doesn't turn to follow you), only shows within 8 blocks, and only when you're in front of the chest.
 - **Real sales:** every scan now also reports how much payment is sitting in the shop, so the website can tell real sales apart from sellers taking stock out (see Website).
+- **Popups instead of chat messages:** the welcome message for new players and "update available" now show as a small popup on your screen with a button (walkthrough or download) and an X, instead of a chat line that scrolls away. "Shop Logger updated" stays a chat message. They wait until you're in the world with no menu open.
 - **Hide display listings:** a "Display: Shown / Hidden" chip on the Listings screen and a Settings › Look & tools option leave out [DISPLAY] shops everywhere: listings, item pages, seller profiles and chat `/search`.
 
 ### Website
@@ -23,13 +24,14 @@
 - **20 new rares** from the item sheet (The Grimoire, the organ collectibles, the Star (Reversed), new plushies…), with updated details for existing ones.
 
 ### Admin
+- **Old versions cut off:** uploads from mod versions below 2.2.1 are rejected (those could log ghost items), and the archived Minecraft 1.21.11 / 26.1 downloads are gone from the site.
 - **Auction admin (/auction/admin, "auctions" permission):** create auctions (type, host, drop-off location, date, limits, cut %), see every entry per player, record what sold, and add items for a player who handed in a shulker without using the site.
 - **Listing bans:** "Ban" next to "Rem." on listings and in reports hides that item from that seller for good; the Banned listings section in the admin page undoes it.
 
 ### Backend
 - Migration 0050: `containerScans` (last scan per chest: stock per listing + payment), `shopSales` (every confirmed sale) and `confirmedSold` / `confirmedRevenueDiamonds` on `sellerItemDailyStats`. Uploads accept `payment`, `paymentCurrency` and `scannedAt` per scanned position; `/stats/item`, `/stats/world` and `/stats/mine` return confirmed sales (`totalSold`, `recentSold`…) and `salesSince`.
 - Migrations 0040 (item name translations), 0041–0044 and 0046–0047 (auctions, cut %, type, host, "host picks", drop-off), 0045 (`bannedListings`), 0048 (`wishlistItems`).
-- New endpoints: `/auction/*` and `/admin/auctions/*` (incl. `add-items`), `/admin/listings/ban|bans|unban`, `POST /mod/login` (Mojang-verified mod sign-in), and `list: "wish"` on `/collection/set`.
+- New endpoints: `/auction/*` and `/admin/auctions/*` (incl. `add-items`), `/admin/listings/ban|bans|unban`, `POST /mod/login` (in-game Rare-dle sign-in by Minecraft name; the session only works on `/raredle/*`, migration 0051 adds `adminSessions.scope`), and `list: "wish"` on `/collection/set`.
 
 ## 2.3 (mod 2.3)
 

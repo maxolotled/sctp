@@ -89,7 +89,7 @@
 //   GET  /mapart/my-likes                    (any account) -> {ids: [...]} the pieces you liked
 //   GET  /collection/mine, POST /collection/set {kind: "rare"|"mapart", world, ids[], owned, list?: "wish"}, POST /collection/privacy {private}   (any account) — personal collections, per world
 //   GET  /collection/public?username=        (public) -> {username, private, items?, wishes?}
-//   POST /mod/login {username, serverId}    (public) — the mod signs in as the account with that VERIFIED Minecraft name, proven via Mojang's hasJoined (no password); returns a normal 24h session
+//   POST /mod/login {username}           (public)       — in-game Rare-dle sign-in by Minecraft name; returns a session that only works on /raredle/*
 //   GET  /raredle/state, POST /raredle/guess {itemId}, POST /raredle/practice/new + mode=practice on state/guess (any account), GET /raredle/leaderboard (public) — the daily Rare-dle game; the answer never leaves the Worker until a game is finished. POST /raredle/reset exists but is QA-only (RAREDLE_ALLOW_RESET is false live).
 //   GET  /profile?username=                  (public, cached 2m) -> mapart (as artist/commissioner/owner), commission info, collection summary, marketplace history, jobRating (thumbs up/down summed across every job they've posted)
 //   POST /account/commission                 (verified account) body: {open, info?, discord?} — shown on the profile's Mapart tab
@@ -472,7 +472,9 @@ const MIN_TRUSTED_PRUNE_VERSION = "1.2.4";
 // handleUploadListings) rather than partially trusted. Since this is above
 // MIN_TRUSTED_PRUNE_VERSION, every upload that gets past this gate is
 // automatically also trusted for scannedPositions pruning.
-const MIN_UPLOAD_VERSION = "1.5.1";
+// 2.2.1: older versions could log another screen's contents (your own chest,
+// an NPC menu...) as a shop's stock, i.e. ghost items — see CHANGELOG 2.2.1.
+const MIN_UPLOAD_VERSION = "2.2.1";
 
 // Compares dot-separated numeric version strings, e.g. isVersionAtLeast("1.2.10", "1.2.3") -> true.
 // Missing/unparseable segments count as 0, so an unknown or malformed version is never trusted.
@@ -642,6 +644,10 @@ async function requireAnyAdmin(request, env) {
 
 	const session = await env.DB.prepare("SELECT * FROM adminSessions WHERE token = ?").bind(token).first();
 	if (!session || Date.parse(session.expiresAt) < Date.now()) {
+		return { ok: false, response: json({ error: "Unauthorized" }, 401) };
+	}
+	// A scoped session (see POST /mod/login) only works on its own part of the API.
+	if (session.scope && !new URL(request.url).pathname.startsWith("/" + session.scope + "/")) {
 		return { ok: false, response: json({ error: "Unauthorized" }, 401) };
 	}
 	const admin = await env.DB.prepare("SELECT * FROM admins WHERE id = ?").bind(session.adminId).first();
@@ -1296,7 +1302,7 @@ async function handleUploadListings(request, env) {
 		return json({ error: `Shop Logger ${modVersion || "(unknown version)"} is no longer supported — please update to ${MIN_UPLOAD_VERSION} or later.` }, 426);
 	}
 
-	// modVersion is now guaranteed >= MIN_UPLOAD_VERSION (1.5.1), which is
+	// modVersion is now guaranteed >= MIN_UPLOAD_VERSION (2.2.1), which is
 	// itself above MIN_TRUSTED_PRUNE_VERSION (1.2.4) — so every upload that
 	// reaches this point is always trusted for scannedPositions pruning.
 	const scannedPositionsIn = Array.isArray(body.scannedPositions) ? body.scannedPositions : [];
@@ -5372,8 +5378,8 @@ async function handleGetProfile(request, env, ctx) {
 		if (!name) return { error: "username is required" };
 		const low = name.toLowerCase();
 		const acct = await env.DB.prepare(
-			"SELECT id, username, mcUsername, mcVerified, collectionPrivate, commissionOpen, commissionInfo, commissionDiscord FROM admins WHERE lower(username) = ? OR lower(replace(mcUsername, '.', '')) = ? ORDER BY (lower(username) = ?) DESC LIMIT 1"
-		).bind(low, low, low).first();
+			"SELECT id, username, mcUsername, mcVerified, collectionPrivate, commissionOpen, commissionInfo, commissionDiscord FROM admins WHERE lower(username) = ? OR lower(replace(mcUsername, '.', '')) = ? ORDER BY (mcVerified = 1 AND lower(replace(mcUsername, '.', '')) = ?) DESC, (lower(username) = ?) DESC LIMIT 1"
+		).bind(low, low, low, low).first(); // a player's verified account wins over another account that merely has their name as its username
 
 		const artistName = acct && acct.mcUsername ? String(acct.mcUsername).replace(/^\./, "").toLowerCase() : low;
 		const { results: mapartRows } = await env.DB.prepare(
@@ -6273,39 +6279,30 @@ async function handleRaredleGuess(request, env) {
 }
 
 // ---------------- mod login ----------------
-// POST /mod/login {username, serverId} (public) — signs the mod in as the sctp.nl
-// account whose VERIFIED Minecraft name is the player's, with no password: the
-// same proof a Minecraft server uses when you join. The mod picks a random
-// serverId and calls Mojang's joinServer with the player's own game session;
-// here we ask Mojang whether that player really joined that serverId. Only the
-// name Mojang returns is trusted, never the one in the request. Returns a normal
-// 24h account session (Bearer token), e.g. for in-game Rare-dle.
-const MOD_LOGIN_SERVER_ID = /^[0-9a-f]{20,40}$/;
+// POST /mod/login {username} (public) — signs the mod in for in-game
+// Rare-dle as the sctp.nl account linked to that Minecraft name (a verified link
+// first, else an account that registered with that name). There's no proof the
+// player really is that name: Mojang blocks every request from Cloudflare (all
+// its session/profile APIs answer 403 here), so it can't be checked. That's why
+// the session is scoped to /raredle/* only (see requireAnyAdmin): at worst
+// someone could play another player's daily puzzle, never touch their account.
 async function handleModLogin(request, env) {
 	let body;
 	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
 	const username = String(body.username || "").trim();
-	const serverId = String(body.serverId || "").trim().toLowerCase();
-	if (!MC_USERNAME.test(username) || !MOD_LOGIN_SERVER_ID.test(serverId)) return json({ error: "Bad login request." }, 400);
+	if (!MC_USERNAME.test(username)) return json({ error: "Bad login request." }, 400);
 
-	let profile = null;
-	try {
-		const res = await fetch("https://sessionserver.mojang.com/session/minecraft/hasJoined?username=" + encodeURIComponent(username) + "&serverId=" + serverId);
-		if (res.status === 200) profile = await res.json();
-	} catch (e) {
-		return json({ error: "Couldn't reach Minecraft's login servers, try again in a minute." }, 502);
-	}
-	if (!profile || !profile.name) return json({ error: "Couldn't confirm your Minecraft login. Restart the game and try again." }, 401);
-
-	const admin = await env.DB.prepare("SELECT * FROM admins WHERE mcVerified = 1 AND lower(mcUsername) = lower(?)").bind(profile.name).first();
-	if (!admin) return json({ error: "No sctp.nl account has " + profile.name + " verified yet. Make one (or verify your name) at sctp.nl to play.", code: "noAccount" }, 404);
+	const admin = await env.DB.prepare(
+		"SELECT * FROM admins WHERE lower(ltrim(mcUsername, '.')) = lower(ltrim(?, '.')) ORDER BY mcVerified DESC, createdAt ASC LIMIT 1"
+	).bind(username).first();
+	if (!admin) return json({ error: "No sctp.nl account is linked to " + username + " yet. Make one at sctp.nl to play.", code: "noAccount" }, 404);
 
 	const token = newToken();
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + ADMIN_SESSION_TTL_MS).toISOString();
-	await env.DB.prepare("INSERT INTO adminSessions (token, adminId, createdAt, expiresAt) VALUES (?, ?, ?, ?)")
+	await env.DB.prepare("INSERT INTO adminSessions (token, adminId, createdAt, expiresAt, scope) VALUES (?, ?, ?, ?, 'raredle')")
 		.bind(token, admin.id, now.toISOString(), expiresAt).run();
-	return json({ token, username: admin.username, mcUsername: profile.name, expiresAt });
+	return json({ token, username: admin.username, mcUsername: admin.mcUsername, expiresAt });
 }
 
 async function handleRaredleLeaderboard(request, env, ctx) {

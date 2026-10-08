@@ -11,7 +11,8 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 
 /**
- * One-time-per-situation chat nudge toward the site's onboarding pages, checked right
+ * One-time-per-situation nudge (a welcome popup for new players, see NoticePopups;
+ * a chat line after an update) pointing to the site's onboarding pages, checked right
  * after join alongside UpdateNoticeCheck. Two situations, told apart by comparing the
  * mod's own version against the last version Config remembers seeing:
  *   - never seen before, AND the config file itself is brand new -> a genuinely fresh
@@ -43,7 +44,7 @@ public final class OnboardingLinkCheck {
 		String lastSeen = Config.get(CONFIG_KEY, String.class);
 
 		if (lastSeen == null && !Config.existedBeforeLoad()) {
-			report(client, "Welcome to Shop Logger! New here? ", "See how it works", "https://sctp.nl/onboarding/mod");
+			NoticePopups.show("Welcome to Shop Logger!", "New here? The walkthrough shows what the mod does and how to get the most out of it. Press X in-game any time to open the menu.", "See how it works", "https://sctp.nl/onboarding/mod");
 		} else if (lastSeen == null || !lastSeen.equals(current)) {
 			report(client, "Shop Logger updated! ", "See what's new", "https://sctp.nl/onboarding/update");
 		}

@@ -3,12 +3,10 @@ package com.snailtools.shoplogger.gui.data;
 import com.google.gson.Gson;
 import net.minecraft.client.Minecraft;
 
-import java.math.BigInteger;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -19,18 +17,15 @@ import java.util.concurrent.CompletionException;
  * In-game Rare-dle: the same daily game as sctp.nl/rare-dle, on the same
  * account, so it counts for streaks and the leaderboard.
  *
- * Signing in needs no password. Like joining a Minecraft server, the mod asks
- * Mojang to note that this player "joined" a random server id (with the
- * player's own game session), then the Worker's POST /mod/login checks that
- * with Mojang and signs us in as the sctp.nl account whose verified
- * Minecraft name is this player's. The session token stays in memory only.
+ * Signing in needs no password: the Worker's POST /mod/login matches the
+ * player's Minecraft name to the sctp.nl account linked to it, and returns a
+ * session that only works for Rare-dle. The token stays in memory only.
  */
 public final class RaredleClient {
 
 	private static final String API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
 	private static final HttpClient CLIENT = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 	private static final Gson GSON = new Gson();
-	private static final SecureRandom RANDOM = new SecureRandom();
 
 	private static volatile String token;
 
@@ -105,15 +100,7 @@ public final class RaredleClient {
 
 	private static CompletableFuture<Void> login() {
 		return CompletableFuture.runAsync(() -> {
-			Minecraft mc = Minecraft.getInstance();
-			var user = mc.getUser();
-			String serverId = new BigInteger(160, RANDOM).toString(16);
-			try {
-				mc.services().sessionService().joinServer(user.getProfileId(), user.getAccessToken(), serverId);
-			} catch (Exception e) {
-				throw new RaredleException("Couldn't confirm your Minecraft login with Mojang. Restart the game and try again.");
-			}
-			String body = GSON.toJson(Map.of("username", user.getName(), "serverId", serverId));
+			String body = GSON.toJson(Map.of("username", Minecraft.getInstance().getUser().getName()));
 			HttpRequest req = HttpRequest.newBuilder(URI.create(API_BASE + "/mod/login"))
 					.header("Content-Type", "application/json")
 					.POST(HttpRequest.BodyPublishers.ofString(body))

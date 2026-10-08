@@ -4,7 +4,7 @@ Thank you for using the SCTP! Download the newest mod files via the website. New
 ## 2.4: Rare-dle in-game, auctions and wishlists
 ::: details Rare-dle in-game
 - Play today's Rare-dle without leaving the game: open the menu (X) and pick the new Rare-dle tile.
-- It's the same puzzle, streak and leaderboard as on the website, on your sctp.nl account. No password needed: it signs you in with your Minecraft name (verify that name on sctp.nl first).
+- It's the same puzzle, streak and leaderboard as on the website, on your sctp.nl account. No password needed: it uses the sctp.nl account linked to your Minecraft name.
 :::
 ::: details Empty hand for doors and chests
 - Got an item that does something when you right-click (a rare, a tool)? Add it in Settings › Empty hand: press Add, hold the item, press X.

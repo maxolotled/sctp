@@ -1043,33 +1043,11 @@
 			<h3>Good to know</h3>
 			<p class="download-reminder">New to installing mods? See the <a href="/docs/installation">installation guide</a>.</p>
 			<p class="download-reminder">View the <a href="https://github.com/maxolotled/sctp" target="_blank" rel="noopener">source code on GitHub</a>.</p>
-			<p class="download-reminder"><a href="#" id="openArchived">Looking for an older Minecraft version? Archived downloads</a></p>
 			<p class="download-reminder">Thanks to <strong>Zyski</strong> for the QOL features, <strong>tinatina5252</strong> for feedback, testing, and tons of general help, and <strong>LadyMaledicte</strong> for the rare item library.</p>
 		</div>
 		</div>
 		<div class="modal-actions">
 			<button id="closeDownload" type="button">Close</button>
-		</div>
-	</div>
-</div>
-
-<!-- archived downloads modal -->
-<div class="modal-backdrop" id="archivedBackdrop">
-	<div class="modal">
-		<h2>Archived downloads</h2>
-		<p style="color:var(--warn);">These versions are no longer updated and are stuck on 1.5.2 — if you can, update to Minecraft 26.2 instead. They're kept here only for players who can't upgrade their Minecraft version yet.</p>
-		<div class="download-options">
-			<a class="download-option" href="/shoplogger-1.21.11-1.5.2.jar" download="shoplogger-1.21.11-1.5.2.jar">
-				<strong>Minecraft 1.21.11</strong>
-				<span>shoplogger-1.21.11-1.5.2.jar</span>
-			</a>
-			<a class="download-option" href="/shoplogger-26.1-1.5.2.jar" download="shoplogger-26.1-1.5.2.jar">
-				<strong>Minecraft 26.1</strong>
-				<span>shoplogger-26.1-1.5.2.jar</span>
-			</a>
-		</div>
-		<div class="modal-actions">
-			<button id="closeArchived" type="button">Close</button>
 		</div>
 	</div>
 </div>
@@ -2412,14 +2390,6 @@
 		document.getElementById("downloadBackdrop").classList.remove("open");
 	}
 
-	// ---------------- archived downloads modal ----------------
-	function openArchived(){
-		document.getElementById("archivedBackdrop").classList.add("open");
-	}
-	function closeArchived(){
-		document.getElementById("archivedBackdrop").classList.remove("open");
-	}
-
 	// ---------------- upload modal ----------------
 	function openUpload(){
 		document.getElementById("uploadBackdrop").classList.add("open");
@@ -2790,16 +2760,6 @@
 		});
 	});
 
-	document.getElementById("openArchived").addEventListener("click", function(e){
-		e.preventDefault();
-		closeDownload();
-		openArchived();
-	});
-	document.getElementById("closeArchived").addEventListener("click", closeArchived);
-	document.getElementById("archivedBackdrop").addEventListener("click", function(e){
-		if(e.target === this) closeArchived();
-	});
-
 	document.getElementById("closeUpload").addEventListener("click", closeUpload);
 	document.getElementById("uploadBackdrop").addEventListener("click", function(e){
 		if(e.target === this) closeUpload();
@@ -2825,7 +2785,7 @@
 	});
 
 	document.addEventListener("keydown", function(e){
-		if(e.key === "Escape"){ closeDownload(); closeArchived(); closeUpload(); closeReport(); closeShare(); closeSharedShopRequest(); }
+		if(e.key === "Escape"){ closeDownload(); closeUpload(); closeReport(); closeShare(); closeSharedShopRequest(); }
 	});
 
 	var dropzone = document.getElementById("dropzone");
