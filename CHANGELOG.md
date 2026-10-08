@@ -12,7 +12,7 @@
 - **Ender chest ⇄ backpack:** the two arrows are now one icon button on the left that opens whichever one you're not in (a bundle for your backpack, an ender chest for /ec).
 - **Stock holograms** (off by default, Settings › Look & tools): a small line on the front of each scanned shop chest, under its sign: "64 in stock · 3m ago" or "Empty". It sits flat on the chest like sign text (it doesn't turn to follow you), only shows within 8 blocks, and only when you're in front of the chest.
 - **Real sales:** every scan now also reports how much payment is sitting in the shop, so the website can tell real sales apart from sellers taking stock out (see Website).
-- **Popups instead of chat messages:** the welcome message for new players and "update available" now show as a small popup on your screen with a button (walkthrough or download) and an X, instead of a chat line that scrolls away. "Shop Logger updated" stays a chat message. They wait until you're in the world with no menu open.
+- **Popups instead of chat messages:** the welcome message for new players and "Shop Logger updated" now show as a small popup on your screen with a button (walkthrough or what's new) and an X, instead of a chat line that scrolls away. They wait until you're in the world with no menu open. "Update available" notices stay in chat. They wait until you're in the world with no menu open.
 - **Hide display listings:** a "Display: Shown / Hidden" chip on the Listings screen and a Settings › Look & tools option leave out [DISPLAY] shops everywhere: listings, item pages, seller profiles and chat `/search`.
 
 ### Website

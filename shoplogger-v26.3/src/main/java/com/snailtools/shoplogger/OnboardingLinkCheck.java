@@ -11,8 +11,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 
 /**
- * One-time-per-situation nudge (a welcome popup for new players, see NoticePopups;
- * a chat line after an update) pointing to the site's onboarding pages, checked right
+ * One-time-per-situation on-screen popup (see NoticePopups) pointing to the site's onboarding pages, checked right
  * after join alongside UpdateNoticeCheck. Two situations, told apart by comparing the
  * mod's own version against the last version Config remembers seeing:
  *   - never seen before, AND the config file itself is brand new -> a genuinely fresh
@@ -46,23 +45,12 @@ public final class OnboardingLinkCheck {
 		if (lastSeen == null && !Config.existedBeforeLoad()) {
 			NoticePopups.show("Welcome to Shop Logger!", "New here? The walkthrough shows what the mod does and how to get the most out of it. Press X in-game any time to open the menu.", "See how it works", "https://sctp.nl/onboarding/mod");
 		} else if (lastSeen == null || !lastSeen.equals(current)) {
-			report(client, "Shop Logger updated! ", "See what's new", "https://sctp.nl/onboarding/update");
+			NoticePopups.show("Shop Logger updated to " + current, "There's new stuff in this version. Take a quick look at what changed.", "See what's new", "https://sctp.nl/onboarding/update");
 		}
 
 		if (lastSeen == null || !lastSeen.equals(current)) {
 			Config.update(CONFIG_KEY, current);
 		}
-	}
-
-	private static void report(Minecraft client, String lead, String linkText, String url) {
-		MutableComponent msg = Component.literal("[ShopLogger] ").withStyle(ChatFormat.PREFIX)
-				.append(Component.literal(lead).withStyle(ChatFormat.SUCCESS))
-				.append(Component.literal(linkText).setStyle(Style.EMPTY
-						.withColor(ChatFormatting.AQUA)
-						.withUnderlined(true)
-						.withClickEvent(new ClickEvent.OpenUrl(java.net.URI.create(url)))
-						.withHoverEvent(new HoverEvent.ShowText(Component.literal(url)))));
-		client.player.sendSystemMessage(msg);
 	}
 
 	private static String modVersion() {

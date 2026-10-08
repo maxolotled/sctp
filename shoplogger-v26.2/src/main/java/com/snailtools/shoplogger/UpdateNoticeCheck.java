@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 /**
  * One-time check, run right after join: is this mod version below whatever
  * minimum an admin has configured (see admin.html's "Update notice" section)?
- * If so, show the configured message as an on-screen popup (see NoticePopups). Doesn't depend on world
+ * If so, print the configured message to chat. Doesn't depend on world
  * detection at all (unlike WatchlistJoinCheck) — just needs the player to exist.
  */
 public final class UpdateNoticeCheck {
@@ -46,17 +46,41 @@ public final class UpdateNoticeCheck {
 		if (notice.message == null || notice.message.isEmpty()) return;
 		if (isVersionAtLeast(modVersion(), notice.minVersion)) return; // already up to date
 
-		// The admin's message may contain [text](url) links: the first one becomes
-		// the popup's button, and every link shows as plain text in the message.
-		Matcher m = LINK_PATTERN.matcher(notice.message);
-		String button = "Get the update", url = "https://modrinth.com/mod/sc-shoplogger";
-		if (m.find()) { button = m.group(1); url = m.group(2); }
-		String text = LINK_PATTERN.matcher(notice.message).replaceAll("$1");
-		NoticePopups.show("Shop Logger update available", text, button, url);
+		MutableComponent msg = Component.literal("[ShopLogger] ").withStyle(ChatFormat.PREFIX)
+				.append(Component.literal("Update available: ").withStyle(ChatFormat.SUCCESS))
+				.append(parseLinkedMessage(notice.message));
+
+		client.player.sendSystemMessage(msg);
 	}
 
-	// [text](url) in the admin's message: the first link becomes the popup's button.
+	// [text](https://example.com) anywhere in the message becomes a clickable, underlined
+	// link that opens that URL — everything else renders as plain text, same as before.
+	// This is parsed entirely client-side from whatever an admin typed into the admin panel's
+	// "Chat message" box, so a link can be added to the notice without shipping a new mod build.
 	private static final Pattern LINK_PATTERN = Pattern.compile("\\[([^\\]]+)]\\((https?://[^\\s)]+)\\)");
+
+	private static Component parseLinkedMessage(String message) {
+		MutableComponent out = Component.literal("");
+		Matcher m = LINK_PATTERN.matcher(message);
+		int last = 0;
+		while (m.find()) {
+			if (m.start() > last) out.append(Component.literal(message.substring(last, m.start())).withStyle(ChatFormat.RESULT));
+			String text = m.group(1), url = m.group(2);
+			try {
+				out.append(Component.literal(text).setStyle(Style.EMPTY
+						.withColor(ChatFormatting.AQUA)
+						.withUnderlined(true)
+						.withClickEvent(new ClickEvent.OpenUrl(java.net.URI.create(url)))
+						.withHoverEvent(new HoverEvent.ShowText(Component.literal(url)))));
+			} catch (IllegalArgumentException e) {
+				// malformed URL (typo in the admin panel) — fall back to the raw text rather than breaking the notice
+				out.append(Component.literal(m.group(0)).withStyle(ChatFormat.RESULT));
+			}
+			last = m.end();
+		}
+		if (last < message.length()) out.append(Component.literal(message.substring(last)).withStyle(ChatFormat.RESULT));
+		return out;
+	}
 
 	private static String modVersion() {
 		return FabricLoader.getInstance().getModContainer("shoplogger")
