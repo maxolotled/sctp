@@ -53,7 +53,8 @@
 			path: "fly", width: 34, height: 18, every: [25000, 55000], first: [4000, 9000], dur: 9, flap: true,
 			svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19 10"><path d="M0 6C3 2 6 2 8 5C9 3 10 3 11 5C13 2 16 2 19 6C16 5 14 7 13 9C12 7 10.5 7.5 9.5 9C8.5 7.5 7 7 6 9C5 7 3 5 0 6Z" fill="#0B070A"/></svg>'
 		}],
-		toggle: { icon: "🍂", noun: "falling leaves" }
+		toggle: { icon: "🍂", noun: "falling leaves" },
+		flyerToggle: { icon: "🦇", noun: "bats" }
 	};
 
 	// ---- which theme to show: the live one, or a preview (?theme=<name>; ?theme=live stops it) ----

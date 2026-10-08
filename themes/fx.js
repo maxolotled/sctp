@@ -22,6 +22,7 @@
  *   bursts        { every: [min,max] ms, colors, sparks, shape: "dot"|"rect", first }
  *   flyers        [{ svg, width, height, path: "fly"|"hop"|"streak", every: [min,max] ms, first, dur, flap }]
  *   toggle        { icon, noun }  the corner button that switches particles + bursts on/off
+ *   flyerToggle   { icon, noun }  optional second corner button that switches the flyers on/off
  *   extra         function(helpers) run once after everything else, for theme-specific tricks
  *                 (helpers: { reduceMotion, el, rand, pick })
  */
@@ -108,6 +109,8 @@
 		".fx-toggle:hover{transform:scale(1.08);border-color:var(--accent-dim);}",
 		".fx-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}",
 		".fx-toggle.off{opacity:0.55;filter:grayscale(0.7);}",
+		/* the optional flyers on/off button sits just above it */
+		".fx-toggle.fx-toggle-2{bottom:calc(60px + env(safe-area-inset-bottom,0px));}",
 		/* reusable little animations for artwork */
 		".fx-flicker{animation:fxFlicker 3.2s infinite;}",
 		".fx-twinkle{animation:fxTwinkle 2.4s ease-in-out infinite;}",
@@ -340,11 +343,39 @@
 
 	// ---- flyers -------------------------------------------------------------
 
+	// Flyers (e.g. Halloween's bats) can be switched off on their own with an
+	// optional second corner button (cfg.flyerToggle); the choice is remembered.
+	var flyersOn = true;
+	function flyerToggle(cfg) {
+		if (!cfg.flyers || !cfg.flyerToggle || reduceMotion) return;
+		var key = "sctp_fx_" + (cfg.id || "theme") + "_flyers";
+		try { if (localStorage.getItem(key) === "off") flyersOn = false; } catch (e) {}
+		var noun = cfg.flyerToggle.noun || "flyers";
+		var btn = document.createElement("button");
+		btn.type = "button";
+		btn.className = "fx-toggle fx-toggle-2";
+		btn.textContent = cfg.flyerToggle.icon || "🕊";
+		function sync() {
+			btn.setAttribute("aria-pressed", flyersOn ? "true" : "false");
+			btn.title = (flyersOn ? "Turn " + noun + " off" : "Turn " + noun + " on");
+			btn.setAttribute("aria-label", btn.title);
+			btn.classList.toggle("off", !flyersOn);
+		}
+		btn.addEventListener("click", function () {
+			flyersOn = !flyersOn;
+			if (!flyersOn) document.querySelectorAll(".fx-flyer").forEach(function (n) { n.remove(); }); // gone right away
+			try { localStorage.setItem(key, flyersOn ? "on" : "off"); } catch (e) {}
+			sync();
+		});
+		sync();
+		document.body.appendChild(btn);
+	}
+
 	function flyers(cfg) {
 		if (reduceMotion || !cfg.flyers) return;
 		cfg.flyers.forEach(function (f) {
 			function go() {
-				if (!document.hidden) launch(f);
+				if (!document.hidden && flyersOn) launch(f);
 				setTimeout(go, rand(f.every[0], f.every[1]));
 			}
 			setTimeout(go, rand((f.first || [5000, 10000])[0], (f.first || [5000, 10000])[1]));
@@ -373,6 +404,7 @@
 			applyIcons(cfg);
 			applyProps(cfg);
 			effectsToggle(cfg);
+			flyerToggle(cfg);
 			flyers(cfg);
 			if (typeof cfg.extra === "function") {
 				try { cfg.extra({ reduceMotion: reduceMotion, el: el, rand: rand, pick: pick }); } catch (e) {}
