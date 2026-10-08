@@ -1,0 +1,34 @@
+/*
+ * Shared layout layer for every page that has the site nav (site-nav.js):
+ * wider content, the page's own header as a slim title row under the app bar,
+ * and less padding everywhere. Selectors start with "html" so they out-rank each
+ * page's own inline styles; only size and spacing, never fonts or colours, so the
+ * seasonal themes keep working.
+ */
+
+/* ---- page width ---- */
+html .wrap{max-width:1360px;padding-left:20px;padding-right:20px;}
+
+/* ---- the page's own header -> a compact title row ---- */
+html header.site{padding:12px 0 10px;border-bottom:1px solid var(--line);}
+html header.site .header-row{gap:10px;}
+html header.site .brand-row{gap:10px;}
+html header.site .brand-mark{width:26px;height:26px;font-size:20px;line-height:26px;}
+html header.site h1{font-size:21px;margin:0;line-height:1.2;}
+html header.site .tag{font-size:12.5px;margin:1px 0 0;}
+html header.site .trail-wrap{display:none;}
+html header.site #siteNavMount,html header.site #downloadMod{display:none!important;}
+
+/* ---- vertical rhythm ---- */
+html main{padding-top:16px;padding-bottom:40px;}
+html .hero{padding-top:18px;padding-bottom:12px;}
+html .card{padding:14px 16px;}
+html section.card + section.card,html .card + .card{margin-top:12px;}
+html footer.site{padding:16px 0;margin-top:20px;font-size:12.5px;}
+
+
+@media (max-width:640px){
+	html .wrap{padding-left:14px;padding-right:14px;}
+	html header.site h1{font-size:18px;}
+	html header.site .tag{display:none;}
+}

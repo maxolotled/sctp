@@ -3,9 +3,6 @@
 <head>
 <meta charset="utf-8">
 <script>
-	// /beta/... (the redesign preview): its own router lives at /beta/404.html, which
-	// reads the original path from ?p= and puts it back in the address bar.
-	if (/^\/beta(\/|$)/i.test(location.pathname)) location.replace("/beta/404.html?p=" + encodeURIComponent(location.pathname + location.search) + location.hash);
 	// /v<number> (any number of digits — /v2, /v3, /v49747, ...) is a short link to
 	// the "what's new" onboarding page. Redirect immediately, before loading anything
 	// else on this page — GitHub Pages routes any unmatched path here (see the rest of
@@ -293,6 +290,7 @@
 </style>
 <link rel="stylesheet" href="/theme.css">
 <script src="/theme.js" defer></script>
+<link rel="stylesheet" href="/site.css">
 </head>
 <body>
 
@@ -1038,7 +1036,7 @@
 				'</div>'+
 				(bio ? '<p class="profile-bio">'+esc(bio)+'</p>' : '')+
 				(shops.length ? '<div class="profile-shops"><div class="label">Also sells at</div>'+shops.map(function(s){ return '<span class="shop-pill">'+esc(s)+'</span>'; }).join("")+'</div>' : '')+
-				(hasAnyInfo ? '' : '<a class="add-info-btn" href="/index.html?addShop='+encodeURIComponent(username)+'">+ Add your shop info</a>')+
+				(hasAnyInfo ? '' : '<a class="add-info-btn" href="/search/?addShop='+encodeURIComponent(username)+'">+ Add your shop info</a>')+
 			'</div>'+
 			'<div class="profile-stats">'+
 				'<div><b>'+fmtNum(allListings.length)+'</b>listings</div>'+
