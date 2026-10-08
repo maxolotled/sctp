@@ -7172,6 +7172,8 @@ async function saveAuctionItems(env, auction, mcUsername, accountId, items) {
 		let startDia = Math.round(Number(it.startDia));
 		let minDia = Math.round(Number(it.minDia));
 		const hostPicks = it.hostPicks === true;
+		// a lot of several of the same rare; prices are for the whole lot
+		const quantity = Math.max(1, Math.min(999, Math.round(Number(it.quantity)) || 1));
 		if (hostPicks) {
 			// "let the host pick": the host decides the price(s) on the day
 			startDia = 0;
@@ -7189,10 +7191,10 @@ async function saveAuctionItems(env, auction, mcUsername, accountId, items) {
 		const est = estimates.get(rare.id);
 		const id = newId();
 		stmts.push(env.DB.prepare(
-			`INSERT INTO auctionItems (id, auctionId, batchId, mcUsername, accountId, rareId, itemName, texture, estimateDia, startDia, minDia, hostPicks, status, createdAt, updatedAt)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'entered', ?, ?)`
-		).bind(id, auction.id, batchId, mcUsername, accountId, rare.id, rare.name, rare.texture || null, est.value, startDia, minDia, hostPicks ? 1 : 0, now, now));
-		saved.push({ id, rareId: rare.id, itemName: rare.name, texture: rare.texture || null, startDia, minDia, hostPicks: hostPicks ? 1 : 0 });
+			`INSERT INTO auctionItems (id, auctionId, batchId, mcUsername, accountId, rareId, itemName, texture, estimateDia, startDia, minDia, hostPicks, quantity, status, createdAt, updatedAt)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'entered', ?, ?)`
+		).bind(id, auction.id, batchId, mcUsername, accountId, rare.id, rare.name, rare.texture || null, est.value != null ? est.value * quantity : null, startDia, minDia, hostPicks ? 1 : 0, quantity, now, now));
+		saved.push({ id, rareId: rare.id, itemName: rare.name, texture: rare.texture || null, startDia, minDia, hostPicks: hostPicks ? 1 : 0, quantity });
 	}
 	await env.DB.batch(stmts);
 	return { batchId, saved };
@@ -7226,7 +7228,7 @@ async function handleGetAuctionLineup(request, env, ctx) {
 	return cachedGet(request, ctx, 60, async () => {
 		const auctionId = new URL(request.url).searchParams.get("auctionId") || "";
 		const { results } = await env.DB.prepare(
-			`SELECT rareId, itemName, texture, COUNT(*) AS count FROM auctionItems
+			`SELECT rareId, itemName, texture, SUM(quantity) AS count FROM auctionItems
 			 WHERE auctionId = ? AND status != 'removed' GROUP BY rareId ORDER BY lower(itemName)`
 		).bind(auctionId).all();
 		return { items: results };
@@ -7358,8 +7360,8 @@ async function handleAdminAuctionResult(request, env) {
 	if (item.accountId && changed && (status === "sold" || status === "unsold")) {
 		const where = auction ? ` at ${auction.title}` : "";
 		const message = status === "sold"
-			? `Your ${item.itemName} sold for ${fmtDia(soldDia)}${where}. After our cut (${fmtDia(cutDia)}) you receive ${fmtDia(payoutDia)}.`
-			: `Your ${item.itemName} didn't sell${where}. It will be returned to you.`;
+			? `Your ${item.quantity > 1 ? item.quantity + "× " : ""}${item.itemName} sold for ${fmtDia(soldDia)}${where}. After our cut (${fmtDia(cutDia)}) you receive ${fmtDia(payoutDia)}.`
+			: `Your ${item.quantity > 1 ? item.quantity + "× " : ""}${item.itemName} didn't sell${where}. ${item.quantity > 1 ? "They" : "It"} will be returned to you.`;
 		await notifyAccount(env, item.accountId, "auctionResult", message, item.id);
 	}
 	return json({ ok: true, soldDia, cutDia, payoutDia });

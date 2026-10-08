@@ -309,7 +309,7 @@
 				g.items.map(function(i){
 					var soldUnit = !i.soldDia ? "db" : i.soldDia % 576 === 0 ? "stx" : i.soldDia % 9 === 0 ? "db" : "dia";
 					var soldVal = i.soldDia ? (soldUnit === "stx" ? i.soldDia / 576 : soldUnit === "db" ? i.soldDia / 9 : i.soldDia) : "";
-					return '<tr data-row="' + esc(i.id) + '" class="' + esc(i.status) + '"><td><div class="it"><img class="ico" src="' + esc(i.texture || "") + '" alt="">' + esc(i.itemName) + '</div></td>' +
+					return '<tr data-row="' + esc(i.id) + '" class="' + esc(i.status) + '"><td><div class="it"><img class="ico" src="' + esc(i.texture || "") + '" alt="">' + (i.quantity > 1 ? '<b>' + i.quantity + '×</b>&nbsp;' : '') + esc(i.itemName) + '</div></td>' +
 						'<td class="num price-cell"' + (regular ? '' : ' colspan="2"') + '>' + priceView(i, regular) + '</td>' + '<td class="num">' + (i.estimateDia != null ? "≈ " + fmtDia(i.estimateDia) : "–") + '</td>' +
 						'<td><span class="pill ' + esc(i.status) + '">' + esc(i.status) + '</span></td>' +
 						'<td><div class="sell"><input type="number" min="0" step="any" data-amt value="' + soldVal + '"><select data-unit><option value="db"' + (soldUnit === "db" ? " selected" : "") + '>DB</option><option value="stx"' + (soldUnit === "stx" ? " selected" : "") + '>STX</option><option value="dia"' + (soldUnit === "dia" ? " selected" : "") + '>dia</option></select></div></td>' +

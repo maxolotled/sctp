@@ -10,7 +10,8 @@
 //     onChange: function(){ … }                    // rows added/removed/edited
 //   });
 //   entry.count()      -> number of rows
-//   entry.validate()   -> {error} or {items: [{rareId, startDia, minDia, hostPicks}]}, and marks bad rows
+//   entry.validate()   -> {error} or {items: [{rareId, quantity, startDia, minDia, hostPicks}]}, and marks bad rows
+//                         (a row is a lot: quantity of the same rare, priced as a whole)
 //                         (hostPicks rows: "let the host pick" is ticked, no prices sent)
 //   entry.clear(), entry.focus()
 (function(){
@@ -44,6 +45,7 @@
 		".ae-host input{width:auto;margin:0;accent-color:var(--accent);cursor:pointer;}" +
 		".ae-host.on{color:var(--accent);}" +
 		".ae-hostnote{font-size:12px;color:var(--muted);padding-top:8px;max-width:190px;}" +
+		".ae-qty{width:54px;min-width:0;padding:7px 6px;}" +
 		".ae-x{background:transparent;border:none;color:var(--muted);font-size:19px;cursor:pointer;padding:4px 6px;line-height:1;}" +
 		".ae-x:hover{color:var(--bad);}" +
 		".ae-empty{color:var(--muted);font-size:13.5px;padding:14px;text-align:center;}" +
@@ -144,7 +146,7 @@
 				return;
 			}
 			msg.textContent = "";
-			var row = { key: ++seq, rare: rare, est: null, start: { val: "", unit: "db" }, min: { val: "", unit: "db" }, touched: false, host: false };
+			var row = { key: ++seq, rare: rare, est: null, start: { val: "", unit: "db" }, min: { val: "", unit: "db" }, touched: false, host: false, qty: 1 };
 			rows.push(row);
 			render();
 			changed();
@@ -155,20 +157,26 @@
 				.then(function(est){
 					row.est = est;
 					// fill in the suggestions unless the player already typed their own
-					if(!row.touched && est.value != null){
-						if(regular()) row.start = money(est.suggestedRegularDia);
-						else { row.start = money(est.suggestedStartDia); row.min = money(est.suggestedMinDia); }
-					}
+					if(!row.touched) suggest(row);
 					if(rows.indexOf(row) !== -1) render();
 					changed();
 				});
 		}
 
+		// fill in SCTP's suggested prices for the whole lot
+		function suggest(row){
+			var est = row.est;
+			if(!est || est.value == null) return;
+			if(regular()) row.start = money(est.suggestedRegularDia * row.qty);
+			else { row.start = money(est.suggestedStartDia * row.qty); row.min = money(est.suggestedMinDia * row.qty); }
+		}
+		function lotValue(row){ return row.est && row.est.value != null ? row.est.value * row.qty : null; }
+
 		function vals(row){ return { start: toDia(row.start.val, row.start.unit), min: regular() ? toDia(row.start.val, row.start.unit) : toDia(row.min.val, row.min.unit) }; }
 
 		// returns {bad} (blocks Continue) and/or {warn} (advice only) for one row
 		function check(row){
-			var v = vals(row), value = row.est && row.est.value != null ? row.est.value : null;
+			var v = vals(row), value = lotValue(row);
 			var out = { start: null, min: null };
 			if(row.host) return out;
 			if(regular()){
@@ -198,6 +206,7 @@
 		function valueHtml(row){
 			if(!row.est) return '<span class="ae-val">…</span>';
 			if(row.est.value == null) return '<div class="ae-val">–<small>' + (row.est.failed ? "couldn't load" : "no price data") + '</small></div>';
+			if(row.qty > 1) return '<div class="ae-val">≈ ' + esc(fmtDia(lotValue(row))) + '<small>' + esc(fmtDia(row.est.value)) + ' each · ' + esc(row.est.basis || "") + '</small></div>';
 			return '<div class="ae-val">≈ ' + esc(fmtDia(row.est.value)) + '<small>' + esc(row.est.basis || "") + '</small></div>';
 		}
 
@@ -206,6 +215,7 @@
 			var c = check(row);
 			return '<tr data-k="' + row.key + '">' +
 				'<td><div class="ae-item"><img class="ae-ico" src="' + esc(row.rare.texture || "") + '" alt="">' + esc(row.rare.name) + '</div></td>' +
+				'<td><input type="number" class="ae-qty" min="1" max="999" step="1" data-qty value="' + row.qty + '" aria-label="How many ' + esc(row.rare.name) + '" title="How many in this lot (priced together)"></td>' +
 				'<td>' + valueHtml(row) + '</td>' +
 				'<td>' + (row.host ? '<div class="ae-hostnote">The host sets the price' + (regular() ? '' : 's') + '</div>' : moneyHtml("start", row.start) + '<div data-n="start">' + noteHtml(c.start, showBadFor[row.key]) + '</div>') +
 					'<label class="ae-host' + (row.host ? ' on' : '') + '"><input type="checkbox" data-host' + (row.host ? ' checked' : '') + '>Let the host pick</label></td>' +
@@ -213,9 +223,9 @@
 				'<td style="width:1%;"><button type="button" class="ae-x" data-rm="' + row.key + '" title="Remove" aria-label="Remove ' + esc(row.rare.name) + '">&times;</button></td></tr>';
 		}
 		function render(){
-			thead.innerHTML = '<tr><th>Item</th><th>SCTP value</th><th>' + (regular() ? "Starting price" : "Starting bid") + '</th>' + (regular() ? '' : '<th>Lowest limit</th>') + '<th></th></tr>';
+			thead.innerHTML = '<tr><th>Item</th><th title="How many in this lot. Prices are for the whole lot.">Qty</th><th>SCTP value</th><th>' + (regular() ? "Starting price" : "Starting bid") + '</th>' + (regular() ? '' : '<th>Lowest limit</th>') + '<th></th></tr>';
 			tbody.innerHTML = rows.length ? rows.map(rowHtml).join("") :
-				'<tr><td colspan="5"><div class="ae-empty">Nothing yet. Search above: each rare you pick shows up here with suggested prices.</div></td></tr>';
+				'<tr><td colspan="6"><div class="ae-empty">Nothing yet. Search above: each rare you pick shows up here with suggested prices.</div></td></tr>';
 		}
 		function rowOf(el){ var tr = el.closest("tr[data-k]"); if(!tr) return null; var k = Number(tr.getAttribute("data-k")); return rows.filter(function(r){ return r.key === k; })[0] || null; }
 		function refreshNotes(tr, row){
@@ -226,6 +236,19 @@
 		}
 		tbody.addEventListener("input", function(e){
 			var row = rowOf(e.target); if(!row || e.target.hasAttribute("data-host")) return;
+			if(e.target.hasAttribute("data-qty")){
+				var q = Math.round(Number(e.target.value));
+				if(!(q >= 1)) return; // mid-typing (empty): keep the last good amount
+				row.qty = Math.min(999, q);
+				if(!row.touched) suggest(row);
+				var qtr = e.target.closest("tr"), qtmp = document.createElement("tbody");
+				qtmp.innerHTML = rowHtml(row);
+				qtr.replaceWith(qtmp.firstChild);
+				var qin = tbody.querySelector('tr[data-k="' + row.key + '"] [data-qty]');
+				if(qin){ qin.focus(); try { qin.setSelectionRange(qin.value.length, qin.value.length); } catch(err){} }
+				changed();
+				return;
+			}
 			var f = e.target.getAttribute("data-f"), u = e.target.getAttribute("data-u");
 			if(f){ row[f].val = e.target.value; row.touched = true; }
 			if(u){ row[u].unit = e.target.value; row.touched = true; }
@@ -274,8 +297,8 @@
 				if(!rows.length) return { error: "Add at least one item first." };
 				if(firstBad) return { error: "Fix the prices marked in red (" + firstBad + ")." };
 				return { items: rows.map(function(row){
-					if(row.host) return { rareId: row.rare.id, hostPicks: true };
-					var v = vals(row); return { rareId: row.rare.id, startDia: v.start, minDia: v.min };
+					if(row.host) return { rareId: row.rare.id, quantity: row.qty, hostPicks: true };
+					var v = vals(row); return { rareId: row.rare.id, quantity: row.qty, startDia: v.start, minDia: v.min };
 				}) };
 			},
 		};

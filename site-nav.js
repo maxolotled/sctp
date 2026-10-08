@@ -66,7 +66,7 @@
 			".bbar-main,.bbar-dl .t{display:none;}" +
 			".bbar-burger{display:inline-flex;align-items:center;justify-content:center;}" +
 			".bbar-drawer.open{display:block;position:fixed;top:52px;left:0;right:0;bottom:0;overflow:auto;background:var(--bg,#101B14);padding:12px 16px 40px;z-index:210;}" +
-			".bbar-drawer a{display:block;padding:10px 8px;color:var(--text,#EAEFE7);font-size:15px;border-bottom:1px solid var(--line,#33453A);}" +
+			".bbar-drawer a{display:block;text-decoration:none;padding:10px 8px;color:var(--text,#EAEFE7);font-size:15px;border-bottom:1px solid var(--line,#33453A);}" +
 			".bbar-drawer h4{margin:16px 0 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#8FA593);}" +
 		"}" +
 		// the page's own nav mount is replaced by the bar
@@ -122,13 +122,20 @@
 			moreBtn.setAttribute("aria-expanded", open ? "true" : "false");
 		});
 		document.addEventListener("click", function (e) { if (!more.contains(e.target)) more.classList.remove("open"); });
-		document.addEventListener("keydown", function (e) { if (e.key === "Escape") { more.classList.remove("open"); drawer.classList.remove("open"); } });
+		document.addEventListener("keydown", function (e) { if (e.key === "Escape") { more.classList.remove("open"); if (drawer.classList.contains("open")) setDrawer(false); } });
+		// The phone menu lives outside the bar: the bar's backdrop blur makes it the
+		// containing block for position:fixed children, which squeezed the
+		// full-screen drawer into the bar's 52px (only "Search" was visible).
 		var drawer = bar.querySelector(".bbar-drawer"), burger = bar.querySelector(".bbar-burger");
-		burger.addEventListener("click", function () {
-			var open = !drawer.classList.contains("open");
+		bar.parentNode.insertBefore(drawer, bar.nextSibling);
+		function setDrawer(open) {
 			drawer.classList.toggle("open", open);
 			burger.setAttribute("aria-expanded", open ? "true" : "false");
-		});
+			document.documentElement.style.overflow = open ? "hidden" : ""; // no page scrolling behind the open menu
+		}
+		burger.addEventListener("click", function () { setDrawer(!drawer.classList.contains("open")); });
+		drawer.addEventListener("click", function (e) { if (e.target.closest("a")) setDrawer(false); });
+		window.addEventListener("resize", function () { if (window.innerWidth > 900 && drawer.classList.contains("open")) setDrawer(false); });
 
 	}
 
