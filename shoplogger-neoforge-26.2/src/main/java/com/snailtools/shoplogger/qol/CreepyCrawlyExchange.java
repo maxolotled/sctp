@@ -10,6 +10,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.HashedStack;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
@@ -18,6 +19,8 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.entity.player.Inventory;
 
 import java.lang.reflect.Field;
 import java.util.Locale;
@@ -47,16 +50,16 @@ public class CreepyCrawlyExchange {
         if (!isInCreepyCrawlyLevel()) return;
         if (screen instanceof AbstractContainerScreen<?> containerScreen && isCreepyCrawlyExchangeScreen(containerScreen)) {
             updateExchangeControlBounds(containerScreen);
-            boolean sellingBlocked = hasWrongOwnerInventoryBug(containerScreen);
+            String blockedReason = getSellingBlockedReason(containerScreen);
             renderExchangeSlotHighlights(containerScreen, gui);
-            renderExchangeButton(gui, mouseX, mouseY, sellingBlocked);
-            renderBlockedSellingWarning(gui, mouseX, mouseY, sellingBlocked);
+            renderExchangeButton(gui, mouseX, mouseY, blockedReason != null);
+            renderBlockedSellingWarning(gui, mouseX, mouseY, blockedReason);
         }
     }
 
     public void onMouseEvent(long window, MouseButtonInfo button, int action) {
         if (button != null) {
-            onMouseEvent(window, QolHookManager.legacyButton(button), action);
+            onMouseEvent(window, button.button(), action);
         }
     }
 
@@ -69,8 +72,10 @@ public class CreepyCrawlyExchange {
             double mouseY = scaledMouseY();
             if (mouseX >= exchangeButtonX && mouseX < exchangeButtonX + EXCHANGE_BUTTON_WIDTH
                     && mouseY >= exchangeButtonY && mouseY < exchangeButtonY + EXCHANGE_BUTTON_HEIGHT) {
-                if (hasWrongOwnerInventoryBug(screen)) {
+                String blockedReason = getSellingBlockedReason(screen);
+                if (blockedReason != null) {
                     setExchangeSelling(false);
+                    Minecraft.getInstance().player.sendSystemMessage(Component.literal("[Auto Sell] " + blockedReason));
                     return;
                 }
                 exchangeSelling = !exchangeSelling;
@@ -92,18 +97,22 @@ public class CreepyCrawlyExchange {
     }
 
     private Slot findNextExchangeSlot(AbstractContainerScreen<?> screen) {
+        Slot slot = peekNextExchangeSlot(screen);
+        currentExchangeType = slot == null ? null : typeName(slot.getItem());
+        return slot;
+    }
+
+    private Slot peekNextExchangeSlot(AbstractContainerScreen<?> screen) {
         if (currentExchangeType != null) {
             Slot currentSlot = findTopExchangeSlot(screen, currentExchangeType);
             if (currentSlot != null) return currentSlot;
         }
-        currentExchangeType = null;
         for (Slot inventorySlot : screen.getMenu().slots) {
             if (inventorySlot.container != Minecraft.getInstance().player.getInventory()) continue;
             ItemStack stack = inventorySlot.getItem();
             if (stack.isEmpty() || !isOwnedByCurrentPlayer(stack)) continue;
             Slot exchangeSlot = findTopExchangeSlot(screen, typeName(stack));
             if (exchangeSlot == null) continue;
-            currentExchangeType = typeName(stack);
             return exchangeSlot;
         }
         return null;
@@ -203,6 +212,13 @@ public class CreepyCrawlyExchange {
 
         if (isWaitingForExchangeUpdate(screen)) return;
 
+        String blockedReason = getSellingBlockedReason(screen);
+        if (blockedReason != null) {
+            setExchangeSelling(false);
+            minecraft.player.sendSystemMessage(Component.literal("[Auto Sell] Stopped: " + blockedReason));
+            return;
+        }
+
         Slot slot = findNextExchangeSlot(screen);
         if (slot == null) {
             exchangeSelling = false;
@@ -222,7 +238,7 @@ public class CreepyCrawlyExchange {
     }
 
     public void setExchangeSelling(boolean exchangeSelling) {
-        exchangeSelling = exchangeSelling;
+        this.exchangeSelling = exchangeSelling;
         if (!exchangeSelling) {
             currentExchangeType = null;
             clearExchangeWait();
@@ -267,10 +283,10 @@ public class CreepyCrawlyExchange {
         );
     }
 
-    private void renderBlockedSellingWarning(GuiGraphicsExtractor gui, int mouseX, int mouseY, boolean sellingBlocked) {
-        if (!sellingBlocked || Minecraft.getInstance().font == null) return;
+    private void renderBlockedSellingWarning(GuiGraphicsExtractor gui, int mouseX, int mouseY, String blockedReason) {
+        if (blockedReason == null || Minecraft.getInstance().font == null) return;
 
-        String warning = "Remove wrong-owner bugs to sell";
+        String warning = blockedReason;
         int warningX = exchangeButtonX;
         int warningY = exchangeButtonY + EXCHANGE_BUTTON_HEIGHT + EXCHANGE_BUTTON_GAP;
         int warningWidth = Minecraft.getInstance().font.width(warning);
@@ -282,6 +298,56 @@ public class CreepyCrawlyExchange {
                 && mouseY >= exchangeButtonY && mouseY < exchangeButtonY + EXCHANGE_BUTTON_HEIGHT) {
             gui.setTooltipForNextFrame(Minecraft.getInstance().font, Component.literal(warning), mouseX, mouseY);
         }
+    }
+
+    private String getSellingBlockedReason(AbstractContainerScreen<?> screen) {
+        if (hasWrongOwnerInventoryBug(screen)) return "Remove wrong-owner bugs to sell";
+        Slot nextSale = peekNextExchangeSlot(screen);
+        if (nextSale == null) return null;
+        ItemStack offer = nextSale.getItem();
+        String type = typeName(offer);
+        int payout = getExchangeBatchCoins(type, offer.getCount());
+        if (payout < 0) return "Cannot verify coin payout for " + type;
+        long capacity = getAvailableCoinCapacity();
+        return capacity < payout ? "Not enough inventory space" : null;
+    }
+
+    private int getExchangeBatchCoins(String type, int batchSize) {
+        String name = normalizeName(type);
+        if (name.contains("emperor scorpion") || name.contains("stag beetle")) return batchSize == 1 ? 5 : -1;
+        if (name.contains("praying mantis") || name.contains("brown centipede")) return batchSize == 2 ? 3 : -1;
+        if (name.contains("black ant") || name.contains("brown ant") || name.contains("cockroach")
+                || name.contains("european hornet") || name.contains("tree cricket")
+                || name.contains("field cricket") || name.contains("mosquito")) return batchSize == 5 ? 1 : -1;
+        return -1;
+    }
+
+    private long getAvailableCoinCapacity() {
+        Inventory inventory = Minecraft.getInstance().player.getInventory();
+        ItemStack coinTemplate = ItemStack.EMPTY;
+        for (int index = 0; index < Inventory.INVENTORY_SIZE; index++) {
+            ItemStack stack = inventory.getItem(index);
+            if (isExchangeCoin(stack)) {
+                coinTemplate = stack;
+                break;
+            }
+        }
+        int stackLimit = coinTemplate.isEmpty() ? Items.RAW_GOLD.getDefaultMaxStackSize() : coinTemplate.getMaxStackSize();
+        long capacity = 0;
+        for (int index = 0; index < Inventory.INVENTORY_SIZE; index++) {
+            ItemStack stack = inventory.getItem(index);
+            if (stack.isEmpty()) capacity += Math.min(inventory.getMaxStackSize(), stackLimit);
+            else if (!coinTemplate.isEmpty() && ItemStack.isSameItemSameComponents(stack, coinTemplate)) {
+                capacity += Math.max(0, Math.min(inventory.getMaxStackSize(), stack.getMaxStackSize()) - stack.getCount());
+            }
+        }
+        return capacity;
+    }
+
+    private boolean isExchangeCoin(ItemStack stack) {
+        if (!stack.is(Items.RAW_GOLD)) return false;
+        var modelData = stack.get(DataComponents.CUSTOM_MODEL_DATA);
+        return modelData != null && Float.valueOf(999003.0F).equals(modelData.getFloat(0));
     }
 
     private Component exchangeButtonLabel(boolean disabled) {
@@ -392,7 +458,6 @@ public class CreepyCrawlyExchange {
         waitingCountBeforeClick = 0;
         exchangeClickWaitUntilMillis = 0L;
     }
-
 
 
 }
