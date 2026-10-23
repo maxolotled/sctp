@@ -1,5 +1,6 @@
 package com.snailtools.shoplogger;
 
+import java.util.ArrayList;
 import net.minecraft.core.BlockPos;
 
 import java.util.Collection;
@@ -27,7 +28,29 @@ public final class ShopLog {
 	public record Payment(int count, String currency, long scannedAtMillis) {}
 	private static final Map<String, Payment> PAYMENTS = new HashMap<>();
 
+	/** A purchase seen happening in an open shop (see ShopScanner#rescanForBuys): the listing as it was, how many went. */
+	public record Sale(ShopEntry listing, int units, String clientId, long atMillis) {}
+	private static final List<Sale> SALES = new ArrayList<>();
+
 	private ShopLog() {}
+
+	public static synchronized void addSale(ShopEntry listing, int units) {
+		SALES.add(new Sale(listing, units, java.util.UUID.randomUUID().toString(), System.currentTimeMillis()));
+	}
+
+	/** Takes every waiting purchase for an upload (give them back with returnSales if it fails). */
+	public static synchronized List<Sale> takeSales() {
+		List<Sale> out = new ArrayList<>(SALES);
+		SALES.clear();
+		return out;
+	}
+
+	public static synchronized void returnSales(List<Sale> sales) {
+		SALES.addAll(0, sales);
+		while (SALES.size() > 500) SALES.removeLast();
+	}
+
+	public static synchronized boolean hasSales() { return !SALES.isEmpty(); }
 
 	public static synchronized void put(ShopEntry entry) {
 		ENTRIES.put(entry.key(), entry);

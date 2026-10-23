@@ -1191,15 +1191,74 @@ async function handleAdminUnblockSeller(request, env) {
 //    collected — not counted;
 //  - a scan without payment info (older mods) only refreshes the stock baseline.
 // Known gap: a sale AND the seller collecting between two scans looks like "no
-// payment" and isn't counted, so these numbers can only undercount.
+// payment". Since mod 2.6 two more sources fill that in (shopSales.basis):
+//  - "buy": the mod rescans a shop right after its player buys from it and
+//    sends the purchase itself (body.sales, with a clientId so a retry can't
+//    double it). Those units are taken off the next comparison of that chest.
+//  - "drop": stock went down without a payment going up, but only a small part
+//    of a chest that still has stock (at most half of it): a sale the seller
+//    already collected. A chest that's emptied or mostly cleared isn't a sale.
+// "paid" is the original payment-proven kind.
 const SALES_TRACKING_SINCE = "2026-10-07";
+const DROP_SALE_MAX_SHARE = 0.5;
 
 function salesItemKey(baseItem, itemName) {
 	// same shape computeSellerItemStats uses, so the daily rows line up
 	return "v:" + String(baseItem || "").toLowerCase() + "|" + String(itemName || "").toLowerCase();
 }
 
-async function detectConfirmedSales(env, validRows, scannedPositions) {
+/** Records one sale (shopSales + the seller's daily totals). Returns false when clientId was seen before. */
+async function recordSale(env, sale) {
+	const res = await env.DB.prepare(
+		"INSERT OR IGNORE INTO shopSales (world, position, seller, sellerKey, itemKey, itemName, baseItem, units, revenueDiamonds, date, detectedAt, basis, clientId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	).bind(sale.world, sale.position, sale.seller, String(sale.seller).toLowerCase(), sale.itemKey, sale.itemName || "", sale.baseItem || null, sale.units, sale.revenue,
+		sale.date, sale.detectedAt, sale.basis, sale.clientId || null).run();
+	if (!res.meta.changes) return false;
+	await env.DB.prepare(
+		`INSERT INTO sellerItemDailyStats (seller, sellerKey, itemKey, itemName, world, date, totalStock, listingCount, avgPriceDiamonds, confirmedSold, confirmedRevenueDiamonds)
+		 VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
+		 ON CONFLICT(sellerKey, itemKey, world, date) DO UPDATE SET
+		   confirmedSold = confirmedSold + excluded.confirmedSold,
+		   confirmedRevenueDiamonds = confirmedRevenueDiamonds + excluded.confirmedRevenueDiamonds`
+	).bind(sale.seller, String(sale.seller).toLowerCase(), sale.itemKey, sale.itemName || "", sale.world, sale.date, sale.units, sale.revenue).run();
+	return true;
+}
+
+/**
+ * Purchases the mod saw happen (mod 2.6+: its player bought from a shop and the
+ * rescan right after showed the stock going down and the payment going up).
+ * Returns per position the units per listing (rowKey) and the value, so the
+ * chest comparison doesn't count them a second time.
+ */
+async function recordObservedSales(env, sales) {
+	const taken = new Map(); // positionKey -> { units: {rk: n}, value }
+	const now = new Date().toISOString();
+	for (const r of sales) {
+		const units = Math.round(Number(r.units));
+		if (!(units > 0 && units <= 100000) || !r.seller || !r.itemName || !r.world || !r.position) continue;
+		if (isStatsExcludedSeller(r.seller)) continue;
+		const perItem = priceInDiamonds(r) / (Number(r.stackSize) || 1);
+		if (!(perItem >= 0) || !isFinite(perItem)) continue;
+		const at = Date.parse(r.at) ? new Date(Math.min(Date.parse(r.at), Date.now())).toISOString() : now;
+		const clientId = String(r.clientId || "").slice(0, 64) || null;
+		const fresh = await recordSale(env, {
+			world: r.world, position: r.position, seller: r.seller, itemKey: salesItemKey(r.baseItem, r.itemName), itemName: r.itemName,
+			baseItem: r.baseItem, units, revenue: units * perItem, date: at.slice(0, 10), detectedAt: now, basis: "buy", clientId,
+		});
+		// even a repeat (already recorded) must still be kept out of this upload's chest comparison
+		const k = positionKey(r.world, r.position);
+		if (!taken.has(k)) taken.set(k, { units: {}, value: 0 });
+		const t = taken.get(k);
+		const rk = rowKey(r);
+		t.units[rk] = (t.units[rk] || 0) + units;
+		t.value += units * perItem;
+		void fresh;
+	}
+	return taken;
+}
+
+async function detectConfirmedSales(env, validRows, scannedPositions, observedSales = []) {
+	const taken = observedSales.length ? await recordObservedSales(env, observedSales) : new Map();
 	const withPayment = scannedPositions.filter((sp) => Number.isFinite(Number(sp.payment)));
 	if (!withPayment.length) return 0;
 
@@ -1239,32 +1298,45 @@ async function detectConfirmedSales(env, validRows, scannedPositions) {
 		// an older scan arriving late must never become the new baseline
 		if (prev && Date.parse(prev.scannedAt) >= Date.parse(scannedAt)) continue;
 
-		if (prev && prev.paymentCount != null && payment > prev.paymentCount && (!sellerKey || !prev.sellerKey || prev.sellerKey === sellerKey)) {
+		if (prev && (!sellerKey || !prev.sellerKey || prev.sellerKey === sellerKey)) {
 			const unit = CURRENCY_VALUE[currency] != null ? CURRENCY_VALUE[currency] : (CURRENCY_VALUE[String(prev.currency || "").toLowerCase()] || 1);
-			const paidDia = (payment - prev.paymentCount) * unit;
+			const seen = taken.get(key) || { units: {}, value: 0 }; // bought while the mod watched: already recorded
+			const paidUp = prev.paymentCount != null && payment > prev.paymentCount;
+			const paidDia = paidUp ? Math.max(0, (payment - prev.paymentCount) * unit - seen.value) : 0;
 			let before = {};
 			try { before = JSON.parse(prev.stockJson || "{}"); } catch (e) { before = {}; }
 			const drops = [];
-			let dropValue = 0;
+			let dropValue = 0, beforeTotal = 0, nowTotal = 0;
+			for (const rk in before) beforeTotal += Number(before[rk].a) || 0;
+			for (const rk in stock) nowTotal += Number(stock[rk].a) || 0;
 			for (const rk in before) {
 				const b = before[rk];
 				const left = stock[rk] ? stock[rk].a : 0;
-				const gone = (Number(b.a) || 0) - left;
+				const gone = (Number(b.a) || 0) - left - (seen.units[rk] || 0);
 				if (gone <= 0) continue;
 				drops.push({ rk, b, gone });
 				dropValue += gone * (Number(b.p) || 0);
 			}
-			// what was paid covers this share of what went missing (rounding slack: 2%)
-			const share = dropValue > 0 ? Math.min(1, (paidDia * 1.02) / dropValue) : (drops.length ? 1 : 0);
-			for (const d of drops) {
+			const goneTotal = drops.reduce((a, d) => a + d.gone, 0);
+			let basis = null, share = 0;
+			if (paidDia > 0) {
+				// what was paid covers this share of what went missing (rounding slack: 2%)
+				basis = "paid";
+				share = dropValue > 0 ? Math.min(1, (paidDia * 1.02) / dropValue) : (drops.length ? 1 : 0);
+			} else if (!paidUp && goneTotal > 0 && nowTotal > 0 && goneTotal <= beforeTotal * DROP_SALE_MAX_SHARE) {
+				// no payment to prove it (collected already?), but only a little went and the chest is still stocked
+				basis = "drop";
+				share = 1;
+			}
+			for (const d of basis ? drops : []) {
 				const units = Math.round(d.gone * share);
 				if (units <= 0) continue;
 				const seller = d.b.s || (rows[0] && rows[0].seller) || "";
 				const revenue = units * (Number(d.b.p) || 0);
 				const itemKey = salesItemKey(d.b.b, d.b.n);
 				stmts.push(env.DB.prepare(
-					"INSERT INTO shopSales (world, position, seller, sellerKey, itemKey, itemName, baseItem, units, revenueDiamonds, date, detectedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-				).bind(sp.world, sp.position, seller, String(seller).toLowerCase(), itemKey, d.b.n || "", d.b.b || null, units, revenue, today, now));
+					"INSERT INTO shopSales (world, position, seller, sellerKey, itemKey, itemName, baseItem, units, revenueDiamonds, date, detectedAt, basis) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+				).bind(sp.world, sp.position, seller, String(seller).toLowerCase(), itemKey, d.b.n || "", d.b.b || null, units, revenue, today, now, basis));
 				stmts.push(env.DB.prepare(
 					`INSERT INTO sellerItemDailyStats (seller, sellerKey, itemKey, itemName, world, date, totalStock, listingCount, avgPriceDiamonds, confirmedSold, confirmedRevenueDiamonds)
 					 VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
@@ -1403,7 +1475,13 @@ async function handleUploadListings(request, env) {
 		await recordUploadWorlds(env, request, uploadWorlds);
 
 		// Real sales: never allowed to fail the upload itself.
-		try { await detectConfirmedSales(env, validRows, validScannedPositions); } catch (e) { console.log("detectConfirmedSales failed: " + e); }
+		try {
+			// purchases the mod saw happen (2.6+), named and filtered like listings
+			const salesIn = (Array.isArray(body.sales) ? body.sales : []).slice(0, 200)
+				.filter((r) => r && r.itemName && r.seller && r.world && r.position && !isBannedItem(r.baseItem, r.itemName) && !blockedSet.has(String(r.seller).toLowerCase()));
+			const observed = salesIn.length ? await englishItemNames(env, salesIn) : [];
+			await detectConfirmedSales(env, validRows, validScannedPositions, observed);
+		} catch (e) { console.log("detectConfirmedSales failed: " + e); }
 
 		if (added === 0 && updated === 0 && removed === 0) {
 			return json({ added: 0, updated: 0, skipped, removed: 0, committed: false });
@@ -7079,6 +7157,77 @@ function auctionRound(dia, up) {
  * apostrophes only), so decorated listing names still match. Suggestions are
  * ~1.5x for the starting bid and ~0.3x for the lowest limit, rounded.
  */
+// ---------------- values: what things actually sell for ----------------
+// A value leans on real sales (shopSales, the last 90 days; "drop" sales count
+// half). With at least SOLD_ENOUGH sold items, it's their median blended with
+// the listings (the more sales, the more they count, up to 90%). With fewer, it's
+// 75% of the average listing price: asking prices run above what things sell for.
+const SOLD_ENOUGH = 3;
+const SOLD_DAYS = 90;
+const LISTING_SHARE = 0.75;
+
+function weightedMedian(pairs) { // [{ v, w }]
+	const list = pairs.filter((p) => isFinite(p.v) && p.v > 0 && p.w > 0).sort((a, b) => a.v - b.v);
+	const total = list.reduce((a, p) => a + p.w, 0);
+	if (!total) return null;
+	let acc = 0;
+	for (const p of list) { acc += p.w; if (acc >= total / 2) return p.v; }
+	return list[list.length - 1].v;
+}
+/** Average listing price per item, leaving out anything over 10x the median (the seller-page rule). */
+function listingAverage(prices) {
+	const list = prices.filter((p) => isFinite(p) && p > 0).sort((a, b) => a - b);
+	if (!list.length) return null;
+	const mid = list.length % 2 ? list[(list.length - 1) / 2] : (list[list.length / 2 - 1] + list[list.length / 2]) / 2;
+	const kept = list.filter((p) => p <= mid * 10);
+	return kept.reduce((a, p) => a + p, 0) / kept.length;
+}
+/** sold: [{ v: per item in diamonds, w: weight }], listings: [per item in diamonds] -> { value, soldCount, listingCount, basis } */
+function blendValue(sold, listings, where) {
+	const soldWeight = sold.reduce((a, p) => a + (p.w || 0), 0);
+	const soldMed = weightedMedian(sold);
+	const avg = listingAverage(listings);
+	const listingRef = avg == null ? null : avg * LISTING_SHARE;
+	const n = Math.round(soldWeight);
+	const salesText = n ? n.toLocaleString("en-US") + " sold" : "";
+	const listText = listings.length ? listings.length.toLocaleString("en-US") + " listing" + (listings.length === 1 ? "" : "s") : "";
+	let value = null, basis = null;
+	if (soldMed != null && soldWeight >= SOLD_ENOUGH) {
+		const w = Math.min(0.9, soldWeight / (soldWeight + SOLD_ENOUGH));
+		value = listingRef == null ? soldMed : w * soldMed + (1 - w) * listingRef;
+		basis = [salesText, listText].filter(Boolean).join(" and ");
+	} else if (listingRef != null) {
+		value = listingRef;
+		basis = "75% of " + (listings.length === 1 ? "the listing" : "the average of " + listText) + (salesText ? " (only " + salesText + " so far)" : "");
+	} else if (soldMed != null) {
+		value = soldMed;
+		basis = salesText;
+	}
+	if (value == null) return { value: null, soldCount: n, listingCount: listings.length, basis: null };
+	return { value: Math.round(value * 100) / 100, soldCount: n, listingCount: listings.length, basis: basis + (where ? " " + where : "") };
+}
+const saleWeight = (basis) => (basis === "drop" ? 0.5 : 1);
+/** What a rare (by name) sold for in shops: [{ v, w, world }] over the last SOLD_DAYS days. */
+async function soldPricesByName(env, name) {
+	const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9']/g, "");
+	const target = norm(name);
+	if (!target) return [];
+	const word = String(name).split(/[^A-Za-z0-9']+/).sort((a, b) => b.length - a.length)[0] || name;
+	const since = new Date(Date.now() - SOLD_DAYS * 86400000).toISOString().slice(0, 10);
+	const { results } = await env.DB.prepare(
+		"SELECT itemName, world, units, revenueDiamonds, basis FROM shopSales WHERE itemName LIKE ? AND date >= ? AND units > 0 AND " + STATS_SELLER_SQL.replace("seller", "sellerKey")
+	).bind(`%${word}%`, since).all();
+	return results.filter((r) => norm(r.itemName) === target).map((r) => ({ v: r.revenueDiamonds / r.units, w: r.units * saleWeight(r.basis), world: r.world }));
+}
+/** What a plain item (by itemKey) sold for in shops: [{ v, w, world }]. */
+async function soldPricesByKey(env, itemKey) {
+	const since = new Date(Date.now() - SOLD_DAYS * 86400000).toISOString().slice(0, 10);
+	const { results } = await env.DB.prepare(
+		"SELECT world, units, revenueDiamonds, basis FROM shopSales WHERE itemKey = ? AND date >= ? AND units > 0 AND " + STATS_SELLER_SQL.replace("seller", "sellerKey")
+	).bind(itemKey, since).all();
+	return results.map((r) => ({ v: r.revenueDiamonds / r.units, w: r.units * saleWeight(r.basis), world: r.world }));
+}
+
 async function auctionEstimate(env, rare, world) {
 	const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9']/g, "");
 	const target = norm(rare.name);
@@ -7100,18 +7249,16 @@ async function auctionEstimate(env, rare, world) {
 	).bind(rare.id).all();
 	const sold = soldRows.map((r) => r.soldDia).filter((d) => d > 0).sort((a, b) => a - b);
 
-	const parts = [];
-	let value = null;
-	if (here.length) { value = median(here); parts.push(`${here.length} listing${here.length === 1 ? "" : "s"} on ${world}`); }
-	else if (both.length) { value = median(both); parts.push(`${both.length} listing${both.length === 1 ? "" : "s"} across both worlds`); }
-	if (sold.length) {
-		const s = median(sold);
-		value = value == null ? s : (value + s) / 2;
-		parts.push(`${sold.length} past auction sale${sold.length === 1 ? "" : "s"}`);
-	}
-	if (value == null) return { value: null, basis: null, suggestedStartDia: null, suggestedMinDia: null, suggestedRegularDia: null };
-
-	value = Math.round(value * 100) / 100;
+	// what it actually sold for (shops on this world, else both; plus past auctions) leads
+	const shopSold = await soldPricesByName(env, rare.name);
+	const soldHere = shopSold.filter((p) => p.world === world);
+	const soldPrices = (soldHere.length ? soldHere : shopSold).concat(sold.map((v) => ({ v, w: 1 })));
+	const listed = here.length ? here : both;
+	const est = blendValue(soldPrices, listed, here.length || soldHere.length ? "on " + world : "across both worlds");
+	if (est.value == null) return { value: null, basis: null, suggestedStartDia: null, suggestedMinDia: null, suggestedRegularDia: null };
+	let value = est.value;
+	const parts = [est.basis];
+	void median;
 	let start = auctionRound(value * 1.5, true);
 	let min = auctionRound(value * 0.3, false);
 	if (start <= value) start = Math.floor(value) + 1;
@@ -7132,6 +7279,36 @@ async function handleGetCurrentAuction(request, env) {
 		"SELECT COUNT(*) AS total, SUM(CASE WHEN lower(mcUsername) = lower(?) THEN 1 ELSE 0 END) AS mine FROM auctionItems WHERE auctionId = ? AND status != 'removed'"
 	).bind(user, auction.id).first();
 	return json({ auction: auctionPublic(auction), entered: counts.total || 0, enteredByUser: counts.mine || 0 });
+}
+
+// GET /items/value?name=<rare name> or ?itemKey=v:minecraft:x|name -> { Firefly: {value, soldCount, listingCount, basis}, Honeybee: {...} }
+// The site's price check: sold prices first, see blendValue.
+async function handleItemValue(request, env, ctx) {
+	return cachedGet(request, ctx, 600, async () => {
+		const p = new URL(request.url).searchParams;
+		const name = String(p.get("name") || "").trim().slice(0, 120);
+		const itemKey = String(p.get("itemKey") || "").trim().toLowerCase().slice(0, 200);
+		if (!name && !itemKey) return { error: "name or itemKey is required" };
+		const per = (r) => priceInDiamonds(r) / (r.stackSize || 1);
+		let listings = [], sold = [];
+		if (itemKey) {
+			const [b, n] = itemKey.replace(/^v:/, "").split("|");
+			const { results } = await env.DB.prepare("SELECT world, price, currency, stackSize FROM listings WHERE lower(baseItem) = ? AND lower(itemName) = ? AND lower(currency) != 'display' AND " + STATS_SELLER_SQL).bind(b || "", n || "").all();
+			listings = results;
+			sold = await soldPricesByKey(env, itemKey);
+		} else {
+			const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9']/g, "");
+			const word = name.split(/[^A-Za-z0-9']+/).sort((a, b) => b.length - a.length)[0] || name;
+			const { results } = await env.DB.prepare("SELECT world, itemName, price, currency, stackSize FROM listings WHERE itemName LIKE ? AND lower(currency) != 'display' AND " + STATS_SELLER_SQL).bind(`%${word}%`).all();
+			listings = results.filter((r) => norm(r.itemName) === norm(name));
+			sold = await soldPricesByName(env, name);
+		}
+		const out = {};
+		for (const world of ["Firefly", "Honeybee"]) {
+			out[world] = blendValue(sold.filter((s) => s.world === world), listings.filter((r) => r.world === world).map(per).filter((x) => isFinite(x) && x > 0), "");
+		}
+		return out;
+	});
 }
 
 async function handleAuctionEstimate(request, env, ctx) {
@@ -8126,10 +8303,10 @@ async function santaItemValue(env, item) {
 		const { results } = await env.DB.prepare(
 			"SELECT price, currency, stackSize FROM listings WHERE world = ? AND baseItem = ? AND lower(itemName) = lower(?) AND lower(currency) != 'display' AND " + STATS_SELLER_SQL
 		).bind(SANTA_WORLD, item.baseItem, item.name).all();
-		const per = results.map((r) => priceInDiamonds(r) / (r.stackSize || 1)).filter((p) => isFinite(p) && p > 0).sort((a, b) => a - b);
-		if (!per.length) return { value: null, basis: null };
-		const mid = per.length % 2 ? per[(per.length - 1) / 2] : (per[per.length / 2 - 1] + per[per.length / 2]) / 2;
-		return { value: Math.round(mid * 100) / 100, basis: `${per.length} shop${per.length === 1 ? "" : "s"} on ${SANTA_WORLD}` };
+		const per = results.map((r) => priceInDiamonds(r) / (r.stackSize || 1)).filter((p) => isFinite(p) && p > 0);
+		const sold = (await soldPricesByKey(env, salesItemKey(item.baseItem, item.name))).filter((p) => p.world === SANTA_WORLD);
+		const est = blendValue(sold, per, "on " + SANTA_WORLD);
+		return { value: est.value, basis: est.basis };
 	}
 	return { value: null, basis: null };
 }
@@ -8656,6 +8833,7 @@ const ROUTES = [
 	["POST", "/mod/auctions/result", handleModAuctionResult],
 	["POST", "/mod/auctions/enter", handleModAuctionEnter],
 	["POST", "/mod/auctions/price", handleModAuctionPrice],
+	["GET", "/items/value", handleItemValue],
 	["GET", "/rares/base-items", handleRareBaseItems],
 	["GET", "/mapart/of-the-day", handleGetMapartOfTheDay],
 	["POST", "/admin/mapart/otd/reroll", handleAdminRerollMapartOfTheDay],

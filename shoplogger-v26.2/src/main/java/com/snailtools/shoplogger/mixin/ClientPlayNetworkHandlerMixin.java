@@ -6,6 +6,7 @@ import com.snailtools.shoplogger.SilentScreenCoordinator;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -35,6 +36,12 @@ public abstract class ClientPlayNetworkHandlerMixin {
 		if (SilentScreenCoordinator.isArmed()) {
 			SilentScreenCoordinator.onInventorySynced(packet.containerId(), (ClientPacketListener) (Object) this);
 		}
+	}
+
+	// A slot of an open container changed: a shop the player is buying from rescans (see ShopScanner#rescanForBuys)
+	@Inject(method = "handleContainerSetSlot", at = @At("TAIL"))
+	private void shoplogger$onSlotSet(ClientboundContainerSetSlotPacket packet, CallbackInfo ci) {
+		ShopScanner.onSlotChanged(packet.getContainerId());
 	}
 
 	// Commands open server GUIs all the time (/ah, /menu, /shop...) — let the

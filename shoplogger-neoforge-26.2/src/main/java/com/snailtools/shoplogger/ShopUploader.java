@@ -31,6 +31,20 @@ public class ShopUploader {
 	private static final Gson GSON = new Gson();
 
 	private static boolean uploadInFlight = false;
+	/** When an upload should go out early (a purchase was just seen), or 0. */
+	private static long uploadDueAt = 0;
+
+	/** Upload within a few seconds instead of waiting for the 15-minute cycle (a purchase to report). */
+	public static void requestSoon() {
+		if (uploadDueAt == 0) uploadDueAt = System.currentTimeMillis() + 8_000L;
+	}
+
+	/** Called every client tick (ShopScanner#tick). */
+	public static void tickSoon(Minecraft client) {
+		if (uploadDueAt == 0 || System.currentTimeMillis() < uploadDueAt || uploadInFlight || client.player == null) return;
+		uploadDueAt = 0;
+		uploadAsync(client, false);
+	}
 
 	/** @param manual whether this was triggered by the upload hotkey — only manual uploads report their result in chat. */
 	public static void uploadAsync(Minecraft client, boolean manual) {
@@ -38,7 +52,17 @@ public class ShopUploader {
 
 		List<ShopEntry> entries = new ArrayList<>(ShopLog.getAll());
 		List<String> scannedPositions = ShopLog.getScannedPositions();
-		if (entries.isEmpty() && scannedPositions.isEmpty()) return;
+		if (entries.isEmpty() && scannedPositions.isEmpty() && !ShopLog.hasSales()) return;
+		// purchases seen in open shops (2.6+): the Worker records them as sales right away
+		List<ShopLog.Sale> sales = ShopLog.takeSales();
+		List<Map<String, Object>> saleRows = new ArrayList<>();
+		for (ShopLog.Sale s : sales) {
+			Map<String, Object> m = toUploadRow(s.listing());
+			m.put("units", s.units());
+			m.put("clientId", s.clientId());
+			m.put("at", Instant.ofEpochMilli(s.atMillis()).toString());
+			saleRows.add(m);
+		}
 
 		List<Map<String, Object>> rows = new ArrayList<>();
 		for (ShopEntry e : entries) rows.add(toUploadRow(e));
@@ -70,7 +94,7 @@ public class ShopUploader {
 		// removals are trustworthy — versions before the chunk-load false-removal
 		// fix (see ShopAutoScanner#discoverNearbyShops) could report shops as gone
 		// when they were actually just in a not-yet-loaded chunk.
-		String json = GSON.toJson(Map.of("rows", rows, "scannedPositions", scans, "modVersion", modVersion()));
+		String json = GSON.toJson(Map.of("rows", rows, "scannedPositions", scans, "sales", saleRows, "modVersion", modVersion()));
 		uploadInFlight = true;
 
 		HttpRequest request = HttpRequest.newBuilder()
@@ -88,6 +112,7 @@ public class ShopUploader {
 		CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString())
 				.thenAccept(response -> client.execute(() -> {
 					uploadInFlight = false;
+					if (response.statusCode() != 200) ShopLog.returnSales(sales);
 					if (response.statusCode() == 200) {
 						ShopLog.clearScannedPositions();
 						// Clear the local shop log too, not just the scan-position
@@ -113,6 +138,7 @@ public class ShopUploader {
 				.exceptionally(ex -> {
 					client.execute(() -> {
 						uploadInFlight = false;
+						ShopLog.returnSales(sales);
 						if (manual) {
 							ChatFormat.send(client, ChatFormat.ERROR, "Upload error: " + ex.getMessage());
 						}

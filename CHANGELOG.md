@@ -4,6 +4,11 @@
 
 ### Mod
 - **Stack repeated chat** (on by default; turn it off in Settings › Display): when the exact same message shows up again within 2 minutes, the earlier copy disappears and the new one gets ×2, ×3… after it, even if other messages came in between.
+- **Your purchases count as sales:** when you buy from a shop, the mod checks the chest again right after and reports what was bought within seconds, so sales are counted even if the owner collects their payment before the next scan.
+
+### Site
+- **Prices follow sales:** the price check on rare pages and the value shown for auctions and Secret Santa now lean on what items actually sold for in the last 90 days, next to what they're listed for. Without enough sales yet, they use 75% of the average listing price.
+- **More sales counted:** when a little stock disappears from a shop that still has plenty left, that now counts as sold too (a chest that's emptied or mostly cleared doesn't).
 
 ## 2.5 (mod 2.5)
 

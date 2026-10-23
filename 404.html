@@ -1621,13 +1621,28 @@
 		var itemSort = "price-asc";
 		try { itemSort = localStorage.getItem("sctp_item_sort") || "price-asc"; } catch(e){}
 
-		// Price check for rares: a general value per world (median of what it's
-		// currently listed for, in diamond-equivalent per item) — a ballpark, not a quote.
+		// Price check for rares: a general value per world, per item. What it actually
+		// sold for comes first (the Worker's /items/value: recent shop sales, blended
+		// with listings; with too few sales, 75% of the average listing). Until that
+		// answers, or if it can't, the median of the current listings stands in.
+		var priceValue = null, priceValueFor = null;
+		function loadPriceValue(){
+			if(!catalogEntry || priceValueFor === catalogEntry.name) return;
+			priceValueFor = catalogEntry.name;
+			fetch(API_BASE + "/items/value?name=" + encodeURIComponent(catalogEntry.name))
+				.then(function(r){ return r.ok ? r.json() : null; })
+				.then(function(d){ if(d && !d.error && priceValueFor === catalogEntry.name){ priceValue = d; renderPriceCheck(); } })
+				.catch(function(){});
+		}
 		function renderPriceCheck(){
 			var host = document.getElementById("priceCheck");
 			if(!host) return;
+			loadPriceValue();
 			function fmt(d){ return d > 9 ? (Math.round(d/9*100)/100) + " db" : (Math.round(d*100)/100) + " dia"; }
 			function cell(world){
+				var v = priceValue && priceValue[world];
+				if(v && v.value != null) return '<div class="pc-cell"><div class="pc-world">'+world+'</div><div class="pc-val">&asymp; '+fmt(v.value)+'</div><div class="pc-sub">'+esc(v.basis)+'</div></div>';
+				if(v && v.value == null) return '<div class="pc-cell"><div class="pc-world">'+world+'</div><div class="pc-val none">No estimate yet</div><div class="pc-sub">not sold or listed recently</div></div>';
 				// the treasure hunt's TheShellkeeper never counts toward prices (puzzle prices, joke stock)
 				var prices = currentListings.filter(function(r){ return r.world === world && r.marketplaceType !== "auction" && String(r.seller || "").toLowerCase() !== "theshellkeeper" && String(r.currency||"").toLowerCase() !== "display" && (convertOn() || String(r.currency||"").toLowerCase() === "diamond"); })
 					.map(pricePerItem).filter(function(p){ return isFinite(p) && p > 0; }).sort(function(a,b){ return a - b; });
