@@ -159,7 +159,7 @@
 			var right;
 			if(h.revealed) right = '<span class="hint-text">' + esc(h.text) + "</span>";
 			else if(h.available) right = '<button type="button" class="btn-ghost" data-hint="' + esc(id) + '" data-tier="' + h.tier + '" style="padding:4px 10px;">Show the ' + h.label.toLowerCase() + "</button>";
-			else right = '<span class="muted">' + H.until(h.availableAt) + "</span>";
+			else right = '<span class="muted">Unreleased</span>';
 			return '<div class="hint-row"><b>' + esc(h.label) + "</b>" + right + "</div>";
 		}).join("") + "</div>";
 	}
@@ -191,14 +191,18 @@
 
 			// the whorl puzzle
 			html += '<div class="puzzle"><h3>Whorl puzzle</h3>';
-			if(w.solved){
+			var allChapters = w.chapters.length && w.chapters.every(function(c){ return c.solved; });
+			if(w.solved && w.inMod){
+				html += '<p class="note">Solved in the mod: you hold the key.</p>';
+			} else if(w.solved){
 				html += w.square ? '<p class="note">Your square: <b>' + H.fmt(w.square.size) + "</b> blocks from X " + H.fmt(w.square.x) + ", Z " + H.fmt(w.square.z) + ' &middot; <a href="/world/#' + w.square.x + "," + w.square.z + "," + w.square.size + '">see it on the map</a></p>' : '<p class="note">Solved: you hold the key.</p>';
 			} else if(!w.puzzleOpen){
-				html += '<p class="muted lock">Solve all four chapters to put the fragments together.</p>';
+				html += '<p class="muted lock">' + (w.inMod && allChapters ? "Solve the Apex (below) first. Then the fragments come together here." : "Solve all four chapters to put the fragments together.") + "</p>";
 			} else {
 				if(w.puzzle) html += '<div class="clue">' + esc(w.puzzle) + "</div>";
 				html += '<ol class="small">' + w.chapters.map(function(c){ return '<li class="fragment">' + esc(c.fragment) + "</li>"; }).join("") + "</ol>";
 				if(w.answerKind === "square") html += '<p><a class="btn" href="/world/?hunt=1">Pick your ' + H.fmt(w.target ? w.target.size : 0) + '-block square on the map</a></p><p class="muted small">Three wrong picks a day at most.</p>';
+				else if(w.inMod) html += '<p class="note">The arrows go in the mod, not here: open the mod (X) and click the spiral on its home screen 5 times, then enter them there. Three wrong tries a day at most.</p>';
 				else html += answerBox("w" + w.whorl, "The key's numbers") + '<p class="muted small" style="margin:0;">Three wrong tries a day at most.</p>';
 				if(w.nudge) html += hintRows("w" + w.whorl, [{ tier: 3, label: "Nudge", available: w.nudge.available, availableAt: w.nudge.availableAt, revealed: w.nudge.revealed, text: w.nudge.text }]);
 			}
@@ -210,10 +214,15 @@
 			html += '<section class="card"><div class="whorl-head"><h2>' + esc(a.title) + "</h2>" + (a.solved ? '<span class="pill good">Solved</span>' : '<span class="pill on">The race</span>') + "</div>";
 			html += '<div class="clue">' + esc(a.riddle).replace(/\n/g, "<br>") + "</div>";
 			if(a.marks && a.marks.length) html += '<p><a href="/world/?hunt=1">See the marks on the world map</a></p>';
-			if(!a.solved) html += answerBox("apex", "x y z");
-			else {
-				html += '<p class="note">That\'s the block. The rest happens on Firefly.</p>';
-				html += a.vaultSolved ? '<p class="note">You reached the vault.</p>' : '<h3 style="margin-top:12px;">The lectern\'s word</h3>' + answerBox("vault", "The word in the vault");
+			if(!a.solved) html += answerBox("apex", "x z") + '<p class="muted small" style="margin:0;">Any spot on it will do: two numbers, x and z.</p>';
+			else if(!state.finish){
+				html += '<p class="note">That\'s the place. One lock left: Whorl IV\'s arrows. Open the mod (X), click the spiral on its home screen 5 times and enter them there.</p>';
+			} else {
+				var f = state.finish;
+				html += '<p class="note">You finished <b>#' + f.place + "</b>. " + (f.ready ? "Your prize is hidden on Firefly: open the mod (X) and click the spiral on its home screen 5 times to see where, marked in gold, and your password." : "The Shellkeeper is still setting out your prize. Check the mod again soon.") + "</p>";
+			}
+			if(state.finish && state.finish.place === 1){
+				html += a.vaultSolved ? '<p class="note">You found the word on the sign.</p>' : '<h3 style="margin-top:12px;">The word on the sign</h3>' + answerBox("vault", "The word in the house");
 				if(!state.shell.found){
 					html += a.claimed ? '<p class="muted small">You told the ledger you took the shell. The Shellkeeper will confirm it.</p>'
 						: '<h3 style="margin-top:12px;">Took the shell?</h3><label class="small" style="display:flex;gap:6px;align-items:center;margin:0 0 8px;"><input type="checkbox" id="showName" checked> Announce my name</label><button type="button" class="btn" id="claimBtn">I took the Golden Shell</button>';
@@ -231,7 +240,7 @@
 		$("tabBody").innerHTML = '<p class="muted">Loading&hellip;</p>';
 		H.api("/hunt/leaderboard").then(function(lb){
 			var f = lb.funnel;
-			var html = '<section class="card"><div class="stats">' + [["Hunters", lb.hunters], ["Whorl I", f.w1], ["Whorl II", f.w2], ["Whorl III", f.w3], ["Whorl IV", f.w4], ["Apex", f.apex], ["Vault", f.vault]]
+			var html = '<section class="card"><div class="stats">' + [["Hunters", lb.hunters], ["Whorl I", f.w1], ["Whorl II", f.w2], ["Whorl III", f.w3], ["Apex", f.apex], ["Finished", f.w4], ["In the house", f.vault]]
 				.map(function(x){ return '<div class="stat"><div class="n">' + x[1] + '</div><div class="l">' + x[0] + "</div></div>"; }).join("") + "</div></section>";
 			if(lb.shell.found) html += '<div class="banner"><b>The Golden Shell</b> was found' + (lb.shell.by ? " by " + esc(lb.shell.by) : "") + " on " + H.when(lb.shell.at) + ".</div>";
 			html += '<div class="lb-grid">';

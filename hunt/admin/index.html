@@ -58,7 +58,7 @@
 
 		<section class="card">
 			<h2>The vault and the answers</h2>
-			<p class="muted small" style="margin:0 0 12px;">The vault's block decides the three map squares (whorls I&ndash;III) and the Apex answer. The key and the lectern word are stored hashed: type a new one to replace it.</p>
+			<p class="muted small" style="margin:0 0 12px;">The vault's block decides the three map squares (whorls I&ndash;III). The key (entered in the mod) and the word on the sign in the house (first place only) are stored hashed: type a new one to replace it.</p>
 			<div class="row">
 				<div class="field"><label for="vx">Vault X</label><input type="number" id="vx"></div>
 				<div class="field"><label for="vy">Vault Y</label><input type="number" id="vy"><p class="help">empty = any height counts</p></div>
@@ -68,7 +68,7 @@
 			<div class="squares" id="squares"></div>
 			<div class="row" style="margin-top:12px;">
 				<div class="field"><label for="key">Whorl IV key</label><input type="text" id="key" class="code" autocomplete="off" placeholder="3 7 1 5"><p class="help" id="keyHelp"></p></div>
-				<div class="field"><label for="vword">Lectern word (in the vault)</label><input type="text" id="vword" class="code" autocomplete="off"><p class="help" id="vwordHelp"></p></div>
+				<div class="field"><label for="vword">Word on the sign in the house (#1)</label><input type="text" id="vword" class="code" autocomplete="off"><p class="help" id="vwordHelp"></p></div>
 			</div>
 			<button type="button" class="btn" id="saveVault">Save vault and answers</button>
 			<p class="err" id="vaultErr"></p>
@@ -76,18 +76,35 @@
 
 		<section class="card">
 			<h2>The Apex</h2>
-			<p class="muted small" style="margin:0 0 12px;">Shown to each hunter the moment they solve Whorl IV, so the shell must be in the vault from the start. Marks are drawn on the world map for them only.</p>
+			<p class="muted small" style="margin:0 0 12px;">Opens when a hunter solves Whorl IV's four chapters; it points to the island. Any x z inside the island box below solves it. After it, the arrows (Whorl IV's key) are entered in the mod. Marks are drawn on the world map for them only.</p>
 			<div class="field"><label for="readerJobId">Chapter 8 job id</label><input type="text" id="readerJobId" class="code" placeholder="the Shellkeeper's marketplace job"><p class="help">Hunters who apply get their personal key (note <code>secret:job</code>) as a notification. Saved with the Apex.</p></div>
 			<div class="field"><label for="apexTitle">Title</label><input type="text" id="apexTitle"></div>
 			<div class="field"><label for="apexRiddle">Riddle</label><textarea id="apexRiddle" rows="5"></textarea></div>
 			<div class="field"><label for="apexMarks">Map marks</label><textarea id="apexMarks" class="code" rows="4" placeholder="1 1200 -350&#10;2 1410 -120"></textarea><p class="help">One per line: label x z</p></div>
+			<div class="row">
+				<div class="field"><label for="ax1">Island from X</label><input type="number" id="ax1"></div>
+				<div class="field"><label for="az1">from Z</label><input type="number" id="az1"></div>
+				<div class="field"><label for="ax2">to X</label><input type="number" id="ax2"></div>
+				<div class="field"><label for="az2">to Z</label><input type="number" id="az2"></div>
+			</div>
+			<p class="help" style="margin-top:-6px;">The Apex answer: any spot in this box counts. Empty = the vault block (with the tolerance above).</p>
 			<button type="button" class="btn" id="saveApex">Save the Apex</button>
 			<p class="err" id="apexErr"></p>
 		</section>
 
 		<section class="card">
+			<h2>Finishing places</h2>
+			<p class="muted small" style="margin:0 0 12px;">The order hunters enter the arrows in the mod. For their place the mod marks a block in gold (outline and beam, no coordinates) and shows the password, which they name a paper with and drop into the hopper there. One line per place or range; the narrowest range that fits wins.</p>
+			<div class="field"><label for="finishes">Places</label><textarea id="finishes" class="code" rows="6" placeholder="1 1 26380 66 -23633 The word waits on a sign inside&#10;2 5 26310 64 -23600 tidepearl&#10;6 200 26250 63 -23650 driftglass"></textarea>
+				<p class="help">One per line: <code>from to x y z password</code> (the password may have spaces). Example: <code>2 5 &hellip;</code> covers places 2 to 5.</p></div>
+			<button type="button" class="btn" id="saveFinishes">Save the places</button>
+			<p class="err" id="finishErr"></p>
+			<div id="finishWho" class="small" style="margin-top:10px;"></div>
+		</section>
+
+		<section class="card">
 			<h2>Chapters</h2>
-			<p class="muted small" style="margin:0 0 10px;">Solves, wrong answers and hints taken per chapter. &ldquo;Release&rdquo; hands a hint tier to everyone early.</p>
+			<p class="muted small" style="margin:0 0 10px;">Solves, wrong answers and hints taken per chapter. Hints only come out when you release them here (for everyone at once); set one back to &ldquo;Nothing&rdquo; to take it back.</p>
 			<div class="tbl-wrap"><table class="tbl" id="chTable"></table></div>
 		</section>
 
@@ -188,6 +205,11 @@
 		$("apexTitle").value = s.apex.title || "";
 		$("apexRiddle").value = s.apex.riddle || "";
 		$("apexMarks").value = (s.apex.marks || []).map(function(m){ return m.n + " " + m.x + " " + m.z; }).join("\n");
+		var ar = s.apex.area || {};
+		$("ax1").value = ar.x1 != null ? ar.x1 : ""; $("az1").value = ar.z1 != null ? ar.z1 : ""; $("ax2").value = ar.x2 != null ? ar.x2 : ""; $("az2").value = ar.z2 != null ? ar.z2 : "";
+		$("finishes").value = (s.finishes || []).map(function(f){ return [f.from, f.to, f.x, f.y, f.z, f.password].join(" "); }).join("\n");
+		var done = data.players.filter(function(p){ return p.finishPlace; }).sort(function(a, b){ return a.finishPlace - b.finishPlace; });
+		$("finishWho").innerHTML = done.length ? "Finished so far: " + done.map(function(p){ return "#" + p.finishPlace + " " + esc(p.mcUsername); }).join(", ") : '<span class="muted">Nobody has finished yet.</span>';
 		$("doorsJson").value = s.doors && s.doors.length ? JSON.stringify(s.doors, null, 2) : "";
 		$("contentJson").value = JSON.stringify({
 			chapters: data.chapters.map(function(c){ return { id: c.id, whorl: c.whorl, ord: c.ord, title: c.title, clue: c.clue, hints: JSON.parse(c.hints || "[]"), fragment: c.fragment }; }),
@@ -226,14 +248,16 @@
 			[!!s.vault, s.vault ? "Vault placed" : "Vault not placed"],
 			[s.keySet, s.keySet ? "Whorl IV key set" : "Whorl IV key not set"],
 			[!!(s.apex && s.apex.riddle), s.apex && s.apex.riddle ? "Apex riddle written" : "Apex riddle not written"],
-			[s.vaultWordSet, s.vaultWordSet ? "Lectern word set" : "Lectern word not set"],
+			[s.vaultWordSet, s.vaultWordSet ? "Sign word (#1) set" : "Sign word (#1) not set"],
+			[!!(s.apex && s.apex.area), s.apex && s.apex.area ? "Apex island box set" : "Apex island box not set"],
+			[(s.finishes || []).some(function(f){ return f.from <= 1 && f.to >= 1; }), (s.finishes || []).length ? (s.finishes || []).length + " finishing place lines" : "No finishing places yet"],
 			[data.sets.total - data.sets.assigned >= 20, (data.sets.total - data.sets.assigned) + " puzzle sets free"],
 		];
 		$("ready").innerHTML = checks.map(function(c){ return '<li class="' + (c[0] ? "yes" : "") + '">' + esc(c[1]) + "</li>"; }).join("");
 
 		var active = data.players.filter(function(p){ return !p.removed; });
 		var solves = data.solves || {};
-		$("stats").innerHTML = [["Hunters", active.length], ["Whorl I", solves.w1 || 0], ["Whorl II", solves.w2 || 0], ["Whorl III", solves.w3 || 0], ["Whorl IV", solves.w4 || 0], ["Apex", solves.apex || 0], ["Vault", solves.vault || 0]]
+		$("stats").innerHTML = [["Hunters", active.length], ["Whorl I", solves.w1 || 0], ["Whorl II", solves.w2 || 0], ["Whorl III", solves.w3 || 0], ["Apex", solves.apex || 0], ["Finished", solves.w4 || 0], ["In the house", solves.vault || 0]]
 			.map(function(x){ return '<div class="stat"><div class="n">' + x[1] + '</div><div class="l">' + x[0] + "</div></div>"; }).join("");
 		$("setStats").innerHTML = [["Sets", data.sets.total], ["Handed out", data.sets.assigned], ["Free", data.sets.total - data.sets.assigned]]
 			.map(function(x){ return '<div class="stat"><div class="n">' + x[1] + '</div><div class="l">' + x[0] + "</div></div>"; }).join("");
@@ -247,14 +271,14 @@
 		(data.hints || []).forEach(function(h){ hints[h.chapterId + ":" + h.tier] = h.c; });
 		var rel = data.settings.hintRelease || {};
 		if(!data.chapters.length){ $("chTable").innerHTML = '<tr><td class="muted">No chapters yet: paste them into Shared content below.</td></tr>'; return; }
-		$("chTable").innerHTML = "<thead><tr><th>Chapter</th><th>Whorl</th><th class=num>Solved</th><th class=num>Wrong</th><th class=num>Nudge / push / shove taken</th><th>Release early</th></tr></thead><tbody>" +
+		$("chTable").innerHTML = "<thead><tr><th>Chapter</th><th>Whorl</th><th class=num>Solved</th><th class=num>Wrong</th><th class=num>Nudge / push / shove taken</th><th>Released</th></tr></thead><tbody>" +
 			data.chapters.map(function(c){
 				var r = rel[c.id] || 0;
 				return "<tr><td><b>" + esc(c.id) + "</b> " + esc(c.title) + "</td><td>" + c.whorl + '</td><td class="num">' + (data.solves[c.id] || 0) + '</td><td class="num">' + (data.wrong[c.id] || 0) +
 					'</td><td class="num">' + [0, 1, 2].map(function(t){ return hints[c.id + ":" + t] || 0; }).join(" / ") +
 					'</td><td><select data-release="' + esc(c.id) + '" style="width:auto;">' + ["Nothing", "Nudge", "Nudge + push", "All three"].map(function(l, i){ return '<option value="' + i + '"' + (i === r ? " selected" : "") + ">" + l + "</option>"; }).join("") + "</select></td></tr>";
 			}).join("") +
-			[1, 2, 3, 4].map(function(k){ return '<tr><td><b>w' + k + '</b> whorl puzzle</td><td>' + k + '</td><td class="num">' + (data.solves["w" + k] || 0) + '</td><td class="num">' + (data.wrong["w" + k] || 0) + '</td><td class="num">' + (hints["w" + k + ":3"] || 0) + " nudges</td><td></td></tr>"; }).join("") +
+			[1, 2, 3, 4].map(function(k){ return '<tr><td><b>w' + k + '</b> whorl puzzle</td><td>' + k + '</td><td class="num">' + (data.solves["w" + k] || 0) + '</td><td class="num">' + (data.wrong["w" + k] || 0) + '</td><td class="num">' + (hints["w" + k + ":3"] || 0) + ' nudges</td><td><select data-release="w' + k + '" style="width:auto;">' + ["Nothing", "Nudge"].map(function(l, i){ return '<option value="' + i + '"' + (i === (rel["w" + k] || 0) ? " selected" : "") + ">" + l + "</option>"; }).join("") + "</select></td></tr>"; }).join("") +
 			'<tr><td><b>apex</b></td><td></td><td class="num">' + (data.solves.apex || 0) + '</td><td class="num">' + (data.wrong.apex || 0) + "</td><td></td><td></td></tr>" +
 			'<tr><td><b>vault</b> lectern word</td><td></td><td class="num">' + (data.solves.vault || 0) + '</td><td class="num">' + (data.wrong.vault || 0) + "</td><td></td><td></td></tr></tbody>";
 	}
@@ -264,7 +288,7 @@
 		$("pTable").innerHTML = "<thead><tr><th>Ledger</th><th>Player</th><th>Signed up</th><th class=num>Solved</th><th>Progress</th><th></th></tr></thead><tbody>" +
 			data.players.map(function(p){
 				return '<tr class="' + (p.removed ? "removed" : "") + '"><td class="ledger">L-' + String(p.ledgerNo).padStart(4, "0") + "</td><td>" + esc(p.mcUsername) + (p.anonymous ? ' <span class="pill">anonymous</span>' : "") + (p.via === "spiral" ? ' <span class="pill on">spiral</span>' : "") +
-					'<div class="muted small">set ' + (p.setNo || "&ndash;") + "</div></td><td>" + H.when(p.signedUpAt) + '</td><td class="num">' + p.solved + '</td><td class="refs">' + esc((p.refs || "").split(",").sort().join(" ")) +
+					'<div class="muted small">set ' + (p.setNo || "&ndash;") + (p.finishPlace ? " &middot; <b>finished #" + p.finishPlace + "</b>" : "") + "</div></td><td>" + H.when(p.signedUpAt) + '</td><td class="num">' + p.solved + '</td><td class="refs">' + esc((p.refs || "").split(",").sort().join(" ")) +
 					'</td><td><div class="acts">' +
 					(p.removed ? '<button type="button" class="btn-ghost" data-act="restore" data-id="' + esc(p.accountId) + '">Restore</button>' : '<button type="button" class="btn-danger" data-act="remove" data-id="' + esc(p.accountId) + '">Remove</button>') +
 					'<button type="button" class="btn-ghost" data-act="solve" data-id="' + esc(p.accountId) + '">Mark solved</button>' +
@@ -313,11 +337,22 @@
 		if($("vword").value.trim()) b.vaultWord = $("vword").value;
 		post("/admin/hunt/settings", b).then(function(){ $("key").value = ""; $("vword").value = ""; toast("Saved"); }).catch(function(e){ $("vaultErr").textContent = e.message; });
 	};
+	$("saveFinishes").onclick = function(){
+		$("finishErr").textContent = "";
+		var bad = [], rows = $("finishes").value.split("\n").map(function(l){ return l.trim(); }).filter(Boolean).map(function(l){
+			var m = /^(\d+)\s+(\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(.+)$/.exec(l);
+			if(!m){ bad.push(l); return null; }
+			return { from: +m[1], to: +m[2], x: +m[3], y: +m[4], z: +m[5], password: m[6] };
+		}).filter(Boolean);
+		if(bad.length){ $("finishErr").textContent = "Couldn't read: " + bad[0] + " (from to x y z password)"; return; }
+		post("/admin/hunt/settings", { finishes: rows }).then(function(){ toast("Saved"); }).catch(function(e){ $("finishErr").textContent = e.message; });
+	};
 	$("saveApex").onclick = function(){
 		$("apexErr").textContent = "";
 		var marks = $("apexMarks").value.split("\n").map(function(l){ return l.trim().split(/\s+/); }).filter(function(p){ return p.length >= 3; })
 			.map(function(p){ return { n: p[0], x: Number(p[1]), z: Number(p[2]) }; });
-		post("/admin/hunt/settings", { readerJobId: $("readerJobId").value.trim(), apex: { title: $("apexTitle").value, riddle: $("apexRiddle").value, marks: marks } }).then(function(){ toast("Saved"); }).catch(function(e){ $("apexErr").textContent = e.message; });
+		var area = ["ax1", "az1", "ax2", "az2"].every(function(id){ return $(id).value.trim() !== ""; }) ? { x1: Number($("ax1").value), z1: Number($("az1").value), x2: Number($("ax2").value), z2: Number($("az2").value) } : null;
+		post("/admin/hunt/settings", { readerJobId: $("readerJobId").value.trim(), apex: { title: $("apexTitle").value, riddle: $("apexRiddle").value, marks: marks, area: area } }).then(function(){ toast("Saved"); }).catch(function(e){ $("apexErr").textContent = e.message; });
 	};
 	$("saveDoors").onclick = function(){
 		$("doorsErr").textContent = "";
@@ -336,7 +371,7 @@
 		if(!sel) return;
 		var rel = Object.assign({}, data.settings.hintRelease || {});
 		rel[sel.dataset.release] = Number(sel.value);
-		post("/admin/hunt/settings", { hintRelease: rel }).then(function(){ toast("Hints released"); }).catch(function(e){ toast(e.message); });
+		post("/admin/hunt/settings", { hintRelease: rel }).then(function(){ data.settings.hintRelease = rel; toast(Number(sel.value) ? "Released" : "Taken back"); }).catch(function(e){ toast(e.message); });
 	});
 	$("bcSend").onclick = function(){
 		if(!$("bcText").value.trim()) return;

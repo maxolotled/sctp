@@ -115,6 +115,10 @@
 	.shortfall-item,.noOffers-item{padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
 	.shortfall-item:last-child,.noOffers-item:last-child{border-bottom:none;}
 	.shortfall-item b,.noOffers-item b{color:var(--bad);}
+	.craft-item{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+	.craft-item:last-child{border-bottom:none;}
+	.craft-item b{color:var(--accent);}
+	.craft-why{color:var(--muted);font-size:12.5px;}
 
 	.empty-state{color:var(--muted);font-size:13.5px;padding:10px 0;}
 	footer.site{padding:20px 0 40px;color:var(--muted);font-size:12.5px;text-align:center;}
@@ -209,6 +213,11 @@
 
 	<div id="resultsSection" style="display:none;">
 		<div class="totals-bar" id="totalsBar"></div>
+		<div class="section" id="craftSection" style="display:none;">
+			<h2 style="font-size:16px;">Cheaper to craft</h2>
+			<p class="hint">For these, buying the ingredients and crafting (or using a stonecutter) costs at least half less than buying the block, or the block isn't sold here at all. The ingredients are in the shopping list below.</p>
+			<div id="craftList"></div>
+		</div>
 		<div id="shopCards"></div>
 		<div class="section" id="shortfallSection" style="display:none;">
 			<h2 style="font-size:16px;color:var(--bad);">Not enough stock</h2>
@@ -239,6 +248,9 @@
 	var API_BASE = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
 	var DATA_URL = API_BASE + "/listings";
 	var VANILLA_ITEMS_URL = "../data/vanilla-items.json";
+	var RECIPES_URL = "../data/recipes.json";
+	var recipes = {};      // "minecraft:oak_stairs" -> [{ via: "craft"|"cut", makes, needs: [{ any: [ids], n }] }]
+	var buyInstead = {};   // material key -> true: the player chose to buy this block, not craft it
 
 	var allListings = [];
 	var vanillaItems = [];
@@ -325,6 +337,10 @@
 				datalist.appendChild(opt);
 			});
 		}).catch(function(){ vanillaItems = []; });
+	}
+
+	function loadRecipes(){
+		return fetch(RECIPES_URL).then(function(res){ return res.ok ? res.json() : {}; }).then(function(d){ recipes = d.recipes || {}; }).catch(function(){ recipes = {}; });
 	}
 
 	function loadListings(){
@@ -551,9 +567,9 @@
 
 	// ---------------- optimizer ----------------
 
-	function buildCandidates(world){
+	function buildCandidates(world, mats){
 		var byMaterial = {};
-		materials.forEach(function(m){
+		mats.forEach(function(m){
 			var offers = allListings.filter(function(l){
 				return String(l.world||"") === world
 					&& String(l.currency||"").toLowerCase() !== "display"
@@ -579,11 +595,11 @@
 		return byMaterial;
 	}
 
-	function runOptimizer(world, mode){
-		var candidatesByMaterial = buildCandidates(world);
-		var noOffers = materials.filter(function(m){ return !candidatesByMaterial[m.key]; });
+	function runOptimizer(world, mode, mats){
+		var candidatesByMaterial = buildCandidates(world, mats);
+		var noOffers = mats.filter(function(m){ return !candidatesByMaterial[m.key]; });
 		var remaining = {};
-		materials.forEach(function(m){ if(candidatesByMaterial[m.key]) remaining[m.key] = m.qty; });
+		mats.forEach(function(m){ if(candidatesByMaterial[m.key]) remaining[m.key] = m.qty; });
 
 		var purchases = [];
 
@@ -673,17 +689,112 @@
 			}
 		}
 
-		var shortfalls = materials.filter(function(m){ return candidatesByMaterial[m.key] !== undefined && remaining[m.key] > 0; })
+		var shortfalls = mats.filter(function(m){ return candidatesByMaterial[m.key] !== undefined && remaining[m.key] > 0; })
 			.map(function(m){ return { name: m.name, stillNeeded: remaining[m.key] }; });
 
 		return { purchases: purchases, noOffers: noOffers, shortfalls: shortfalls };
 	}
 
+	// ---------------- crafting instead of buying ----------------
+	// One step only (crafting table or stonecutter). A block is crafted when its cheapest
+	// recipe costs at most half of buying it, or when nobody sells it on this world.
+	// Prices compare per item in diamond-equivalent, like the optimizer does.
+
+	function itemName(id){
+		var hit = vanillaByBaseItem[String(id).toLowerCase()];
+		if(hit) return hit.name;
+		return String(id).replace(/^minecraft:/, "").replace(/_/g, " ").replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+	}
+
+	function cheapestOffers(world){
+		var best = {}; // baseItem -> { unit, stock }
+		allListings.forEach(function(l){
+			if(String(l.world||"") !== world || String(l.currency||"").toLowerCase() === "display") return;
+			var key = String(l.baseItem||"").toLowerCase();
+			var stackSize = toNum(l.stackSize) || 1;
+			var obtainable = Math.floor(toNum(l.amount) / stackSize) * stackSize;
+			if(!key || obtainable <= 0) return;
+			var unit = (toNum(l.price) * diamondValue(String(l.currency||"").toLowerCase())) / stackSize;
+			var b = best[key] || (best[key] = { unit: Infinity, stock: 0 });
+			if(unit < b.unit) b.unit = unit;
+			b.stock += obtainable;
+		});
+		return best;
+	}
+
+	/** The cheapest way to craft one material, or null: { recipe, unit, parts: [{ id, qty }] } for qty items. */
+	function bestRecipe(m, offers){
+		var best = null;
+		(recipes[m.key] || []).forEach(function(r){
+			var crafts = Math.ceil(m.qty / r.makes), cost = 0, parts = [];
+			for(var i = 0; i < r.needs.length; i++){
+				var need = r.needs[i], pick = null;
+				need.any.forEach(function(id){ var o = offers[id]; if(o && (!pick || o.unit < pick.unit)) pick = { id: id, unit: o.unit, stock: o.stock }; });
+				if(!pick) return; // an ingredient nobody sells here
+				var qty = crafts * need.n;
+				if(pick.stock < qty) return; // not enough of it in stock
+				cost += qty * pick.unit;
+				parts.push({ id: pick.id, qty: qty });
+			}
+			var unit = cost / m.qty;
+			if(!best || unit < best.unit) best = { recipe: r, unit: unit, parts: parts, crafts: crafts };
+		});
+		return best;
+	}
+
+	/** Swaps blocks for their ingredients where that's much cheaper; returns { mats, crafts }. */
+	function planCrafting(world){
+		var offers = cheapestOffers(world);
+		var need = {}; // key -> { key, name, qty }
+		function add(key, name, qty){ (need[key] = need[key] || { key: key, name: name, qty: 0 }).qty += qty; }
+		var crafts = [];
+		materials.forEach(function(m){
+			var buy = offers[m.key];
+			var craft = bestRecipe(m, offers);
+			var sold = buy && buy.unit < Infinity;
+			var worth = craft && (!sold || craft.unit <= buy.unit * 0.5);
+			if(worth && !buyInstead[m.key]){
+				craft.parts.forEach(function(p){ add(p.id, itemName(p.id), p.qty); });
+				crafts.push({ key: m.key, name: m.name, qty: m.qty, recipe: craft.recipe, parts: craft.parts, crafts: craft.crafts,
+					saving: sold ? Math.min(99, Math.round((1 - craft.unit / buy.unit) * 100)) : null });
+			} else {
+				add(m.key, m.name, m.qty);
+				if(worth) crafts.push({ key: m.key, name: m.name, qty: m.qty, reverted: true });
+			}
+		});
+		return { mats: Object.keys(need).map(function(k){ return need[k]; }), crafts: crafts };
+	}
+
+	function renderCrafts(crafts){
+		var section = document.getElementById("craftSection");
+		var list = document.getElementById("craftList");
+		section.style.display = crafts.length ? "block" : "none";
+		list.innerHTML = crafts.map(function(c){
+			if(c.reverted){
+				return '<div class="craft-item"><span><b>' + esc(c.name) + '</b> ×' + fmtNum(c.qty) + ' <span class="craft-why">you chose to buy these as they are</span></span>' +
+					'<button type="button" class="btn-ghost" data-craft="' + esc(c.key) + '">Craft them instead</button></div>';
+			}
+			var how = c.recipe.via === "cut" ? "stonecutter" : "crafting table";
+			var from = c.parts.map(function(p){ return fmtNum(p.qty) + " " + esc(itemName(p.id)); }).join(" + ");
+			var extra = c.crafts * c.recipe.makes - c.qty;
+			var why = c.saving === null ? "nobody sells it on this world" : c.saving + "% cheaper than buying it";
+			return '<div class="craft-item"><span><b>' + esc(c.name) + '</b> ×' + fmtNum(c.qty) + ': buy ' + from + ', then use a ' + how +
+				(extra > 0 ? ' (' + fmtNum(extra) + ' left over)' : '') + '<br><span class="craft-why">' + why + '</span></span>' +
+				'<button type="button" class="btn-ghost" data-buy="' + esc(c.key) + '">Buy the block instead</button></div>';
+		}).join("");
+	}
+	document.getElementById("craftList").addEventListener("click", function(e){
+		var b = e.target.closest("[data-buy],[data-craft]");
+		if(!b) return;
+		if(b.dataset.buy) buyInstead[b.dataset.buy] = true; else delete buyInstead[b.dataset.craft];
+		calculate();
+	});
+
 	// ---------------- results rendering ----------------
 
 	function nameForKey(key){
 		var m = materials.filter(function(x){ return x.key === key; })[0];
-		return m ? m.name : key;
+		return m ? m.name : itemName(key);
 	}
 
 	function renderResults(result){
@@ -780,20 +891,23 @@
 	document.getElementById("convertToggle").checked = convertOn();
 	document.getElementById("convertToggle").addEventListener("change", function(){ setConvert(this.checked); });
 
-	document.getElementById("calcBtn").addEventListener("click", function(){
+	function calculate(){
 		var world = document.getElementById("worldSelect").value;
 		var status = document.getElementById("calcStatus");
 		status.textContent = "Calculating…";
 		setTimeout(function(){
-			var result = runOptimizer(world, balance);
+			var plan = planCrafting(world);
+			var result = runOptimizer(world, balance, plan.mats);
 			renderResults(result);
+			renderCrafts(plan.crafts);
 			status.textContent = "Done — " + result.purchases.length + " purchase" + (result.purchases.length === 1 ? "" : "s") + " planned.";
 		}, 10);
-	});
+	}
+	document.getElementById("calcBtn").addEventListener("click", calculate);
 
 	// ---------------- boot ----------------
 
-	Promise.all([loadCatalog(), loadListings()]).then(function(){
+	Promise.all([loadCatalog(), loadListings(), loadRecipes()]).then(function(){
 		document.getElementById("calcStatus").textContent = "";
 	});
 

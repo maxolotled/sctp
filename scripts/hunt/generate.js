@@ -226,42 +226,58 @@ function strangePrices(word) {
 	return { items, sheet: items.map((i) => i + " " + (JUNK.indexOf(i) + 1)).join(", ") };
 }
 
-// ---- c7 Days Gone By: which of four was cheapest that day (on both worlds) ----
+// ---- c7 Days Gone By: four of a kind, one world, one day: which was cheapest? ----
+// Prices as the item page shows them: lowest price per stack of 64, rounded to 2 decimals.
+const stack = (p) => Math.round(p * 64 * 100) / 100;
 const DAY_ROWS = (() => {
-	const byDate = new Map();
+	const out = new Map(); // "date|world" -> [{name, p}]
 	for (const h of history) {
-		const name = h.itemKey.split("|")[1];
-		if (!byDate.has(h.date)) byDate.set(h.date, new Map());
-		const m = byDate.get(h.date);
-		if (!m.has(name)) m.set(name, {});
-		m.get(name)[h.world] = h.lowestPrice;
+		if (!(h.lowestPrice > 0)) continue;
+		const k = h.date + "|" + h.world;
+		if (!out.has(k)) out.set(k, []);
+		out.get(k).push({ name: h.itemKey.split("|")[1], p: stack(h.lowestPrice) });
 	}
-	const out = new Map();
-	for (const [date, m] of byDate) out.set(date, [...m.entries()].filter(([, v]) => v.Firefly > 0 && v.Honeybee > 0).map(([name, v]) => ({ name, lo: Math.min(v.Firefly, v.Honeybee), hi: Math.max(v.Firefly, v.Honeybee) })));
 	return out;
 })();
-const DAYS = [...DAY_ROWS.keys()].sort();
+const DAYS = [...new Set(history.map((h) => h.date))].sort();
+const LATEST = DAYS[DAYS.length - 1];
+const latestPrice = (world, name) => { const x = (DAY_ROWS.get(LATEST + "|" + world) || []).find((y) => y.name === name); return x ? x.p : null; };
+// Four of a kind per question (four dyes, four tulips...), so the answer can't be guessed from the names
+const KIND_PREFIXES = ["light blue", "light gray", "white", "orange", "magenta", "yellow", "lime", "pink", "gray", "cyan", "purple", "blue", "brown", "green", "red", "black",
+	"dark oak", "pale oak", "oak", "spruce", "birch", "jungle", "acacia", "mangrove", "cherry", "bamboo", "crimson", "warped"];
+const kindOf = (name) => { for (const p of KIND_PREFIXES) if (name.startsWith(p + " ")) return name.slice(p.length + 1); return null; };
 function daysGoneBy(R, word) {
-	const dates = R.shuffle(DAYS).slice(0, word.length).sort();
-	const used = new Set(), qs = [];
-	for (let qi = 0; qi < word.length; qi++) {
-		const ch = word[qi].toLowerCase(), date = dates[qi];
-		const items = DAY_ROWS.get(date).filter((x) => !used.has(x.name));
-		const cheapCands = R.shuffle(items.filter((x) => positionsOf(x.name, ch, 8).length));
+	// older days only: the newest prices are what hunters see first
+	const older = DAYS.slice(0, -3);
+	const usedKinds = new Set(), usedDays = new Set(), qs = [];
+	for (const chRaw of word) {
+		const ch = chRaw.toLowerCase();
 		let q = null;
-		for (const cheap of cheapCands.slice(0, 40)) {
-			// three clear losers: their lowest price is at least 4x the winner's highest, on both worlds
-			const others = R.shuffle(items.filter((x) => x !== cheap && x.lo >= cheap.hi * 4)).slice(0, 3);
-			if (others.length < 3) continue;
-			q = { date, cheap, others, n: R.pick(positionsOf(cheap.name, ch, 8)) };
-			break;
+		for (const date of R.shuffle(older.filter((d) => !usedDays.has(d)))) {
+			const world = R.pick(["Firefly", "Honeybee"]);
+			const kinds = new Map();
+			for (const x of DAY_ROWS.get(date + "|" + world) || []) { const k = kindOf(x.name); if (!k || usedKinds.has(k)) continue; if (!kinds.has(k)) kinds.set(k, []); kinds.get(k).push(x); }
+			for (const cheap of R.shuffle([...kinds.values()].filter((l) => l.length >= 4).flat().filter((x) => x.p >= 0.05 && positionsOf(x.name, ch, 12).length))) {
+				// the cheapest of its four that day, but not by a mile (1.5x to 6x)
+				const rivals = kinds.get(kindOf(cheap.name)).filter((x) => x !== cheap && x.p >= cheap.p * 1.5 && x.p <= cheap.p * 6);
+				if (rivals.length < 3) continue;
+				// and not the cheapest of the four any more, so that day has to be looked up
+				const pick = R.shuffle(rivals).slice(0, 3);
+				const now = latestPrice(world, cheap.name);
+				if (now != null && !pick.some((x) => { const p = latestPrice(world, x.name); return p != null && p <= now; })) continue;
+				q = { date, world, cheap, others: pick, n: R.pick(positionsOf(cheap.name, ch, 12)) };
+				break;
+			}
+			if (q) break;
 		}
 		if (!q) return null;
-		[q.cheap, ...q.others].forEach((x) => used.add(x.name));
-		qs.push({ date, group: [q.cheap, ...q.others].map((x) => cap(x.name)).sort(), n: q.n, answer: cap(q.cheap.name) });
+		usedKinds.add(kindOf(q.cheap.name));
+		usedDays.add(q.date);
+		qs.push({ date: q.date, world: q.world, group: [q.cheap, ...q.others].map((x) => cap(x.name)).sort(), n: q.n, answer: cap(q.cheap.name),
+			prices: [q.cheap, ...q.others].map((x) => cap(x.name) + " " + x.p).join(", ") });
 	}
 	assert(qs.map((q) => letterAt(q.answer, q.n)).join("").toLowerCase() === word.toLowerCase(), "c7 word");
-	return { qs, sheet: qs.map((q) => `${q.date} cheapest ${q.answer} [${q.n}]`).join(" · ") };
+	return { qs, sheet: qs.map((q) => `${q.world} ${q.date}: ${q.answer} [${q.n}] (per stack: ${q.prices})`).join(" · ") };
 }
 
 // ---- c8 Wanted: A Reader: the job's code, shifted back by a personal key ----
@@ -324,9 +340,9 @@ function wings(R, word, step = 9) {
 	return out.match(/.{1,5}/g).join(" ");
 }
 
-// ---- c14 / c15: a riddle, or a word in a simple cipher ----
+// ---- c14 / c15: a riddle, or a little-known word in a simple cipher ----
 function littlePuzzle(R, chapter, setWords) {
-	const kind = R.pick(["riddle", "riddle", "shift", "shift", "mirror", "numbers", "numbers"]);
+	const kind = R.pick(["riddle", "shift", "shift", "mirror", "numbers"]);
 	if (kind === "riddle") {
 		const used = usedAnswers.get(chapter + ":riddle") || new Set();
 		usedAnswers.set(chapter + ":riddle", used);
@@ -336,7 +352,7 @@ function littlePuzzle(R, chapter, setWords) {
 		setWords.add(answer);
 		return { answer, text: riddle + " " + answer.length + " letters.", how: "riddle" };
 	}
-	const { word } = pickWord(R, chapter, pool(5, 6), () => true, setWords);
+	const { word } = pickWord(R, chapter, pool(5, 6, 7), () => true, setWords);
 	const A = 65;
 	if (kind === "shift") {
 		const k = 1 + R.int(4);
@@ -460,7 +476,7 @@ async function makeSet(index) {
 	sheet.c6 = c6.word + ": barrels by stock " + barrels.map((b, i) => `${b.stock}=${c6.word[i]}`).join(" ");
 
 	const c7 = pickWord(R, "c7", pool(5), (w) => daysGoneBy(R, w), setWords);
-	ch.c7 = { kind: "word", answer: c7.word, content: [text("Five questions, five days, five letters."), list(c7.built.qs.map((q) => `${fmtDate(q.date)}: which was cheapest: ${q.group.join(", ")}? [${q.n}]`))] };
+	ch.c7 = { kind: "word", answer: c7.word, content: [text("Five questions, five days, five letters."), list(c7.built.qs.map((q) => `${q.world}, ${fmtDate(q.date)}: which was cheapest: ${q.group.join(", ")}? [${q.n}]`))] };
 	sheet.c7 = c7.word + ": " + c7.built.sheet;
 
 	const c8 = pickWord(R, "c8", pool(shelf.job.code.length), (w) => readerKey(w), setWords);
@@ -480,7 +496,7 @@ async function makeSet(index) {
 	ch.c11 = { kind: "word", answer: c11.word, content: [text(c11.built.refs.join(" · "))] };
 	sheet.c11 = c11.word + ": " + c11.built.sheet;
 
-	const c12 = pickWord(R, "c12", pool(6, 7, 8), () => true, setWords);
+	const c12 = pickWord(R, "c12", W.ANAGRAM_WORDS.filter((w) => !W.BANNED.has(w)), () => true, setWords);
 	const scattered = [...c12.word].sort().join(" ");
 	ch.c12 = { kind: "word", answer: c12.word, content: [text("Not every page is signposted.")] };
 	notes.push({ context: "door:fireflies", chapterId: "c12", text: "You found a door with no sign. Behind it, scattered letters: " + scattered });
@@ -505,12 +521,9 @@ async function makeSet(index) {
 	notes.push({ context: "search:shellkeeper", chapterId: "c15", text: c15.text }, { context: "search:theshellkeeper", chapterId: "c15", text: c15.text });
 	sheet.c15 = `${c15.answer}: search Shellkeeper in the mod; ${c15.how}: ${c15.text}`;
 
-	const used16 = usedAnswers.get("c16") || new Set();
-	usedAnswers.set("c16", used16);
-	const fresh16 = W.COMPOUNDS.filter(([a, b]) => !used16.has(a + b) && !setWords.has(a + b));
-	const [h1, h2] = R.pick(fresh16.length ? fresh16 : W.COMPOUNDS.filter(([a, b]) => !setWords.has(a + b)));
-	used16.add(h1 + h2);
-	setWords.add(h1 + h2);
+	const halves = new Map(W.COMPOUNDS.map(([a, b]) => [a + b, [a, b]]));
+	const c16 = pickWord(R, "c16", [...halves.keys()], () => true, setWords);
+	const [h1, h2] = halves.get(c16.word);
 	const say = R.pick(HALF_NOTES);
 	ch.c16 = { kind: "word", answer: h1 + h2, content: [text("Two worlds, one word.")] };
 	notes.push({ context: "home:Firefly", chapterId: "c16", text: say[0] + h1 }, { context: "home:Honeybee", chapterId: "c16", text: say[1] + h2 });
@@ -523,7 +536,9 @@ async function makeSet(index) {
 }
 
 // ================ all sets ================
-(async () => {
+// (run directly; other scripts can require() this file for single puzzles)
+module.exports = { rng, daysGoneBy, fmtDate };
+if (require.main === module) (async () => {
 	assert(COUNT > 0 && COUNT <= 1000, "--count between 1 and 1000");
 	if (!NO_IMAGES) {
 		try { sharp = require("sharp"); } catch (e) { console.error("sharp is missing: run `npm install` in scripts/hunt first (or use --no-images for a dry run)."); process.exit(1); }

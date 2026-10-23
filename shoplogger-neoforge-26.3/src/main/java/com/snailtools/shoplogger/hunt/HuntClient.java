@@ -56,6 +56,8 @@ public final class HuntClient {
 	private static volatile long statusAt, notesAt, pollAt;
 	private static volatile boolean busyStatus, busyNotes, busyPoll;
 	private static volatile Pairing pairing;
+	/** Where the prize is hidden for this hunter's finishing place (null until they finish). */
+	private static volatile Finish finish;
 
 	// ---- response shapes (fields match the Worker's JSON) ----
 
@@ -78,13 +80,22 @@ public final class HuntClient {
 		public Player player;
 		public List<Whorl> whorls;
 		public Apex apex;
+		public Finish finish;
 		public Shell shell;
+	}
+	/** place always; x, y, z and the password once the Shellkeeper set this place out (mod only). */
+	public static final class Finish {
+		public int place;
+		public Integer x, y, z;
+		public String password;
+		public boolean ready;
+		public boolean located() { return x != null && y != null && z != null; }
 	}
 	public static final class Player { public String ledger, mcUsername; }
 	public static final class Whorl {
 		public int whorl;
 		public String title, intro, answerKind, puzzle;
-		public boolean unlocked, solved, puzzleOpen;
+		public boolean unlocked, solved, puzzleOpen, inMod;
 		public List<Chapter> chapters;
 		public Square square, target;
 		public Hint nudge;
@@ -132,6 +143,14 @@ public final class HuntClient {
 	public static boolean paired() { return enabled && token() != null; }
 
 	public static String ledger() { return ledger; }
+
+	/** The gold block to mark (see WorldHighlights), or null. */
+	public static Finish finish() { return paired() ? finish : null; }
+
+	/** A fresh state from the hunt screen: picks up the finish right away. */
+	public static void remember(State s) {
+		if (s != null && s.finish != null && s.finish.located()) finish = s.finish;
+	}
 
 	/** This player's note for a screen, or null. */
 	public static String note(String context) {
@@ -215,6 +234,8 @@ public final class HuntClient {
 				if (o.has("notes")) o.getAsJsonObject("notes").entrySet().forEach(e -> out.put(e.getKey(), e.getValue().getAsString()));
 				notes = out;
 				if (o.has("ledger") && !o.get("ledger").isJsonNull()) ledger = o.get("ledger").getAsString();
+				Finish f = o.has("finish") && o.get("finish").isJsonObject() ? GSON.fromJson(o.get("finish"), Finish.class) : null;
+				finish = f != null && f.located() ? f : null;
 			} catch (Exception ignored) {
 				// keep the old notes
 			}
@@ -225,6 +246,7 @@ public final class HuntClient {
 		Config.remove(CONFIG_TOKENS + me());
 		notes = Map.of();
 		ledger = null;
+		finish = null;
 	}
 
 	// ---- pairing (the trailhead) ----

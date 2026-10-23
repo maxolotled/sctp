@@ -64,6 +64,7 @@ public class HuntScreen extends UiScreen {
 
 	private void setState(HuntClient.State s) {
 		state = s;
+		HuntClient.remember(s);
 		error = null;
 		if (selected == null || find(selected) == null) selected = firstOpen();
 	}
@@ -132,9 +133,10 @@ public class HuntScreen extends UiScreen {
 		for (HuntClient.Whorl w : state.whorls) {
 			if (!w.unlocked) continue;
 			if (w.chapters != null) for (HuntClient.Chapter c : w.chapters) if (!c.solved) return c.id;
-			if (!w.solved) return "w" + w.whorl;
+			if (w.inMod && state.apex != null && !state.apex.solved) return "apex";
+			if (!w.solved || w.inMod) return "w" + w.whorl;
 		}
-		return state.apex != null ? "apex" : state.whorls.isEmpty() ? null : (state.whorls.get(0).chapters.isEmpty() ? null : state.whorls.get(0).chapters.get(0).id);
+		return state.whorls.isEmpty() ? null : (state.whorls.get(0).chapters.isEmpty() ? null : state.whorls.get(0).chapters.get(0).id);
 	}
 
 	private void buildRows() {
@@ -143,11 +145,9 @@ public class HuntScreen extends UiScreen {
 			rows.add(new Row(null, "Whorl " + ROMAN[w.whorl] + " · " + w.title, true, w.solved, !w.unlocked));
 			if (!w.unlocked) continue;
 			if (w.chapters != null) for (HuntClient.Chapter c : w.chapters) rows.add(new Row(c.id, c.title, false, c.solved, false));
-			rows.add(new Row("w" + w.whorl, "Whorl puzzle", false, w.solved, !w.puzzleOpen));
-		}
-		if (state.apex != null) {
-			rows.add(new Row(null, "The Apex", true, state.apex.solved, false));
-			rows.add(new Row("apex", state.apex.title == null ? "The Apex" : state.apex.title, false, state.apex.vaultSolved, false));
+			// whorl IV: the Apex comes first, then the arrows (entered here, in the mod)
+			if (w.inMod && state.apex != null) rows.add(new Row("apex", state.apex.title == null ? "The Apex" : state.apex.title, false, state.apex.solved, false));
+			rows.add(new Row("w" + w.whorl, w.inMod ? (w.solved ? "Your prize" : "The arrows") : "Whorl puzzle", false, w.solved, !w.puzzleOpen));
 		}
 	}
 
@@ -175,12 +175,16 @@ public class HuntScreen extends UiScreen {
 			if (c.solved) add("Solved. Fragment: " + c.fragment, Theme.ACCENT);
 			if (c.hints != null) for (HuntClient.Hint h : c.hints) {
 				if (h.revealed) add(h.label + ": " + h.text, HuntClient.GOLD);
-				else if (!h.available) add(h.label + " " + HuntClient.until(h.availableAt) + ".", Theme.FAINT);
+				else if (!h.available) add(h.label + ": unreleased.", Theme.FAINT);
 			}
+		} else if (o instanceof HuntClient.Whorl w && w.inMod && w.solved) {
+			finishLines();
 		} else if (o instanceof HuntClient.Whorl w) {
-			add("Whorl " + ROMAN[w.whorl] + " puzzle", HuntClient.GOLD);
+			add(w.inMod ? "The arrows" : "Whorl " + ROMAN[w.whorl] + " puzzle", HuntClient.GOLD);
 			gap();
-			if (w.solved) {
+			if (w.inMod && !w.puzzleOpen && state.apex != null && !state.apex.solved) {
+				add("Solve the Apex first. Then the fragments come together here.", Theme.MUTED);
+			} else if (w.solved) {
 				if (w.square != null) add("Solved: your square is " + w.square.size + " blocks from X " + w.square.x + ", Z " + w.square.z + ".", Theme.ACCENT);
 				else add("Solved: you hold the key.", Theme.ACCENT);
 			} else if (!w.puzzleOpen) {
@@ -193,7 +197,7 @@ public class HuntScreen extends UiScreen {
 				add("square".equals(w.answerKind) ? "Pick your square on the world map on sctp.nl. Three wrong picks a day at most." : "Three wrong tries a day at most.", Theme.MUTED);
 				if (w.nudge != null) {
 					if (w.nudge.revealed) add("Nudge: " + w.nudge.text, HuntClient.GOLD);
-					else if (!w.nudge.available) add("Nudge " + HuntClient.until(w.nudge.availableAt) + ".", Theme.FAINT);
+					else if (!w.nudge.available) add("Nudge: unreleased.", Theme.FAINT);
 				}
 			}
 		} else if (o instanceof HuntClient.Apex a) {
@@ -201,12 +205,36 @@ public class HuntScreen extends UiScreen {
 			gap();
 			add("“" + a.riddle + "”", Theme.TEXT);
 			gap();
-			add("The marks are drawn on the world map on sctp.nl.", Theme.MUTED);
-			if (a.solved) add("That's the block. The rest happens on Firefly.", Theme.ACCENT);
-			if (a.vaultSolved) add("You reached the vault.", Theme.ACCENT);
-			if (state.shell != null && state.shell.found) add("The Golden Shell has been found" + (state.shell.by != null ? " by " + state.shell.by : "") + ".", HuntClient.GOLD);
+			add("The marks are drawn on the world map on sctp.nl. Any spot on the island will do: x and z.", Theme.MUTED);
+			if (a.solved) add("That's the place. One lock left: the arrows, just below.", Theme.ACCENT);
 		}
 		detailScroll = Math.max(0, Math.min(detailScroll, maxDetailScroll()));
+	}
+
+	private boolean firstPlace() { return state != null && state.finish != null && state.finish.place == 1; }
+
+	/** After the arrows: your place, the password, and where the gold mark is. */
+	private void finishLines() {
+		HuntClient.Finish f = state.finish;
+		add("Your prize", HuntClient.GOLD);
+		gap();
+		if (f == null) { add("You hold the key.", Theme.ACCENT); return; }
+		add("You finished #" + f.place + ".", Theme.ACCENT);
+		gap();
+		if (!f.located()) {
+			add("The Shellkeeper is still setting out your prize. Come back here soon.", Theme.MUTED);
+			return;
+		}
+		add("Your password:", Theme.MUTED);
+		add(f.password, HuntClient.GOLD);
+		gap();
+		add("Your prize is hidden inside the block marked in gold on Firefly. Follow the gold beam; you'll see the mark through walls once you're close.", Theme.TEXT);
+		if (f.place == 1 && state.apex != null) {
+			gap();
+			if (state.apex.vaultSolved) add("You found the word on the sign.", Theme.ACCENT);
+			else add("Found the word on the sign in the house? Type it below.", Theme.MUTED);
+		}
+		if (state.shell != null && state.shell.found) add("The Golden Shell has been found" + (state.shell.by != null ? " by " + state.shell.by : "") + ".", HuntClient.GOLD);
 	}
 
 	private int maxDetailScroll() {
@@ -218,14 +246,16 @@ public class HuntScreen extends UiScreen {
 	private String answerPlaceholder() {
 		Object o = find(selected);
 		if (o instanceof HuntClient.Chapter c) return !c.solved ? ("numbers".equals(c.answerKind) ? "Numbers" : "One word") : null;
-		if (o instanceof HuntClient.Whorl w) return w.puzzleOpen && !w.solved && "key".equals(w.answerKind) ? "The key's numbers" : null;
-		if (o instanceof HuntClient.Apex a) return !a.solved ? "x y z" : !a.vaultSolved ? "The lectern's word" : null;
+		if (o instanceof HuntClient.Whorl w && w.inMod && w.solved) return firstPlace() && state.apex != null && !state.apex.vaultSolved ? "The word on the sign" : null;
+		if (o instanceof HuntClient.Whorl w) return w.puzzleOpen && !w.solved && "key".equals(w.answerKind) ? (w.inMod ? "The arrows' numbers" : "The key's numbers") : null;
+		if (o instanceof HuntClient.Apex a) return !a.solved ? "x z" : null;
 		return null;
 	}
 
 	private String answerRef() {
 		Object o = find(selected);
-		if (o instanceof HuntClient.Apex a) return a.solved ? "vault" : "apex";
+		if (o instanceof HuntClient.Apex) return "apex";
+		if (o instanceof HuntClient.Whorl w && w.inMod && w.solved) return "vault";
 		return selected;
 	}
 
@@ -244,10 +274,11 @@ public class HuntScreen extends UiScreen {
 		} else if (o instanceof HuntClient.Whorl w) {
 			if (w.puzzleOpen && !w.solved && "square".equals(w.answerKind)) out.add(new Action("Pick it on the map ↗", () -> UiLinks.open("https://sctp.nl/world/?hunt=1")));
 			if (w.nudge != null && w.nudge.available && !w.nudge.revealed && !w.solved) out.add(new Action("Show the nudge", () -> hint("w" + w.whorl, 3)));
-		} else if (o instanceof HuntClient.Apex a) {
+		} else if (o instanceof HuntClient.Apex) {
 			out.add(new Action("The map ↗", () -> UiLinks.open("https://sctp.nl/world/?hunt=1")));
-			if (a.solved && !a.claimed && (state.shell == null || !state.shell.found)) out.add(new Action("I took the shell ↗", () -> UiLinks.open(SITE)));
 		}
+		if (o instanceof HuntClient.Whorl w && w.inMod && w.solved && firstPlace() && state.apex != null && !state.apex.claimed
+				&& (state.shell == null || !state.shell.found)) out.add(new Action("I took the shell ↗", () -> UiLinks.open(SITE)));
 		return out;
 	}
 

@@ -31,14 +31,10 @@ public abstract class ChatComponentMixin {
 	@ModifyVariable(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
 			at = @At("HEAD"), argsOnly = true, ordinal = 0)
 	private Component shoplogger$stackRepeats(Component message) {
-		GuiMessage newest = allMessages.isEmpty() ? null : allMessages.getFirst();
-		Component out = ChatStacker.onMessage(message, newest);
-		if (out != message && newest != null) {
-			// the stacked line replaces the one it repeats
-			allMessages.removeFirst();
-			refreshTrimmedMessages();
-		}
-		return out;
+		ChatStacker.Result r = ChatStacker.onMessage(message, allMessages);
+		// the earlier copy was taken out of chat: redraw it without that line
+		if (r.removed()) refreshTrimmedMessages();
+		return r.message();
 	}
 
 	@Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",

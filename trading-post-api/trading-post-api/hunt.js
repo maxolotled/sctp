@@ -26,9 +26,8 @@ export const HUNT_WORLD_SIZE = 65536;
 const SETTINGS_KEY = "hunt";
 const PAIR_TTL_MS = 15 * 60 * 1000;
 const HOUR = 3600 * 1000;
-const HINT_DELAYS = [48 * HOUR, 96 * HOUR, 168 * HOUR]; // nudge, push, shove after the whorl opens
-const HINT_COMMUNITY = [0.25, 0.5, Infinity];           // ...or once this share of hunters solved it
-const WHORL_NUDGE_DELAY = 120 * HOUR;
+// Hints (nudge, push, shove; the whorl puzzles have one nudge) only come out when an
+// admin releases them: settings.hintRelease = { c1: 2 (nudge + push), w3: 1 (its nudge), ... }
 const LIMITS = { chapter: [10, HOUR], whorl: [3, 24 * HOUR], apex: [10, HOUR], vault: [10, HOUR] };
 const RAREDLE_RESET_MS = HOUR;
 // Notes the mod may see (everything else, like door and Rare-dle answers, stays on the server).
@@ -44,7 +43,10 @@ export function makeHunt(d) {
 	const DEFAULT_SETTINGS = {
 		enabled: false, enabledAt: null, signupOpen: true, requirePriorModUse: true,
 		vault: null, vaultTolerance: 2, keyHash: null, vaultWordHash: null,
-		apex: { title: "The Apex", riddle: "", marks: [] },
+		apex: { title: "The Apex", riddle: "", marks: [], area: null }, // area {x1, z1, x2, z2}: any spot in it solves the Apex
+		// where each finishing place goes (the mod marks the block in gold and shows the password):
+		// [{ from: 1, to: 1, x, y, z, password }, { from: 2, to: 5, ... }, ...]
+		finishes: [],
 		doors: [], hintRelease: {}, broadcast: null, shell: { found: null, claims: [] },
 		testers: [], // Minecraft names that see the hunt while it's off (for testing)
 		readerJobId: null, // chapter 8: the Shellkeeper's marketplace job; applying gets you your key
@@ -178,11 +180,7 @@ export function makeHunt(d) {
 		const n = Math.max(1, total.c);
 		return { total: total.c, share: new Map(results.map((r) => [r.ref, r.c / n])), count: new Map(results.map((r) => [r.ref, r.c])) };
 	}
-	function hintAvailableAt(tier, unlockedAt, chapterId, shares, settings) {
-		if ((settings.hintRelease[chapterId] || 0) > tier) return unlockedAt;
-		if ((shares.share.get(chapterId) || 0) >= HINT_COMMUNITY[tier]) return unlockedAt;
-		return new Date(Date.parse(unlockedAt) + HINT_DELAYS[tier]).toISOString();
-	}
+	const hintReleased = (settings, id, tier) => (settings.hintRelease[id] || 0) > tier;
 	async function tooManyWrong(env, accountId, ref, kind) {
 		const [max, win] = LIMITS[kind];
 		const since = new Date(Date.now() - win).toISOString();
@@ -195,6 +193,23 @@ export function makeHunt(d) {
 	}
 	async function solve(env, accountId, ref) {
 		await env.DB.prepare("INSERT OR IGNORE INTO huntSolves (accountId, ref, solvedAt) VALUES (?, ?, ?)").bind(accountId, ref, nowIso()).run();
+		if (ref === "w4") await assignPlace(env, accountId);
+	}
+	/** The next finishing place, given once (one statement, so two hunters can't get the same place). */
+	async function assignPlace(env, accountId) {
+		await env.DB.prepare("UPDATE huntPlayers SET finishPlace = (SELECT COALESCE(MAX(finishPlace), 0) + 1 FROM huntPlayers) WHERE accountId = ? AND finishPlace IS NULL").bind(accountId).run();
+	}
+	/** The admin's finish entry for a place: the most specific range that holds it. */
+	function finishFor(settings, place) {
+		if (!place) return null;
+		const hits = (settings.finishes || []).filter((f) => place >= f.from && place <= f.to);
+		hits.sort((a, b) => (a.to - a.from) - (b.to - b.from));
+		return hits[0] || null;
+	}
+	/** All four chapters of whorl IV solved: the Apex opens. */
+	function apexOpen(content, solves) {
+		const ids = content.chapters.filter((c) => c.whorl === 4).map((c) => c.id);
+		return ids.length > 0 && ids.every((id) => solves.has(id));
 	}
 
 	/**
@@ -218,7 +233,7 @@ export function makeHunt(d) {
 	}
 
 	/** Everything a hunter sees: the same payload for the site and the mod. */
-	async function statePayload(env, settings, player) {
+	async function statePayload(env, settings, player, via = "site") {
 		const [content, solves, shares, setRows, hintRows, wrongRows] = await Promise.all([
 			loadContent(env),
 			solvesOf(env, player.accountId),
@@ -251,9 +266,10 @@ export function makeHunt(d) {
 					solved: solves.has(c.id), solvedAt: solves.get(c.id) || null,
 					fragment: solves.has(c.id) ? c.fragment : null,
 					hints: unlocked ? hints.map((text, tier) => {
-						const at = hintAvailableAt(tier, unlockedAt, c.id, shares, settings);
-						const isRevealed = revealed.has(c.id + ":" + tier);
-						return { tier, label: ["Nudge", "Push", "Shove"][tier] || "Hint", availableAt: at, available: Date.parse(at) <= now, revealed: isRevealed, text: isRevealed ? text : null };
+						// not out until released; a taken-back hint hides again even if it was opened
+						const out = hintReleased(settings, c.id, tier);
+						const isRevealed = out && revealed.has(c.id + ":" + tier);
+						return { tier, label: ["Nudge", "Push", "Shove"][tier] || "Hint", availableAt: out ? unlockedAt : null, available: out, revealed: isRevealed, text: isRevealed ? text : null };
 					}) : [],
 				};
 			});
@@ -262,14 +278,16 @@ export function makeHunt(d) {
 				whorl: k, title: w.title, intro: unlocked ? w.intro : null,
 				unlocked, unlockedAt, solved: solves.has("w" + k), solvedAt: solves.get("w" + k) || null,
 				answerKind: k <= 3 ? "square" : "key",
-				puzzleOpen: unlocked && allSolved,
-				puzzle: unlocked && allSolved ? w.puzzle : null,
+				// whorl IV's arrows come last: after the Apex, and only in the mod
+				puzzleOpen: unlocked && allSolved && (k < 4 || solves.has("apex")),
+				puzzle: unlocked && allSolved && (k < 4 || solves.has("apex")) ? w.puzzle : null,
+				inMod: k === 4,
 				chapters,
 			};
 			if (unlocked && w.nudge) {
-				const at = new Date(Date.parse(unlockedAt) + WHORL_NUDGE_DELAY).toISOString();
-				const isRevealed = revealed.has("w" + k + ":3");
-				out.nudge = { availableAt: at, available: Date.parse(at) <= now, revealed: isRevealed, text: isRevealed ? w.nudge : null };
+				const nudgeOut = hintReleased(settings, "w" + k, 0);
+				const isRevealed = nudgeOut && revealed.has("w" + k + ":3");
+				out.nudge = { availableAt: nudgeOut ? unlockedAt : null, available: nudgeOut, revealed: isRevealed, text: isRevealed ? w.nudge : null };
 			}
 			if (k <= 3 && settings.vault) {
 				const size = whorlSize(k);
@@ -281,7 +299,7 @@ export function makeHunt(d) {
 		});
 
 		let apex = null;
-		if (solves.has("w4")) {
+		if (apexOpen(content, solves)) {
 			apex = {
 				title: settings.apex.title, riddle: settings.apex.riddle, marks: settings.apex.marks || [],
 				solved: solves.has("apex"), solvedAt: solves.get("apex") || null,
@@ -289,10 +307,18 @@ export function makeHunt(d) {
 				claimed: (settings.shell.claims || []).some((c) => c.accountId === player.accountId),
 			};
 		}
+		// finished (the arrows, in the mod): your place; where to go and the password only in the mod
+		let finish = null;
+		if (solves.has("w4") && player.finishPlace) {
+			finish = { place: player.finishPlace, at: solves.get("w4") };
+			const f = finishFor(settings, player.finishPlace);
+			if (via === "mod" && f) Object.assign(finish, { x: f.x, y: f.y, z: f.z, password: f.password });
+			else finish.ready = !!f;
+		}
 		return {
 			enabled: true,
 			player: { ledger: ledger(player.ledgerNo), ledgerNo: player.ledgerNo, mcUsername: player.mcUsername, signedUpAt: player.signedUpAt, anonymous: !!player.anonymous, via: player.via, verified: player.verified !== 0 },
-			whorls, apex,
+			whorls, apex, finish,
 			shell: publicShell(settings),
 			hunters: shares.total,
 		};
@@ -311,8 +337,8 @@ export function makeHunt(d) {
 		const milestones = [];
 		for (const c of content.chapters) {
 			const share = shares.share.get(c.id) || 0;
-			if (share >= 0.25) milestones.push({ id: c.id + "-25", text: "A quarter of all hunters solved “" + c.title + "”. Its nudge is out for everyone." });
-			if (share >= 0.5) milestones.push({ id: c.id + "-50", text: "Half of all hunters solved “" + c.title + "”. Its push is out for everyone." });
+			if (share >= 0.25) milestones.push({ id: c.id + "-25", text: "A quarter of all hunters solved “" + c.title + "”." });
+			if (share >= 0.5) milestones.push({ id: c.id + "-50", text: "Half of all hunters solved “" + c.title + "”." });
 		}
 		return json({
 			enabled: true, testing: !s.enabled, signupOpen: !!s.signupOpen, hunters: shares.total,
@@ -422,7 +448,7 @@ export function makeHunt(d) {
 		if (auth.response) return auth.response;
 		const player = await playerOf(env, auth.accountId);
 		if (!player) return json({ enabled: true, player: null, signupOpen: !!s.signupOpen });
-		return json(await statePayload(env, s, player));
+		return json(await statePayload(env, s, player, auth.via));
 	}
 
 	/** POST /hunt/answer {ref, answer} — ref: a chapter id, 'w1'..'w4', 'apex' or 'vault'. Squares: answer {x, z, size}. */
@@ -461,6 +487,8 @@ export function makeHunt(d) {
 			if (!results.length || results.some((c) => !solves.has(c.id))) return json({ error: "Solve all four chapters of this whorl first." }, 403);
 			if (k <= 3 && !s.vault) return json({ error: "This puzzle isn't ready yet." }, 503);
 			if (k === 4 && !s.keyHash) return json({ error: "This puzzle isn't ready yet." }, 503);
+			if (k === 4 && !solves.has("apex")) return json({ error: "Solve the Apex first." }, 403);
+			if (k === 4 && auth.via !== "mod") return json({ error: "The arrows go in the mod: open it (X), then click the spiral on its home screen 5 times.", code: "mod" }, 403);
 			const wait = await tooManyWrong(env, player.accountId, ref, kind);
 			if (wait) return json({ error: "That's three wrong tries today. Try again later.", retryAt: wait }, 429);
 			if (k <= 3) {
@@ -480,18 +508,22 @@ export function makeHunt(d) {
 			}
 		} else if (ref === "apex") {
 			kind = "apex";
-			if (!solves.has("w4")) return json({ error: "Not yet." }, 403);
-			if (!s.vault) return json({ error: "This puzzle isn't ready yet." }, 503);
+			if (!apexOpen(await loadContent(env), solves)) return json({ error: "Not yet." }, 403);
+			const area = s.apex.area;
+			if (!area && !s.vault) return json({ error: "This puzzle isn't ready yet." }, 503);
 			const nums = (String(answer || "").replace(/[−–—]/g, "-").match(/-?\d+/g) || []).map(Number);
-			if (nums.length !== 3) return json({ error: "Give the block as three numbers: x y z." }, 400);
+			// "x z" or "x y z": the first and the last number are x and z
+			if (nums.length < 2 || nums.length > 3) return json({ error: "Give a spot as two numbers: x z." }, 400);
 			const wait = await tooManyWrong(env, player.accountId, ref, kind);
 			if (wait) return json({ error: "Too many wrong answers. Try again later.", retryAt: wait }, 429);
-			shown = nums.join(",");
-			const t = Number(s.vaultTolerance) || 0;
-			correct = Math.abs(nums[0] - s.vault.x) <= t && Math.abs(nums[1] - (s.vault.y ?? nums[1])) <= t && Math.abs(nums[2] - s.vault.z) <= t;
+			const x = nums[0], z = nums[nums.length - 1];
+			shown = x + "," + z;
+			if (area) correct = x >= Math.min(area.x1, area.x2) && x <= Math.max(area.x1, area.x2) && z >= Math.min(area.z1, area.z2) && z <= Math.max(area.z1, area.z2);
+			else { const t = Number(s.vaultTolerance) || 0; correct = Math.abs(x - s.vault.x) <= t && Math.abs(z - s.vault.z) <= t; }
 		} else if (ref === "vault") {
 			kind = "vault";
-			if (!solves.has("apex")) return json({ error: "Not yet." }, 403);
+			// the word on the sign in the house: only for the hunter who finished first
+			if (!solves.has("w4") || player.finishPlace !== 1) return json({ error: "Not yet." }, 403);
 			if (!s.vaultWordHash) return json({ error: "This isn't ready yet." }, 503);
 			shown = normAnswer("word", answer);
 			if (!shown) return json({ error: "Type the word from the lectern." }, 400);
@@ -504,7 +536,7 @@ export function makeHunt(d) {
 
 		await logGuess(env, player.accountId, ref, shown, correct);
 		if (correct) await solve(env, player.accountId, ref);
-		const state = await statePayload(env, s, player);
+		const state = await statePayload(env, s, await playerOf(env, player.accountId), auth.via);
 		return json({ correct, state });
 	}
 
@@ -518,7 +550,7 @@ export function makeHunt(d) {
 		if (!player) return json({ error: "Sign up for the hunt first." }, 403);
 		const b = await body(request);
 		const id = String((b && b.chapterId) || ""), tier = Number(b && b.tier);
-		const state = await statePayload(env, s, player);
+		const state = await statePayload(env, s, player, auth.via);
 		let ok = false;
 		for (const w of state.whorls) {
 			if (id === "w" + w.whorl && tier === 3 && w.nudge && w.nudge.available) ok = true;
@@ -526,7 +558,7 @@ export function makeHunt(d) {
 		}
 		if (!ok) return json({ error: "That hint isn't available yet." }, 403);
 		await env.DB.prepare("INSERT OR IGNORE INTO huntHints (accountId, chapterId, tier, at) VALUES (?, ?, ?, ?)").bind(player.accountId, id, tier, nowIso()).run();
-		return json(await statePayload(env, s, player));
+		return json(await statePayload(env, s, player, auth.via));
 	}
 
 	/** GET /hunt/notes (mod only): the notes the mod shows on its screens, for whorls that are open. */
@@ -550,7 +582,10 @@ export function makeHunt(d) {
 			if (!unlocks[whorlOf.get(r.chapterId)]) continue;
 			notes[r.context] = r.text;
 		}
-		return json({ notes, ledger: ledger(player.ledgerNo) });
+		// finished: where the mod marks the prize in gold (and the password), for this hunter's place
+		const f = solves.has("w4") ? finishFor(s, player.finishPlace) : null;
+		const finish = f ? { place: player.finishPlace, x: f.x, y: f.y, z: f.z, password: f.password } : null;
+		return json({ notes, ledger: ledger(player.ledgerNo), finish });
 	}
 
 	/** GET /hunt/door?slug= — a hidden page on sctp.nl (404.html asks before its short-link lookup). */
@@ -611,13 +646,13 @@ export function makeHunt(d) {
 		const player = await playerOf(env, auth.accountId);
 		if (!player) return json({ error: "Sign up for the hunt first." }, 403);
 		const solves = await solvesOf(env, player.accountId);
-		if (!solves.has("apex")) return json({ error: "Not yet." }, 403);
+		if (!solves.has("w4") || player.finishPlace !== 1) return json({ error: "Not yet." }, 403);
 		const b = await body(request) || {};
 		s.shell.claims = (s.shell.claims || []).filter((c) => c.accountId !== player.accountId);
 		s.shell.claims.push({ accountId: player.accountId, name: player.mcUsername, showName: !!b.showName, at: nowIso() });
 		s.shell.claims = s.shell.claims.slice(-20);
 		await saveSettings(env, s);
-		return json(await statePayload(env, s, player));
+		return json(await statePayload(env, s, player, auth.via));
 	}
 
 	async function handlePrefs(request, env) {
@@ -629,7 +664,7 @@ export function makeHunt(d) {
 		if (!player) return json({ error: "Sign up for the hunt first." }, 403);
 		const b = await body(request) || {};
 		await env.DB.prepare("UPDATE huntPlayers SET anonymous = ? WHERE accountId = ?").bind(b.anonymous ? 1 : 0, player.accountId).run();
-		return json(await statePayload(env, s, { ...player, anonymous: b.anonymous ? 1 : 0 }));
+		return json(await statePayload(env, s, { ...player, anonymous: b.anonymous ? 1 : 0 }, auth.via));
 	}
 
 	// ---- leaderboard / Hall of Fame ----
@@ -772,7 +807,7 @@ export function makeHunt(d) {
 		const [content, sets, players, solveCounts, wrongCounts, hintCounts] = await Promise.all([
 			loadContent(env),
 			env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN accountId IS NULL THEN 0 ELSE 1 END) AS assigned FROM huntSets").first(),
-			env.DB.prepare("SELECT p.accountId, p.mcUsername, p.ledgerNo, p.setNo, p.signedUpAt, p.via, p.anonymous, p.removed, p.verified, (SELECT COUNT(*) FROM huntSolves s WHERE s.accountId = p.accountId) AS solved, (SELECT GROUP_CONCAT(ref) FROM huntSolves s WHERE s.accountId = p.accountId) AS refs FROM huntPlayers p ORDER BY p.ledgerNo").all(),
+			env.DB.prepare("SELECT p.accountId, p.mcUsername, p.ledgerNo, p.setNo, p.signedUpAt, p.via, p.anonymous, p.removed, p.verified, p.finishPlace, (SELECT COUNT(*) FROM huntSolves s WHERE s.accountId = p.accountId) AS solved, (SELECT GROUP_CONCAT(ref) FROM huntSolves s WHERE s.accountId = p.accountId) AS refs FROM huntPlayers p ORDER BY p.ledgerNo").all(),
 			env.DB.prepare("SELECT ref, COUNT(*) AS c FROM huntSolves GROUP BY ref").all(),
 			env.DB.prepare("SELECT ref, COUNT(*) AS c FROM huntGuesses WHERE correct = 0 GROUP BY ref").all(),
 			env.DB.prepare("SELECT chapterId, tier, COUNT(*) AS c FROM huntHints GROUP BY chapterId, tier").all(),
@@ -816,7 +851,15 @@ export function makeHunt(d) {
 		if ("vaultTolerance" in b) s.vaultTolerance = Math.max(0, Math.min(10, Number(b.vaultTolerance) || 0));
 		if (typeof b.key === "string" && b.key.trim()) { s.keyHash = await huntHash(env, "key", keyDigits(b.key)); s.keyLength = keyDigits(b.key).split(",").length; }
 		if (typeof b.vaultWord === "string" && b.vaultWord.trim()) s.vaultWordHash = await huntHash(env, "vault", normAnswer("word", b.vaultWord));
-		if (b.apex) s.apex = { title: String(b.apex.title || "The Apex"), riddle: String(b.apex.riddle || ""), marks: Array.isArray(b.apex.marks) ? b.apex.marks.map((m) => ({ n: String(m.n || ""), x: Number(m.x), z: Number(m.z) })).filter((m) => Number.isFinite(m.x) && Number.isFinite(m.z)) : [] };
+		if (b.apex) {
+			const a = b.apex.area, n = (v) => Number(v);
+			s.apex = { title: String(b.apex.title || "The Apex"), riddle: String(b.apex.riddle || ""), marks: Array.isArray(b.apex.marks) ? b.apex.marks.map((m) => ({ n: String(m.n || ""), x: Number(m.x), z: Number(m.z) })).filter((m) => Number.isFinite(m.x) && Number.isFinite(m.z)) : [],
+				area: a && [a.x1, a.z1, a.x2, a.z2].every((v) => Number.isFinite(n(v))) ? { x1: n(a.x1), z1: n(a.z1), x2: n(a.x2), z2: n(a.z2) } : null };
+		}
+		if (Array.isArray(b.finishes)) {
+			s.finishes = b.finishes.map((f) => ({ from: Math.max(1, Math.floor(Number(f.from))), to: Math.max(1, Math.floor(Number(f.to || f.from))), x: Math.round(Number(f.x)), y: Math.round(Number(f.y)), z: Math.round(Number(f.z)), password: String(f.password || "").trim().slice(0, 120) }))
+				.filter((f) => [f.from, f.to, f.x, f.y, f.z].every(Number.isFinite) && f.to >= f.from).slice(0, 50);
+		}
 		if (Array.isArray(b.doors)) s.doors = b.doors.map((x) => ({ slug: String(x.slug || "").toLowerCase().replace(/[^a-z0-9-]/g, ""), title: String(x.title || ""), from: x.from || null, to: x.to || null, closed: String(x.closed || "Closed."), loggedOut: x.loggedOut ? String(x.loggedOut) : null })).filter((x) => x.slug);
 		if (b.hintRelease && typeof b.hintRelease === "object") s.hintRelease = Object.fromEntries(Object.entries(b.hintRelease).map(([k, v]) => [k, Math.max(0, Math.min(3, Number(v) || 0))]));
 		await saveSettings(env, s);
@@ -905,9 +948,11 @@ export function makeHunt(d) {
 				break;
 			case "solve":
 				await env.DB.prepare("INSERT OR IGNORE INTO huntSolves (accountId, ref, solvedAt) VALUES (?, ?, ?)").bind(p.accountId, String(b.ref), now).run();
+				if (String(b.ref) === "w4") await assignPlace(env, p.accountId);
 				break;
 			case "unsolve":
 				await env.DB.prepare("DELETE FROM huntSolves WHERE accountId = ? AND ref = ?").bind(p.accountId, String(b.ref)).run();
+				if (String(b.ref) === "w4") await env.DB.prepare("UPDATE huntPlayers SET finishPlace = NULL WHERE accountId = ?").bind(p.accountId).run();
 				break;
 			case "reassign": {
 				const set = await env.DB.prepare("SELECT setNo FROM huntSets WHERE accountId IS NULL ORDER BY setNo LIMIT 1").first();
@@ -937,7 +982,7 @@ export function makeHunt(d) {
 					env.DB.prepare("DELETE FROM huntSetNotes WHERE setNo IN (SELECT setNo FROM huntSets WHERE accountId = ?)").bind(p.accountId),
 					env.DB.prepare("DELETE FROM huntSets WHERE accountId = ?").bind(p.accountId),
 					env.DB.prepare("UPDATE huntSets SET accountId = ?, assignedAt = ? WHERE setNo = ?").bind(p.accountId, now, set.setNo),
-					env.DB.prepare("UPDATE huntPlayers SET setNo = ?, signedUpAt = ? WHERE accountId = ?").bind(set.setNo, now, p.accountId),
+					env.DB.prepare("UPDATE huntPlayers SET setNo = ?, signedUpAt = ?, finishPlace = NULL WHERE accountId = ?").bind(set.setNo, now, p.accountId),
 				]);
 				// a shell claim of theirs goes too
 				const st = await getSettings(env);
