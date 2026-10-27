@@ -106,6 +106,15 @@
 	.shop-card{background:var(--panel-alt);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px;}
 	.shop-card h3{font-family:var(--font-display);font-size:16px;margin:0 0 2px;}
 	.shop-card .shop-meta{color:var(--muted);font-size:12.5px;margin:0 0 12px;}
+	.done-col{width:28px;}
+	.done-box{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;vertical-align:middle;margin:0;}
+	tr.done td:not(.done-col){text-decoration:line-through;text-decoration-color:var(--muted);color:var(--muted);}
+	.craft-item.done > span{text-decoration:line-through;text-decoration-color:var(--muted);color:var(--muted);}
+	.craft-item.done b{color:var(--muted);}
+	.craft-item .done-box{flex:0 0 auto;}
+	.shop-card.all-done{opacity:.55;}
+	.shop-card.all-done h3::after{content:" \2713 done";font-family:var(--font-body);font-size:12.5px;color:var(--accent);font-weight:600;}
+	.done-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 14px;font-size:13px;color:var(--muted);}
 	.shop-subtotal{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-weight:700;color:var(--accent);font-size:13.5px;}
 
 	.totals-bar{display:flex;gap:22px;flex-wrap:wrap;background:var(--panel-alt);border:1px solid var(--accent-dim);border-radius:12px;padding:16px 20px;margin-bottom:18px;}
@@ -218,6 +227,7 @@
 			<p class="hint">For these, buying the ingredients and crafting (or using a stonecutter) costs at least half less than buying the block, or the block isn't sold here at all. The ingredients are in the shopping list below.</p>
 			<div id="craftList"></div>
 		</div>
+		<div class="done-bar" id="doneBar" hidden><span id="doneCount"></span><button type="button" class="btn-ghost" id="clearDone" style="padding:5px 12px;">Clear checkmarks</button></div>
 		<div id="shopCards"></div>
 		<div class="section" id="shortfallSection" style="display:none;">
 			<h2 style="font-size:16px;color:var(--bad);">Not enough stock</h2>
@@ -778,7 +788,7 @@
 			var from = c.parts.map(function(p){ return fmtNum(p.qty) + " " + esc(itemName(p.id)); }).join(" + ");
 			var extra = c.crafts * c.recipe.makes - c.qty;
 			var why = c.saving === null ? "nobody sells it on this world" : c.saving + "% cheaper than buying it";
-			return '<div class="craft-item"><span><b>' + esc(c.name) + '</b> ×' + fmtNum(c.qty) + ': buy ' + from + ', then use a ' + how +
+			return '<div class="craft-item">' + doneBox("craft|" + c.key) + '<span style="flex:1 1 220px;"><b>' + esc(c.name) + '</b> ×' + fmtNum(c.qty) + ': buy ' + from + ', then use a ' + how +
 				(extra > 0 ? ' (' + fmtNum(extra) + ' left over)' : '') + '<br><span class="craft-why">' + why + '</span></span>' +
 				'<button type="button" class="btn-ghost" data-buy="' + esc(c.key) + '">Buy the block instead</button></div>';
 		}).join("");
@@ -788,6 +798,42 @@
 		if(!b) return;
 		if(b.dataset.buy) buyInstead[b.dataset.buy] = true; else delete buyInstead[b.dataset.craft];
 		calculate();
+	});
+
+	// ---------------- checkmarks: tick off what you've bought ----------------
+	// Remembered in this browser (a convenience), keyed by shop and item, so they
+	// stay through a reload or recalculating the same list.
+	var DONE_KEY = "sctp_list_done";
+	var done = {};
+	try { done = JSON.parse(localStorage.getItem(DONE_KEY) || "{}") || {}; } catch(e){ done = {}; }
+	function saveDone(){ try { localStorage.setItem(DONE_KEY, JSON.stringify(done)); } catch(e){} }
+	function doneBox(key){ return '<input type="checkbox" class="done-box" aria-label="Done" data-done="' + esc(key) + '"' + (done[key] ? " checked" : "") + '>'; }
+	function paintDone(){
+		var boxes = document.querySelectorAll("#resultsSection .done-box");
+		var ticked = 0;
+		boxes.forEach(function(b){
+			var row = b.closest("tr, .craft-item");
+			if(row) row.classList.toggle("done", b.checked);
+			if(b.checked) ticked++;
+		});
+		document.querySelectorAll("#shopCards .shop-card").forEach(function(card){
+			var all = card.querySelectorAll(".done-box"), on = card.querySelectorAll(".done-box:checked");
+			card.classList.toggle("all-done", all.length > 0 && all.length === on.length);
+		});
+		document.getElementById("doneBar").hidden = boxes.length === 0;
+		document.getElementById("doneCount").textContent = ticked + " of " + boxes.length + " done";
+	}
+	document.getElementById("resultsSection").addEventListener("change", function(e){
+		var b = e.target.closest(".done-box");
+		if(!b) return;
+		if(b.checked) done[b.dataset.done] = true; else delete done[b.dataset.done];
+		saveDone();
+		paintDone();
+	});
+	document.getElementById("clearDone").addEventListener("click", function(){
+		document.querySelectorAll("#resultsSection .done-box").forEach(function(b){ b.checked = false; delete done[b.dataset.done]; });
+		saveDone();
+		paintDone();
 	});
 
 	// ---------------- results rendering ----------------
@@ -849,7 +895,7 @@
 			var subtotals = {};
 			var rows = g.lines.map(function(p){
 				subtotals[p.currency] = (subtotals[p.currency]||0) + p.cost;
-				return '<tr><td>' + esc(nameForKey(p.materialKey)) + '</td>' +
+				return '<tr><td class="done-col">' + doneBox("buy|" + p.world + "|" + p.seller + "|" + p.materialKey + "|" + (p.position || "")) + '</td><td>' + esc(nameForKey(p.materialKey)) + '</td>' +
 					'<td class="mat-qty">' + fmtNum(p.qty) + '</td>' +
 					'<td class="mat-qty">' + p.batches + ' × ' + fmtNum(p.unitPrice) + ' ' + esc(currencyLabel(p.currency)) + '</td>' +
 					'<td class="mat-qty">' + fmtNum(p.cost) + ' ' + esc(currencyLabel(p.currency)) + '</td>' +
@@ -860,7 +906,7 @@
 			card.innerHTML =
 				'<h3>' + esc(g.seller) + '</h3>' +
 				'<p class="shop-meta">' + esc(g.world) + (sharedPosition ? " · " + esc(sharedPosition) : "") + '</p>' +
-				'<table><thead><tr><th>Item</th><th>Qty</th><th>Batches</th><th>Cost</th>' + (showPositionColumn ? '<th>Position</th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table>' +
+				'<table><thead><tr><th class="done-col"></th><th>Item</th><th>Qty</th><th>Batches</th><th>Cost</th>' + (showPositionColumn ? '<th>Position</th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table>' +
 				'<div class="shop-subtotal">Subtotal: ' + subtotalText + '</div>';
 			shopCards.appendChild(card);
 		});
@@ -900,6 +946,7 @@
 			var result = runOptimizer(world, balance, plan.mats);
 			renderResults(result);
 			renderCrafts(plan.crafts);
+			paintDone();
 			status.textContent = "Done — " + result.purchases.length + " purchase" + (result.purchases.length === 1 ? "" : "s") + " planned.";
 		}, 10);
 	}

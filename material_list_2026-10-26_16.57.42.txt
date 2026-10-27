@@ -1,0 +1,123 @@
++--------------------------------+--------+---------+-----------+
+| Material List for placement 'Unnamed'                         |
++--------------------------------+--------+---------+-----------+
+| Item                           |  Total | Missing | Available |
++--------------------------------+--------+---------+-----------+
+| Ochre Froglight                |   2485 |    2150 |         0 |
+| Warped Hyphae                  |   1417 |    1417 |         0 |
+| Blue Concrete                  |   1270 |    1270 |         0 |
+| Brown Mushroom Block           |   2896 |    1245 |         0 |
+| Blue Wool                      |   1228 |    1228 |         0 |
+| Dirt                           |  71708 |    1038 |         0 |
+| Dark Oak Planks                |    960 |     872 |         0 |
+| White Wool                     |   3384 |     649 |         0 |
+| Oak Planks                     |    480 |     480 |         0 |
+| Beehive                        |    395 |     395 |         0 |
+| Polished Blackstone Slab       |    394 |     394 |         0 |
+| Glowstone                      |    323 |     323 |         0 |
+| Sandstone                      |    277 |     277 |         0 |
+| Dark Oak Stairs                |    242 |     235 |         0 |
+| Orange Stained Glass           |    229 |     229 |         0 |
+| Dark Oak Trapdoor              |    188 |     188 |         0 |
+| Polished Blackstone            |    179 |     179 |         0 |
+| Sandstone Stairs               |    172 |     172 |         0 |
+| Loom                           |    163 |     163 |         0 |
+| Red Mushroom Block             |   2474 |     161 |         0 |
+| Mud Brick Wall                 |    160 |     160 |         0 |
+| Quartz Slab                    |    157 |     157 |         0 |
+| Iron Chain                     |    181 |     149 |         0 |
+| Polished Blackstone Stairs     |    144 |     144 |         0 |
+| Polished Deepslate Wall        |    143 |     143 |         0 |
+| Cut Sandstone                  |    116 |     116 |         0 |
+| Anvil                          |    116 |     112 |         0 |
+| Candle                         |    109 |     109 |         0 |
+| Shroomlight                    |    109 |     109 |         0 |
+| Spruce Stairs                  |    115 |      85 |         0 |
+| Dark Oak Fence                 |     81 |      81 |         0 |
+| Stone                          | 112070 |      76 |         0 |
+| End Stone Bricks               |     64 |      64 |         0 |
+| Dispenser                      |     62 |      62 |         0 |
+| Polished Blackstone Button 1s |     62 |      62 |         0 |
+| End Stone                      |     61 |      61 |         0 |
+| Redstone Repeater              |     62 |      60 |         0 |
+| Redstone Torch                 |     62 |      60 |         0 |
+| Waxed Copper Lantern           |    120 |      53 |         0 |
+| Spruce Trapdoor                |    262 |      52 |         0 |
+| Dark Oak Sign                  |     50 |      50 |         0 |
+| Redstone Dust                  |    217 |      49 |         0 |
+| Barrier                        |     44 |      44 |         0 |
+| Polished Diorite Slab          |     42 |      42 |         0 |
+| Stripped Oak Wood              |     42 |      42 |         0 |
+| Magma Block                    |     37 |      37 |         0 |
+| Mud Brick Stairs               |     48 |      36 |         0 |
+| Brown Mushroom                 |    430 |      35 |         1 |
+| Nether Brick Fence             |     33 |      33 |         0 |
+| Hopper                         |     62 |      32 |         0 |
+| Block of Gold                  |     31 |      31 |         0 |
+| Lantern                        |     31 |      31 |         0 |
+| Redstone Comparator            |     31 |      31 |         0 |
+| Chest                          |     31 |      30 |         0 |
+| Piston                         |     31 |      30 |         0 |
+| Sticky Piston                  |     31 |      30 |         0 |
+| Dark Oak Slab                  |   1694 |      29 |         0 |
+| Polished Deepslate Slab        |     24 |      24 |         0 |
+| Polished Blackstone Wall       |     21 |      21 |         0 |
+| Bell                           |     30 |      20 |         0 |
+| Oak Stairs                     |     15 |      15 |         0 |
+| Smooth Sandstone Slab          |      9 |       9 |         0 |
+| String                         |      9 |       9 |         0 |
+| End Rod                        |      9 |       7 |         0 |
+| Jungle Trapdoor                |      6 |       6 |         0 |
+| Birch Planks                   |    540 |       5 |         0 |
+| Red Wool                       |   1764 |       5 |         0 |
+| Soul Lantern                   |      5 |       5 |         0 |
+| Mycelium                       |  25427 |       4 |        39 |
+| Red Concrete                   |   5155 |       4 |         0 |
+| Campfire                       |    120 |       3 |         0 |
+| Flower Pot                     |      3 |       3 |         0 |
+| Iron Bars                      |      3 |       3 |         0 |
+| Bamboo                         |      2 |       2 |         0 |
+| Birch Leaves                   |      2 |       2 |         0 |
+| Mangrove Leaves                |      2 |       2 |         0 |
+| Stripped Pale Oak Log          |    840 |       2 |         0 |
+| §fDecorated Pot          |      2 |       2 |         0 |
+| Azalea                         |      1 |       1 |         0 |
+| Granite                        |   1947 |       1 |         0 |
+| Mossy Cobblestone              |    521 |       1 |       198 |
+| Mud Bricks                     |    528 |       1 |        68 |
+| Mushroom Stem                  |    502 |       1 |         0 |
+| Oak Slab                       |      1 |       1 |         0 |
+| Red Terracotta                 |    541 |       1 |         0 |
+| Smooth Quartz Block            |    901 |       1 |         0 |
+| Spruce Planks                  |    275 |       1 |         0 |
+| Stripped Spruce Wood           |   2287 |       1 |         0 |
+| Andesite                       |    257 |       0 |         0 |
+| Barrel                         |    188 |       0 |         0 |
+| Black Stained Glass Pane       |    150 |       0 |         0 |
+| Brown Concrete                 |   1856 |       0 |         0 |
+| Brown Terracotta               |   2135 |       0 |         0 |
+| Brown Wool                     |   1999 |       0 |         0 |
+| Coal Ore                       |   1032 |       0 |         0 |
+| Copper Ore                     |    489 |       0 |         0 |
+| Dark Oak Fence Gate            |    120 |       0 |         0 |
+| Diorite                        |    301 |       0 |         0 |
+| Firefly Bush                   |      5 |       0 |         0 |
+| Gravel                         |   2418 |       0 |         0 |
+| Iron Ore                       |     45 |       0 |         0 |
+| Mangrove Roots                 |   4560 |       0 |         0 |
+| Moss Block                     |    569 |       0 |        33 |
+| Pale Oak Stairs                |     30 |       0 |         0 |
+| Pale Oak Trapdoor              |    120 |       0 |         0 |
+| Rooted Dirt                    |    106 |       0 |         0 |
+| Sand                           |    225 |       0 |         0 |
+| Sandstone Wall                 |     30 |       0 |         0 |
+| Short Grass                    |      1 |       0 |         0 |
+| Shulker Box                    |      4 |       0 |         0 |
+| Smooth Sandstone               |   1048 |       0 |         0 |
+| Smooth Sandstone Stairs        |     30 |       0 |         0 |
+| Spruce Fence                   |     30 |       0 |         0 |
+| Stripped Pale Oak Wood         |      4 |       0 |         0 |
+| Sugar Cane                     |      3 |       0 |         0 |
++--------------------------------+--------+---------+-----------+
+| Item                           |  Total | Missing | Available |
++--------------------------------+--------+---------+-----------+
