@@ -355,7 +355,7 @@
 					var at = new Date(a.auctionAt), left = Math.max(0, a.totalLimit - (a.entered || 0));
 					var when = at.toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 					var status = a.accepting ? '<span class="status open">Taking entries</span>' : Date.parse(a.auctionAt) <= Date.now() ? '<span class="status closed">Happening now</span>' : '<span class="status closed">Entries closed</span>';
-					return '<a class="auc" href="/auction/' + encodeURIComponent(a.id) + '">' +
+					return '<a class="auc" href="/auction/' + encodeURIComponent(a.short || a.id) + '">' +
 						'<div class="top"><span class="t">' + esc(a.title) + '</span><span class="w">' + esc(a.world) + '</span></div>' +
 						'<div class="d">' + esc(when) + '</div>' +
 						'<div>' + status + '</div>' +
@@ -374,7 +374,7 @@
 		if(MC_NAME.test(name)) q.push("mcUsername=" + encodeURIComponent(name));
 		return fetch(API + "/auction/current" + (q.length ? "?" + q.join("&") : ""))
 			.then(function(r){ return r.json(); })
-			.then(function(d){ auction = d.auction; notFound = !!d.notFound; enteredTotal = d.entered || 0; enteredByUser = d.enteredByUser || 0; renderHero(); if(!lineupLoaded || lineupFresh){ lineupLoaded = true; loadLineup(lineupFresh); lineupFresh = false; } })
+			.then(function(d){ auction = d.auction; notFound = !!d.notFound; if(AUCTION_ID && auction && auction.short && history.replaceState) history.replaceState(null, "", "/auction/" + auction.short + location.hash); enteredTotal = d.entered || 0; enteredByUser = d.enteredByUser || 0; renderHero(); if(!lineupLoaded || lineupFresh){ lineupLoaded = true; loadLineup(lineupFresh); lineupFresh = false; } })
 			.catch(function(){ $("heroWhen").textContent = "Couldn't load the auction"; $("heroSub").textContent = "Check your connection and refresh."; });
 	}
 

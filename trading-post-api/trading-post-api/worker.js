@@ -7285,14 +7285,33 @@ async function auctionEstimate(env, rare, world) {
 	return { value, basis: parts.join(" and "), suggestedStartDia: start, suggestedMinDia: min, suggestedRegularDia: regular };
 }
 
-// GET /auction/current[?id=<auction id>][&mcUsername=]: the next auction, or (with id) that one
-// auction whatever its state (sctp.nl/auction/<id>), with how full it is.
+// Short auction links (sctp.nl/auction/7b7): an auction is named by the start of its id,
+// the shortest start no other auction shares (at least 3 characters).
+const AUCTION_SHORT_MIN = 3;
+async function auctionShortIds(env) {
+	const { results } = await env.DB.prepare("SELECT id FROM auctions").all();
+	const ids = results.map((r) => String(r.id).toLowerCase());
+	const out = new Map();
+	for (const id of ids) {
+		let n = AUCTION_SHORT_MIN;
+		while (n < id.length && ids.some((o) => o !== id && o.startsWith(id.slice(0, n)))) n++;
+		out.set(id, id.slice(0, n));
+	}
+	return out;
+}
+
+// GET /auction/current[?id=<auction id, or its start>][&mcUsername=]: the next auction, or (with id)
+// that one auction whatever its state (sctp.nl/auction/<id>), with how full it is. If a short id
+// ever matches more than one, the soonest upcoming one wins, else the most recent.
 async function handleGetCurrentAuction(request, env) {
 	const now = new Date().toISOString();
-	const wanted = new URL(request.url).searchParams.get("id");
+	const wanted = String(new URL(request.url).searchParams.get("id") || "").toLowerCase().replace(/[^a-z0-9-]/g, "");
 	let auction = null;
 	if (wanted) {
-		auction = await env.DB.prepare("SELECT * FROM auctions WHERE id = ? AND deletedAt IS NULL").bind(String(wanted)).first();
+		if (wanted.length < AUCTION_SHORT_MIN) return json({ auction: null, notFound: true });
+		const { results } = await env.DB.prepare("SELECT * FROM auctions WHERE lower(id) LIKE ? AND deletedAt IS NULL").bind(wanted + "%").all();
+		const upcoming = results.filter((a) => a.status !== "finished" && a.auctionAt > now).sort((a, b) => a.auctionAt.localeCompare(b.auctionAt));
+		auction = results.find((a) => String(a.id).toLowerCase() === wanted) || upcoming[0] || results.sort((a, b) => b.auctionAt.localeCompare(a.auctionAt))[0] || null;
 		if (!auction) return json({ auction: null, notFound: true });
 	} else {
 		auction = await env.DB.prepare("SELECT * FROM auctions WHERE status = 'open' AND auctionAt > ? ORDER BY auctionAt LIMIT 1").bind(now).first();
@@ -7303,7 +7322,8 @@ async function handleGetCurrentAuction(request, env) {
 	const counts = await env.DB.prepare(
 		"SELECT COUNT(*) AS total, SUM(CASE WHEN lower(mcUsername) = lower(?) THEN 1 ELSE 0 END) AS mine FROM auctionItems WHERE auctionId = ? AND status != 'removed'"
 	).bind(user, auction.id).first();
-	return json({ auction: auctionPublic(auction), entered: counts.total || 0, enteredByUser: counts.mine || 0 });
+	const short = (await auctionShortIds(env)).get(String(auction.id).toLowerCase());
+	return json({ auction: { ...auctionPublic(auction), short }, entered: counts.total || 0, enteredByUser: counts.mine || 0 });
 }
 
 // GET /items/value?name=<rare name> or ?itemKey=v:minecraft:x|name -> { Firefly: {value, soldCount, listingCount, basis}, Honeybee: {...} }
@@ -7344,7 +7364,8 @@ async function handleGetUpcomingAuctions(request, env) {
 		`SELECT a.*, (SELECT COUNT(*) FROM auctionItems i WHERE i.auctionId = a.id AND i.status != 'removed') AS entered
 		 FROM auctions a WHERE a.deletedAt IS NULL AND a.status != 'finished' AND a.auctionAt > ? ORDER BY a.auctionAt LIMIT 40`
 	).bind(since).all();
-	return json({ auctions: results.map((a) => ({ ...auctionPublic(a), entered: a.entered || 0 })) });
+	const shorts = await auctionShortIds(env);
+	return json({ auctions: results.map((a) => ({ ...auctionPublic(a), short: shorts.get(String(a.id).toLowerCase()), entered: a.entered || 0 })) });
 }
 
 async function handleAuctionEstimate(request, env, ctx) {
