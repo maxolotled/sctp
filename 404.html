@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <script>
+	// sctp.nl/auction/<id> — one auction's own page: the auction page, opened on that auction
+	// (it puts the short address back in the address bar). /auction/admin and /auction/me are real pages.
+	(function(){
+		var m = /^\/auction\/([A-Za-z0-9-]{6,64})\/?$/.exec(location.pathname);
+		if (m) location.replace("/auction/?id=" + encodeURIComponent(m[1]) + location.hash);
+	})();
 	// sctp.nl/<name> — a short link made in the admin panel ("Short links").
 	// GitHub Pages routes any unmatched path here, so a single-segment path is
 	// looked up first, with the page hidden so nothing flashes before the

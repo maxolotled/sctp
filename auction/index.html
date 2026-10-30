@@ -40,6 +40,18 @@
 	.status.open{background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
 	.status.closed{background:rgba(226,163,61,0.16);color:var(--warn);}
 	.status.none{background:var(--panel-alt);color:var(--muted);}
+	.status.done{background:var(--panel-alt);color:var(--muted);}
+	.back-all{display:inline-block;font-size:13px;margin:0 0 6px;color:var(--gold);text-decoration:none;}
+	.back-all:hover{text-decoration:underline;}
+	.auc-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px;}
+	.auc{display:flex;flex-direction:column;gap:6px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--panel-alt);color:inherit;text-decoration:none;transition:border-color .15s;}
+	.auc:hover,.auc:focus-visible{border-color:var(--gold);}
+	.auc .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;}
+	.auc .t{font-family:var(--font-display);font-size:16px;font-weight:700;line-height:1.25;}
+	.auc .w{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:rgba(242,193,78,0.14);color:var(--gold);white-space:nowrap;}
+	.auc .d{font-size:14px;}
+	.auc .m{font-size:12.5px;color:var(--muted);}
+	.auc-empty{color:var(--muted);margin:10px 0 0;}
 	.facts{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px;font-size:13px;color:var(--muted);}
 	.facts b{color:var(--text);font-weight:600;}
 
@@ -164,9 +176,16 @@
 </header>
 
 <main class="wrap">
+	<section class="card" id="overviewCard" hidden>
+		<h2 style="margin:0;">Upcoming auctions</h2>
+		<p style="margin:4px 0 0;font-size:13.5px;color:var(--muted);">Firefly and Honeybee, soonest first. Pick one to see what's up for auction and to enter your items.</p>
+		<div class="auc-list" id="aucList"><p class="auc-empty">Loading&hellip;</p></div>
+	</section>
+
 	<section class="card hero" id="hero">
 		<div>
-			<p class="kicker">Next auction</p>
+			<a class="back-all" id="backAll" href="/auction/" hidden>&larr; All auctions</a>
+			<p class="kicker" id="heroKicker">Next auction</p>
 			<p class="when" id="heroWhen">Loading…</p>
 			<p class="sub" id="heroSub"></p>
 		</div>
@@ -315,12 +334,47 @@
 		else { $(inputId).value = dia; $(unitId).value = "dia"; }
 	}
 
+	// ---------------- which auction ----------------
+	// sctp.nl/auction/<id> arrives here as ?id=<id> (see 404.html) and gets its short address
+	// back; plain sctp.nl/auction/ is the overview, except old "#enter" links, which still
+	// open the next auction's entry form.
+	var AUCTION_ID = new URLSearchParams(location.search).get("id");
+	if(AUCTION_ID && history.replaceState) history.replaceState(null, "", "/auction/" + encodeURIComponent(AUCTION_ID) + location.hash);
+	var OVERVIEW = !AUCTION_ID && location.hash !== "#enter";
+	var notFound = false;
+
+	function loadOverview(){
+		$("overviewCard").hidden = false;
+		$("hero").hidden = true;
+		renderHow();
+		fetch(API + "/auction/upcoming")
+			.then(function(r){ return r.json(); })
+			.then(function(d){
+				var list = d.auctions || [];
+				$("aucList").innerHTML = list.length ? list.map(function(a){
+					var at = new Date(a.auctionAt), left = Math.max(0, a.totalLimit - (a.entered || 0));
+					var when = at.toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+					var status = a.accepting ? '<span class="status open">Taking entries</span>' : Date.parse(a.auctionAt) <= Date.now() ? '<span class="status closed">Happening now</span>' : '<span class="status closed">Entries closed</span>';
+					return '<a class="auc" href="/auction/' + encodeURIComponent(a.id) + '">' +
+						'<div class="top"><span class="t">' + esc(a.title) + '</span><span class="w">' + esc(a.world) + '</span></div>' +
+						'<div class="d">' + esc(when) + '</div>' +
+						'<div>' + status + '</div>' +
+						'<div class="m">' + (a.type === "regular" ? "Regular auction" : "Dutch clock auction") + (a.hostName ? " &middot; hosted by " + esc(a.hostName) : "") +
+							(a.accepting ? " &middot; " + left + " of " + a.totalLimit + " spots left" : "") + '</div></a>';
+				}).join("") : '<p class="auc-empty">No auctions scheduled right now. Keep an eye on Discord for the next one.</p>';
+			})
+			.catch(function(){ $("aucList").innerHTML = '<p class="auc-empty">Couldn\'t load the auctions. Check your connection and refresh.</p>'; });
+	}
+
 	// ---------------- auction header ----------------
 	function loadAuction(){
 		var name = $("mcName").value.trim();
-		return fetch(API + "/auction/current" + (MC_NAME.test(name) ? "?mcUsername=" + encodeURIComponent(name) : ""))
+		var q = [];
+		if(AUCTION_ID) q.push("id=" + encodeURIComponent(AUCTION_ID));
+		if(MC_NAME.test(name)) q.push("mcUsername=" + encodeURIComponent(name));
+		return fetch(API + "/auction/current" + (q.length ? "?" + q.join("&") : ""))
 			.then(function(r){ return r.json(); })
-			.then(function(d){ auction = d.auction; enteredTotal = d.entered || 0; enteredByUser = d.enteredByUser || 0; renderHero(); if(!lineupLoaded || lineupFresh){ lineupLoaded = true; loadLineup(lineupFresh); lineupFresh = false; } })
+			.then(function(d){ auction = d.auction; notFound = !!d.notFound; enteredTotal = d.entered || 0; enteredByUser = d.enteredByUser || 0; renderHero(); if(!lineupLoaded || lineupFresh){ lineupLoaded = true; loadLineup(lineupFresh); lineupFresh = false; } })
 			.catch(function(){ $("heroWhen").textContent = "Couldn't load the auction"; $("heroSub").textContent = "Check your connection and refresh."; });
 	}
 
@@ -355,9 +409,11 @@
 	function renderHero(){
 		renderHow();
 		var st = $("heroStatus");
+		$("backAll").hidden = false;
+		$("heroKicker").textContent = AUCTION_ID ? (auction && auction.status === "finished" ? "Past auction" : "Auction") : "Next auction";
 		if(!auction){
-			$("heroWhen").textContent = "No auction scheduled";
-			$("heroSub").textContent = "Keep an eye on Discord for the next one. Entries open here when it's announced.";
+			$("heroWhen").textContent = notFound ? "There's no such auction" : "No auction scheduled";
+			$("heroSub").textContent = notFound ? "It may have been removed. See all upcoming auctions above." : "Keep an eye on Discord for the next one. Entries open here when it's announced.";
 			st.className = "status none"; st.textContent = "Not taking entries";
 			$("heroFacts").innerHTML = "";
 			$("openEntry").hidden = true;
@@ -369,8 +425,9 @@
 		$("heroWhen").textContent = at.toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 		var utc = at.toLocaleString(undefined, { timeZone: "UTC", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " UTC";
 		$("heroSub").textContent = auction.title + (auction.hostName ? " · hosted by " + auction.hostName : "") + " · " + auction.world + " · shown in your time (" + utc + ")" + (auction.notes ? " · " + auction.notes : "");
-		st.className = "status " + (auction.accepting ? "open" : "closed");
-		st.textContent = auction.accepting ? "Taking entries" : "Entries closed";
+		var finished = auction.status === "finished";
+		st.className = "status " + (auction.accepting ? "open" : finished ? "done" : "closed");
+		st.textContent = auction.accepting ? "Taking entries" : finished ? "Finished" : "Entries closed";
 		var left = Math.max(0, auction.totalLimit - enteredTotal);
 		$("heroFacts").innerHTML =
 			'<span>Our cut: <b>' + esc(auction.cutPercent) + '%</b> of the sale, rounded up to the nearest diamond</span>' +
@@ -586,7 +643,7 @@
 	try { var saved = localStorage.getItem(NAME_KEY); if(saved) $("mcName").value = saved; } catch(e){}
 	var s0 = session();
 	if(!$("mcName").value && s0 && s0.mcUsername) $("mcName").value = s0.mcUsername;
-	loadAuction();
+	if(OVERVIEW) loadOverview(); else loadAuction();
 })();
 </script>
 </body>

@@ -5518,7 +5518,9 @@ async function handleGetProfile(request, env, ctx) {
 // can never quietly drift out of sync with what "verified" means everywhere
 // else on the site.
 //   GET  /mapart/of-the-day                (public)
-//   POST /admin/mapart/otd/reroll          ("manageMapart") body: {id?} -> picks a different random verified piece (or the given one, even if unverified — an explicit admin override)
+//   POST /admin/mapart/otd/reroll          ("manageMapart") body: {id?, date?} -> picks a different random verified piece (or the given one, even if unverified — an explicit admin override)
+//                                          with date (YYYY-MM-DD, a later day): schedules that piece for that day instead
+// Stored as { date, id, manual?, scheduled?: { "YYYY-MM-DD": id } }. A piece set by hand (manual) stays all day.
 const MOTD_KEY = "mapartOfTheDay";
 
 async function pickRandomMapart(env, excludeId) {
@@ -5542,11 +5544,16 @@ async function getOrPickMapartOfTheDay(env) {
 		// Re-checked (not just "does it still exist") so a piece picked before
 		// this restriction existed, or one that's lost its verified status since,
 		// gets swapped out for a verified one rather than staying up all day.
-		if (existing && mapartPublic(existing).verified) return cur;
+		// A piece an admin set by hand stays, verified or not.
+		if (existing && (cur.manual || mapartPublic(existing).verified)) return cur;
 	}
-	const id = await pickRandomMapart(env, cur ? cur.id : "");
+	// scheduled ahead for today by an admin? (days that have passed are dropped)
+	const scheduled = Object.fromEntries(Object.entries((cur && cur.scheduled) || {}).filter(([d]) => d >= today));
+	const planned = scheduled[today] && (await env.DB.prepare("SELECT 1 AS x FROM maparts WHERE id = ?").bind(scheduled[today]).first()) ? scheduled[today] : null;
+	delete scheduled[today];
+	const id = planned || (await pickRandomMapart(env, cur ? cur.id : ""));
 	if (!id) return null;
-	cur = { date: today, id };
+	cur = { date: today, id, ...(planned ? { manual: true } : {}), ...(Object.keys(scheduled).length ? { scheduled } : {}) };
 	await env.DB.prepare("INSERT OR REPLACE INTO siteSettings (key, value) VALUES (?, ?)").bind(MOTD_KEY, JSON.stringify(cur)).run();
 	return cur;
 }
@@ -5574,6 +5581,15 @@ async function handleAdminRerollMapartOfTheDay(request, env) {
 	const row = await env.DB.prepare("SELECT value FROM siteSettings WHERE key = ?").bind(MOTD_KEY).first();
 	let prev = null;
 	try { prev = row ? JSON.parse(row.value) : null; } catch (e) { /* ignore */ }
+	const scheduled = Object.fromEntries(Object.entries((prev && prev.scheduled) || {}).filter(([d]) => d > today));
+	// a later day: just schedule it (today's pick stays as it is)
+	if (body.date && /^\d{4}-\d{2}-\d{2}$/.test(String(body.date)) && String(body.date) > today) {
+		if (!body.id || !(await env.DB.prepare("SELECT 1 AS x FROM maparts WHERE id = ?").bind(String(body.id)).first())) return json({ error: "Mapart not found" }, 404);
+		scheduled[String(body.date)] = String(body.id);
+		const kept = prev && prev.date === today ? { ...prev, scheduled } : { date: "", id: "", scheduled };
+		await env.DB.prepare("INSERT OR REPLACE INTO siteSettings (key, value) VALUES (?, ?)").bind(MOTD_KEY, JSON.stringify(kept)).run();
+		return json({ ok: true, scheduled });
+	}
 	let id = null;
 	if (body.id) {
 		if (!(await env.DB.prepare("SELECT 1 AS x FROM maparts WHERE id = ?").bind(String(body.id)).first())) return json({ error: "Mapart not found" }, 404);
@@ -5582,7 +5598,7 @@ async function handleAdminRerollMapartOfTheDay(request, env) {
 		id = await pickRandomMapart(env, prev ? prev.id : "");
 	}
 	if (!id) return json({ error: "No mapart to pick from" }, 404);
-	const cur = { date: today, id };
+	const cur = { date: today, id, ...(body.id ? { manual: true } : {}), ...(Object.keys(scheduled).length ? { scheduled } : {}) };
 	await env.DB.prepare("INSERT OR REPLACE INTO siteSettings (key, value) VALUES (?, ?)").bind(MOTD_KEY, JSON.stringify(cur)).run();
 	// The public endpoint is edge-cached; the site refetches within minutes.
 	return json({ ok: true, ...(await loadMotdPayload(env, cur)) });
@@ -7269,10 +7285,19 @@ async function auctionEstimate(env, rare, world) {
 	return { value, basis: parts.join(" and "), suggestedStartDia: start, suggestedMinDia: min, suggestedRegularDia: regular };
 }
 
+// GET /auction/current[?id=<auction id>][&mcUsername=]: the next auction, or (with id) that one
+// auction whatever its state (sctp.nl/auction/<id>), with how full it is.
 async function handleGetCurrentAuction(request, env) {
 	const now = new Date().toISOString();
-	let auction = await env.DB.prepare("SELECT * FROM auctions WHERE status = 'open' AND auctionAt > ? ORDER BY auctionAt LIMIT 1").bind(now).first();
-	if (!auction) auction = await env.DB.prepare("SELECT * FROM auctions WHERE status != 'finished' AND auctionAt > ? ORDER BY auctionAt LIMIT 1").bind(now).first();
+	const wanted = new URL(request.url).searchParams.get("id");
+	let auction = null;
+	if (wanted) {
+		auction = await env.DB.prepare("SELECT * FROM auctions WHERE id = ? AND deletedAt IS NULL").bind(String(wanted)).first();
+		if (!auction) return json({ auction: null, notFound: true });
+	} else {
+		auction = await env.DB.prepare("SELECT * FROM auctions WHERE status = 'open' AND auctionAt > ? ORDER BY auctionAt LIMIT 1").bind(now).first();
+		if (!auction) auction = await env.DB.prepare("SELECT * FROM auctions WHERE status != 'finished' AND auctionAt > ? ORDER BY auctionAt LIMIT 1").bind(now).first();
+	}
 	if (!auction) return json({ auction: null });
 	const user = new URL(request.url).searchParams.get("mcUsername") || "";
 	const counts = await env.DB.prepare(
@@ -7309,6 +7334,17 @@ async function handleItemValue(request, env, ctx) {
 		}
 		return out;
 	});
+}
+
+// GET /auction/upcoming: every auction that hasn't finished, both worlds, soonest first
+// (one that started in the last 3 hours stays, it may still be running), with how full each is.
+async function handleGetUpcomingAuctions(request, env) {
+	const since = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+	const { results } = await env.DB.prepare(
+		`SELECT a.*, (SELECT COUNT(*) FROM auctionItems i WHERE i.auctionId = a.id AND i.status != 'removed') AS entered
+		 FROM auctions a WHERE a.deletedAt IS NULL AND a.status != 'finished' AND a.auctionAt > ? ORDER BY a.auctionAt LIMIT 40`
+	).bind(since).all();
+	return json({ auctions: results.map((a) => ({ ...auctionPublic(a), entered: a.entered || 0 })) });
 }
 
 async function handleAuctionEstimate(request, env, ctx) {
@@ -8799,6 +8835,7 @@ const ROUTES = [
 	["POST", "/mapart/like", handleLikeMapart],
 	["GET", "/mapart/my-likes", handleGetMyMapartLikes],
 	["GET", "/auction/current", handleGetCurrentAuction],
+	["GET", "/auction/upcoming", handleGetUpcomingAuctions],
 	["GET", "/secret-santa/event", handleSantaEvent],
 	["GET", "/secret-santa/value", handleSantaValue],
 	["GET", "/secret-santa/mine", handleSantaMine],
