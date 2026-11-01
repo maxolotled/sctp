@@ -178,10 +178,11 @@
 		<a href="#scanning"><span class="toc-num">04</span>How scanning works</a>
 		<a href="#settings"><span class="toc-num">05</span>Settings menu</a>
 		<a href="#watchlist"><span class="toc-num">06</span>Watchlist &amp; alerts</a>
-		<a href="#mapart-scanner"><span class="toc-num">07</span>Mapart scanner</a>
-		<a href="#reporting"><span class="toc-num">08</span>Reporting &amp; ignoring</a>
-		<a href="#preview"><span class="toc-num">09</span>/preview (2.1)</a>
-		<a href="#troubleshoot"><span class="toc-num">10</span>Troubleshooting</a>
+		<a href="#storage"><span class="toc-num">07</span>My storage (3.0)</a>
+		<a href="#mapart-scanner"><span class="toc-num">08</span>Mapart scanner</a>
+		<a href="#reporting"><span class="toc-num">09</span>Reporting &amp; ignoring</a>
+		<a href="#preview"><span class="toc-num">10</span>/preview (2.1)</a>
+		<a href="#troubleshoot"><span class="toc-num">11</span>Troubleshooting</a>
 	</nav>
 
 	<div class="steps">
@@ -285,7 +286,7 @@
 					<div class="diagram-row"><div class="diagram-icon">📦</div><div><b>Rare rentals (off by default)</b><span>Also highlight rentable rares inside opened shulkers</span></div></div>
 				</div>
 				<div class="notes">
-					<p>Since 2.3, every option lives on <b>one Settings screen</b>, grouped into Scanning, Alerts, Look &amp; tools, Data and Advanced, with a short explanation under each. The ones shown here are some of the most useful.</p>
+					<p>Since 2.3, every option lives on <b>one Settings screen</b>, grouped into Scanning, Alerts, Look &amp; tools, Empty hand, My storage, Data and Advanced, with a short explanation under each. The ones shown here are some of the most useful.</p>
 					<div class="tip">Use <code>/search</code> any time to look an item up without leaving the game — it'll open either a GUI or use chat, depending on your setting above.</div>
 				</div>
 			</div>
@@ -310,8 +311,31 @@
 			</div>
 		</section>
 
+		<section class="step" id="storage">
+			<div class="step-head"><div class="step-num">7</div><h3>My storage</h3><span class="new-pill">NEW IN 3.0</span></div>
+			<p class="step-lede">Add your own chests once, and the mod remembers what's in each of them and where, so finding your stuff is a search away.</p>
+			<div class="step-body">
+				<div class="diagram">
+					<span class="diagram-tag">Illustration — not a real screenshot</span>
+					<div class="diagram-row"><div class="diagram-icon">➕</div><div><b>X + M on a container</b><span>Adds that chest, barrel or shulker box (again to take it back out)</span></div></div>
+					<div class="diagram-row"><div class="diagram-icon">📍</div><div><b>X + M on anything else</b><span>Adds every container within 16 blocks</span></div></div>
+					<div class="diagram-row"><div class="diagram-icon">🔍</div><div><b>My storage tab</b><span>Search everything you own; click an item to light up every container holding it</span></div></div>
+					<div class="diagram-row"><div class="diagram-icon">🏷️</div><div><b>Holograms</b><span>The main item and amount (or "Mixed") on each open side</span></div></div>
+				</div>
+				<div class="notes">
+					<ul>
+						<li>Each container is read the first time you're close enough to open it. After that it updates whenever you open it yourself. Shulker boxes inside your chests and your <b>ender chest</b> count too.</li>
+						<li>Containers holding what you're looking for get a white glow through walls, and the line above your hotbar shows the nearest one's coordinates. Open one, or press <span class="kbd">X</span>, to stop.</li>
+						<li>Items you already own get a chest icon in search and on shop listings, and a banner on their item page.</li>
+						<li>Everything is kept on your own computer; nothing about your storage is uploaded. Toggles, the highlight style and the list of added containers are in <b>Settings &rsaquo; My storage</b>.</li>
+					</ul>
+					<div class="tip">Holding <span class="kbd">X</span> and pressing <span class="kbd">I</span> opens the item page for what's in your hand, and <span class="kbd">X</span> on its own opens the dashboard when you let go. Both chord keys can be changed in <b>Options &rsaquo; Controls &rsaquo; Shop Logger</b>.</div>
+				</div>
+			</div>
+		</section>
+
 		<section class="step" id="mapart-scanner">
-			<div class="step-head"><div class="step-num">7</div><h3>Mapart scanner<span class="new-pill">NEW in 2.0</span></h3></div>
+			<div class="step-head"><div class="step-num">8</div><h3>Mapart scanner<span class="new-pill">NEW in 2.0</span></h3></div>
 			<p class="step-lede">Built right into the mod: walk near a wall of item-frame mapart and it finds it, stitches the individual maps back into one full picture, and uploads it to the mapart catalog — no separate tool, no chat spam.</p>
 			<div class="step-body">
 				<div class="diagram">
@@ -331,7 +355,7 @@
 		</section>
 
 		<section class="step" id="reporting">
-			<div class="step-head"><div class="step-num">8</div><h3>Reporting &amp; ignoring listings</h3></div>
+			<div class="step-head"><div class="step-num">9</div><h3>Reporting &amp; ignoring listings</h3></div>
 			<p class="step-lede">Spot a scam or a stale listing while you're playing? Handle it without ever opening a browser.</p>
 			<div class="step-body">
 				<div class="notes">
@@ -345,7 +369,7 @@
 		</section>
 
 		<section class="step" id="preview">
-			<div class="step-head"><div class="step-num">9</div><h3>/preview</h3><span class="new-pill">NEW IN 2.1</span></div>
+			<div class="step-head"><div class="step-num">10</div><h3>/preview</h3><span class="new-pill">NEW IN 2.1</span></div>
 			<p class="step-lede">Try out a colored, styled item rename before you actually commit to it — no cost, no commitment, purely a local preview.</p>
 			<div class="step-body">
 				<div class="notes">
@@ -362,7 +386,7 @@
 		</section>
 
 		<section class="step" id="troubleshoot">
-			<div class="step-head"><div class="step-num">10</div><h3>Troubleshooting</h3></div>
+			<div class="step-head"><div class="step-num">11</div><h3>Troubleshooting</h3></div>
 			<p class="step-lede">The two questions almost everyone asks first.</p>
 			<div class="step-body">
 				<div class="tip warn"><b>My chests keep opening and closing on their own!</b><br>That's the mod scanning — completely expected, not a glitch (and definitely not ghosts). You won't see the inventory screen pop up.</div>

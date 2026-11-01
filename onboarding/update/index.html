@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>What's New - SCTP</title>
+<title>What's New in 3.0 - SCTP</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="What's new in SCTP 2.5: a confirm for expensive buys, the item page for what you're holding, smarter sorting, rares by base item, and selling bugs at Sefi.">
+<meta name="description" content="What's new in SCTP 3.0: My storage keeps track of your own chests, tidier chat, prices that follow real sales, and a build list that knows when crafting is cheaper.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -118,7 +118,7 @@
 	<div class="wrap header-row">
 		<div class="brand-row">
 			<div class="brand-mark">✨</div>
-			<div><h1>SCTP 2.5</h1><p class="tag">What's new</p></div>
+			<div><h1>SCTP 3.0</h1><p class="tag">What's new</p></div>
 		</div>
 		<nav id="siteNavMount"></nav>
 	</div>
@@ -126,123 +126,183 @@
 
 <div class="wrap hero">
 	<p class="kicker">Onboarding &middot; What's new</p>
-	<h2>What's new in SCTP 2.5</h2>
-	<p>Everything new in 2.5, in the order you'll run into it. Missed the last update? Here's <a href="/onboarding/update/2.4/">what was new in 2.4</a>. Update the mod from <a href="https://modrinth.com/mod/sc-shoplogger">Modrinth</a>, CurseForge or the Download button on the site to get the in-game parts. New here entirely? The <a href="/onboarding/web">website walkthrough</a> and <a href="/onboarding/mod">mod walkthrough</a> cover everything.</p>
+	<h2>What's new in SCTP 3.0</h2>
+	<p>The big one: the mod now keeps track of your own chests. Plus everything since 2.5, in the order you'll run into it. Missed an update? Here's <a href="/onboarding/update/2.5/">what was new in 2.5</a> and <a href="/onboarding/update/2.4/">in 2.4</a>. Update the mod from <a href="https://modrinth.com/mod/sc-shoplogger">Modrinth</a>, CurseForge or the Download button on the site to get the in-game parts. New here entirely? The <a href="/onboarding/web">website walkthrough</a> and <a href="/onboarding/mod">mod walkthrough</a> cover everything.</p>
 	<div class="hero-actions">
 		<a class="btn" href="/">Open the Trading Post &rarr;</a>
-		<a class="btn-ghost" href="/onboarding/mod">Mod walkthrough &rarr;</a>
+		<a class="btn-ghost" href="/onboarding/mod#storage">My storage in the mod walkthrough &rarr;</a>
 	</div>
 	<div class="hero-meta">
-		<span><b>Released</b> October 2026</span>
-		<span><b>Mod 2.5</b> for Fabric &amp; NeoForge, Minecraft 26.2 &amp; 26.3</span>
+		<span><b>Released</b> November 2026</span>
+		<span><b>Mod 3.0</b> for Fabric &amp; NeoForge, Minecraft 26.2 &amp; 26.3</span>
 	</div>
 </div>
 
 <div class="wrap layout">
 	<nav class="toc" id="toc">
-		<a href="#buy-confirm"><span class="toc-num">01</span>Confirm expensive buys</a>
-		<a href="#held-item"><span class="toc-num">02</span>The item you're holding</a>
-		<a href="#sorting"><span class="toc-num">03</span>Smarter sorting</a>
-		<a href="#base-item"><span class="toc-num">04</span>Rares by base item</a>
-		<a href="#sell-bugs"><span class="toc-num">05</span>Sell bugs at Sefi</a>
-		<a href="#mapart-credit"><span class="toc-num">06</span>Mapart credit</a>
-		<a href="#site-extras"><span class="toc-num">07</span>More on the site</a>
+		<a href="#storage"><span class="toc-num">01</span>My storage</a>
+		<a href="#find"><span class="toc-num">02</span>Find what you have</a>
+		<a href="#holograms"><span class="toc-num">03</span>Storage holograms</a>
+		<a href="#chat"><span class="toc-num">04</span>Tidier chat</a>
+		<a href="#sales"><span class="toc-num">05</span>Prices from real sales</a>
+		<a href="#build-list"><span class="toc-num">06</span>Build list upgrades</a>
+		<a href="#wishlist"><span class="toc-num">07</span>Wishlist stars</a>
+		<a href="#site-extras"><span class="toc-num">08</span>More on the site</a>
 	</nav>
 
 	<div class="steps">
 
-		<section class="step" id="buy-confirm">
-			<div class="step-head"><div class="step-num">1</div><h3>Confirm expensive buys</h3><span class="new-pill">MOD</span></div>
-			<p class="step-lede">Clicking an item in someone else's shop chest buys it straight away. For pricey shops, the mod now asks you to click twice.</p>
+		<section class="step" id="storage">
+			<div class="step-head"><div class="step-num">1</div><h3>My storage</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">Never dig through twenty chests for one stack again. Add your chests once, and the mod remembers what's in each of them, and where.</p>
 			<div class="step-body">
 				<div class="notes">
 					<ul>
-						<li>When a shop's price is at or above your limit (<b>32 DB</b> to start with), the first click only outlines the item in amber with <b>&ldquo;Click again to buy&rdquo;</b> and the price.</li>
-						<li>Click the same item again within 4 seconds to buy it. Cheaper shops and your own shops work like before.</li>
-						<li>Turn it off or change the limit in <b>Settings &rsaquo; Alerts</b>.</li>
+						<li>Look at a chest, barrel or shulker box and press <b>X + M</b> to add it. Press it again to take it back out.</li>
+						<li>Look at anything else and press <b>X + M</b> to add <b>every</b> container within 16 blocks at once.</li>
+						<li>Each container is read the first time you're close enough to open it. After that it updates whenever you open it yourself, and keeps a short log of what you put in and took out.</li>
+						<li>Shulker boxes inside your chests count too, and your <b>ender chest</b> is kept up to date every time you open it.</li>
+						<li>It's all kept on your own computer. Nothing about your storage is uploaded.</li>
 					</ul>
-				</div>
-				<div class="demo-row">
-					<span class="demo-label">Example: the first click</span>
-					<span style="display:inline-flex;align-items:center;gap:8px;border:2px solid #F0B429;border-radius:6px;padding:5px 10px;font-size:13px;color:#F0B429;background:rgba(32,26,16,0.9);font-weight:600;">Click again to buy &middot; 64 DB</span>
-				</div>
-			</div>
-		</section>
-
-		<section class="step" id="held-item">
-			<div class="step-head"><div class="step-num">2</div><h3>The item page for what you're holding</h3><span class="new-pill">MOD</span></div>
-			<p class="step-lede">Wondering what something in your hand is worth? Hold <b>X</b> and press <b>I</b>.</p>
-			<div class="step-body">
-				<div class="notes">
-					<ul>
-						<li>It opens that item's page: every listing for it and its price history. Rares open their rare page with all their details.</li>
-						<li>In your inventory or a chest, <b>hover</b> over an item and press X + I to open the page for that item instead.</li>
-						<li><b>X</b> on its own still opens the dashboard, now when you let go of it.</li>
-						<li>Both keys can be changed in <b>Options &rsaquo; Controls &rsaquo; Shop Logger</b>.</li>
-					</ul>
+					<div class="tip"><b>Shop chests stay out.</b> Your storage is for your own containers; shops keep being scanned for the Trading Post as always.</div>
 				</div>
 				<div class="demo-row">
 					<span class="demo-label">Keys</span>
 					<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border:1px solid rgba(255,255,255,0.35);border-bottom-width:3px;border-radius:7px;font-weight:700;">X</span>
 					<span>+</span>
-					<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border:1px solid rgba(255,255,255,0.35);border-bottom-width:3px;border-radius:7px;font-weight:700;">I</span>
+					<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border:1px solid rgba(255,255,255,0.35);border-bottom-width:3px;border-radius:7px;font-weight:700;">M</span>
+					<span style="font-size:13px;color:var(--muted);">looking at a chest: add it &middot; looking at anything else: add all nearby</span>
 				</div>
 			</div>
 		</section>
 
-		<section class="step" id="sorting">
-			<div class="step-head"><div class="step-num">3</div><h3>Sorting that follows your search</h3><span class="new-pill">MOD &amp; WEBSITE</span></div>
-			<p class="step-lede">Browsing shows what's new; searching shows what's cheapest. And your filters stay put.</p>
+		<section class="step" id="find">
+			<div class="step-head"><div class="step-num">2</div><h3>Find what you have</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">Where did you put those diamonds? Ask the mod, and every chest holding them lights up.</p>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li>The new <b>My storage</b> tab lists everything you own across your chests, with a search box. Click an item to find it.</li>
+						<li>Every container holding it lights up with a <b>white glow</b> you can see through walls, and the line above your hotbar shows the nearest one's coordinates. It goes away when you open one of them, or press <b>X</b>.</li>
+						<li>Already have something you're shopping for? Items in your storage get a <b>chest icon</b> in item search and on shop listings, and a banner on their item page. Click it to find yours first.</li>
+						<li>The <b>Containers</b> view shows each chest's contents and what changed lately.</li>
+					</ul>
+				</div>
+				<div style="display:flex;flex-direction:column;gap:10px;">
+					<div class="demo-row">
+						<span class="demo-label">Above your hotbar</span>
+						<span style="font-size:13px;color:#fff;text-shadow:0 1px 0 #000;background:rgba(0,0,0,0.45);padding:5px 10px;border-radius:6px;">Diamond: 1204, 64, -88 &middot; 12 blocks (+2 more) &middot; X to stop</span>
+					</div>
+					<div class="demo-row">
+						<span class="demo-label">On an item page</span>
+						<span style="display:flex;align-items:center;gap:8px;width:100%;background:rgba(var(--accent-rgb),0.12);border:1px solid var(--accent-dim);border-radius:8px;padding:7px 10px;font-size:13px;">
+							<span aria-hidden="true">📦</span> You have 340 in your storage (3 containers)
+							<span style="margin-left:auto;background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:2px 10px;font-weight:700;font-size:12px;">Find it</span>
+						</span>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="holograms">
+			<div class="step-head"><div class="step-num">3</div><h3>Storage holograms</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">See what's in a chest without opening it.</p>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li>Containers in your storage show what's inside on the lower half of every side that's open to air: the main item and how many.</li>
+						<li>Colours and wood types count together (all your wool is just <b>Wool</b>). A chest without one clear main item says <b>Mixed</b> and how many items it holds.</li>
+						<li>Turn them off, or pick a beacon beam instead of the glow, in <b>Settings &rsaquo; My storage</b>. That's also where you'll find every container you've added.</li>
+					</ul>
+				</div>
+				<div class="demo-row" style="justify-content:center;gap:18px;">
+					<span class="demo-label">Example: two chest fronts</span>
+					<span style="width:110px;height:96px;background:#8a5a2b;border:3px solid #5b3a18;border-radius:4px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:12px;font-family:var(--font-mono);font-size:11px;line-height:1.35;">
+						<span style="color:#EDEFEA;">Cobblestone</span><span style="color:#cfd5cc;">1,728</span>
+					</span>
+					<span style="width:110px;height:96px;background:#8a5a2b;border:3px solid #5b3a18;border-radius:4px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:12px;font-family:var(--font-mono);font-size:11px;line-height:1.35;">
+						<span style="color:#EDEFEA;">Mixed</span><span style="color:#cfd5cc;">412 items</span>
+					</span>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="chat">
+			<div class="step-head"><div class="step-num">4</div><h3>Tidier chat</h3><span class="new-pill">MOD</span></div>
+			<p class="step-lede">Selling a stack of butterflies used to fill your whole chat. Not anymore.</p>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li>When the exact same message shows up again within 2 minutes, the earlier one disappears and the new one gets <b>×2</b>, <b>×3</b> and so on.</li>
+						<li>It works even when other messages came in between.</li>
+						<li>On by default. Turn it off in <b>Settings &rsaquo; Look &amp; tools</b>.</li>
+					</ul>
+				</div>
+				<div class="demo-row">
+					<span class="demo-label">In chat</span>
+					<span style="font-family:var(--font-mono);font-size:12.5px;">You sold a Monarch Butterfly for 2 coins <span style="color:var(--muted);">×5</span></span>
+				</div>
+			</div>
+		</section>
+
+		<section class="step" id="sales">
+			<div class="step-head"><div class="step-num">5</div><h3>Prices from real sales</h3><span class="new-pill">MOD &amp; WEBSITE</span></div>
+			<p class="step-lede">What something is listed for and what it actually sells for aren't the same. SCTP now leans on the sales.</p>
 			<div class="notes">
 				<ul>
-					<li>With nothing typed you see the <b>most recent</b> listings first. Type something and it switches to <b>cheapest first</b> (then most recent).</li>
-					<li>Pick a sort yourself and that's what you get from then on, until you reset the filters.</li>
-					<li>Your world, type and other filters are <b>remembered</b>: on the site in your browser, and in the mod for the Listings, Marketplace, item and seller screens.</li>
-					<li>Item pages always list the cheapest first, and the marketplace got a <b>Newest / Price</b> switch.</li>
+					<li><b>Your purchases count:</b> when you buy from a shop, the mod checks that chest again right away and reports the sale within seconds.</li>
+					<li><b>More sales spotted:</b> a little stock disappearing from a shop that's still well stocked counts as sold too. A chest that's emptied or cleared out doesn't.</li>
+					<li><b>Values follow sales:</b> the price check on rare pages, and other values across the site, lean on what items sold for in the last 90 days. Not enough sales yet? Then it's 75% of the average listing price, since asking prices run high.</li>
+					<li>Every value says what it's based on, like &ldquo;22 sold and 5 listings&rdquo;. And every &ldquo;sold&rdquo; number on the site counts these sales.</li>
 				</ul>
 			</div>
 		</section>
 
-		<section class="step" id="base-item">
-			<div class="step-head"><div class="step-num">4</div><h3>Find rares by base item</h3><span class="new-pill">MOD &amp; WEBSITE</span></div>
-			<p class="step-lede">Looking for a fancy elytra or a special sword? Search the rare library for the item it's made from.</p>
-			<div class="notes">
-				<ul>
-					<li>Searching <b>elytra</b> or <b>netherite sword</b> also finds the rares made from that item, in the <a href="/items/">item library</a> and in-game.</li>
-					<li>The base item comes from what the mod sees in shops, so it covers every rare that's been for sale.</li>
-				</ul>
+		<section class="step" id="build-list">
+			<div class="step-head"><div class="step-num">6</div><h3>Build list upgrades</h3><span class="new-pill">WEBSITE</span></div>
+			<p class="step-lede">The <a href="/list/">build list</a> turns a Litematica material list into a shopping route. Now it also tells you when crafting is cheaper.</p>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li>When buying the ingredients and crafting them (or using a stonecutter) costs <b>at least half less</b> than buying the block, or nobody sells the block at all, the list buys the ingredients instead. Planks from logs, glass panes from glass, stairs on a stonecutter.</li>
+						<li>Prefer the real thing? Press <b>Buy the block instead</b> on any of them.</li>
+						<li>Tick off what you've bought: every line has a <b>checkbox</b> that crosses it out, and a shop dims once you're done there. Your ticks stay when you reload.</li>
+					</ul>
+				</div>
+				<div class="demo-row">
+					<span class="demo-label">Cheaper to craft</span>
+					<span style="font-size:13px;"><b style="color:var(--accent);">Glass Pane</b> ×320: buy 120 Glass, then use a crafting table<br><span style="color:var(--muted);font-size:12px;">93% cheaper than buying it</span></span>
+				</div>
 			</div>
 		</section>
 
-		<section class="step" id="sell-bugs">
-			<div class="step-head"><div class="step-num">5</div><h3>Sell your bugs at Sefi</h3><span class="new-pill">MOD</span></div>
-			<p class="step-lede">Caught a pile of bugs in your Butterfly Garden? Selling them at the Creepy Crawly Exchange at spawn is one click now. Thanks to ZyskiDev!</p>
-			<div class="notes">
-				<ul>
-					<li>Open the <b>Creepy Crawly Exchange</b> and press the new <b>Sell</b> button: the mod sells your bugs for you, one at a time. Press it again to stop.</li>
-					<li>The bugs you can sell are highlighted, so you can see what's going in.</li>
-					<li>Carrying a bug that belongs to someone else? Selling is blocked until you put it away, so you never sell another player's bug by accident.</li>
-				</ul>
-			</div>
-		</section>
-
-		<section class="step" id="mapart-credit">
-			<div class="step-head"><div class="step-num">6</div><h3>Credit the original artist</h3><span class="new-pill">WEBSITE</span></div>
-			<p class="step-lede">Made a map from someone else's artwork? Give them credit.</p>
-			<div class="notes">
-				<ul>
-					<li>On <a href="/mapart/manage/">your mapart</a>, fill in <b>Original art by</b> when you upload a map or edit one.</li>
-					<li>It shows as &ldquo;original art by &hellip;&rdquo; on the mapart page and its card, under who built it.</li>
-				</ul>
+		<section class="step" id="wishlist">
+			<div class="step-head"><div class="step-num">7</div><h3>Wishlist stars everywhere</h3><span class="new-pill">WEBSITE</span></div>
+			<p class="step-lede">Star the rares and mapart you want, right where you find them.</p>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li>Every card in the <a href="/items/">rare library</a> and the <a href="/mapart/">mapart catalog</a> has a <b>&#9734;</b> in its corner when you're logged in. Click it to add the item to your wishlist, click again to take it off.</li>
+						<li>It's the same wishlist as on <a href="/collection/">your collection</a>, per world.</li>
+					</ul>
+				</div>
+				<div class="demo-row">
+					<span class="demo-label">On a card</span>
+					<span style="display:inline-flex;width:26px;height:26px;border-radius:50%;background:#E8B93A;color:#2A1F05;align-items:center;justify-content:center;font-size:14px;">&#9733;</span>
+					<span style="font-size:13px;color:var(--muted);">On your wishlist</span>
+				</div>
 			</div>
 		</section>
 
 		<section class="step" id="site-extras">
-			<div class="step-head"><div class="step-num">7</div><h3>More on the site</h3><span class="new-pill">WEBSITE</span></div>
+			<div class="step-head"><div class="step-num">8</div><h3>More on the site</h3><span class="new-pill">WEBSITE</span></div>
 			<div class="notes">
 				<ul>
-					<li><b>31 new rares</b> from the item sheet: the bug update (the Beetle Emperor set, Bug Terrarium, Bug in a Jar, stag beetle plushies and 12 bugs) plus Old Shabby Axe, Cursed Elytra, XV. The Devil, XVIII. The Moon, Haunted Snail House, the Halloween 2026 Crate Key and the Creepy Crawly Coin. Two names were fixed too.</li>
-					<li>Marketplace posts without a budget no longer say &ldquo;null&rdquo;.</li>
+					<li><b>Sort every list:</b> the rare and vanilla libraries, the mapart catalog and your collection can be sorted A to Z, Z to A, newest or oldest (and mapart by likes or size). Your choice is remembered.</li>
+					<li><b>Mapart by size:</b> filter the catalog by dimensions, like 2&times;2 or 4&times;3.</li>
+					<li><b>Rares by base item:</b> rare pages now show the item a rare is made from, with a link to every rare made from it, and the rare library has an exact <b>Base item</b> filter.</li>
+					<li><b>Notifications:</b> a small badge next to your name shows when you have unread notifications.</li>
+					<li><b>Fairer averages:</b> a seller's average price leaves out listings priced over 10 times the usual price, so one silly price no longer skews it.</li>
 				</ul>
 			</div>
 		</section>

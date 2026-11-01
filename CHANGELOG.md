@@ -6,17 +6,27 @@
 - **My storage:** keep track of what's in your own chests. Look at a chest, barrel or shulker box and press **X+M** to add it (press it again to take it out), or press X+M while looking at anything else to add every container within 16 blocks. Each one is read the first time you're within reach, and after that every time you open it yourself, keeping a log of what you put in and took out. Your ender chest is tracked whenever you open it. Everything stays on your own computer.
 - **My storage tab:** everything you have, searchable, with how many and in which containers. Click an item to light up every container holding it (a white glow through walls, or a beacon beam) and see the nearest one's coordinates above your hotbar, until you open one of them or press X. The Containers view shows each container's contents and recent changes.
 - **You already have this:** items in your storage get a chest icon in item search and on shop listings, and a banner on their item page. Click it to find where they are.
-- **Storage holograms:** your containers show what's inside (the main item and how many, or "Mixed") on whichever side faces open air. Containers near you that aren't added yet say "Unindexed".
-- **Settings › My storage:** turn the whole feature, the holograms or the "Unindexed" labels on or off, pick the highlight style, and see or remove every container you've added.
+- **Storage holograms:** the containers in My storage show what's inside (the main item and how many, or "Mixed") on the lower half of every side that's fully open to air.
+- **Settings › My storage:** turn the whole feature or its holograms on or off, pick the highlight style, and see or remove every container you've added.
+
+### Website
+- **Build list: cheaper to craft:** when buying the ingredients and crafting (crafting table or stonecutter) costs at least half less than buying the block, or nobody sells the block, the list buys the ingredients instead. "Buy the block instead" switches any of them back.
+- **Build list checkmarks:** tick off each line as you buy it; it gets crossed out, a shop dims once you're done there, and your ticks stay when you reload. "Clear checkmarks" starts over.
+- **Wishlist stars on cards:** every card in the rare library and the mapart catalog has a ☆ when you're logged in, to add it to (or take it off) your wishlist.
+- **Sort every list:** the rare and vanilla libraries, the mapart catalog and your collection sort A to Z, Z to A, newest or oldest (mapart also by likes or size), and remember your choice.
+- **Mapart by size:** filter the catalog by dimensions, like 2×2 or 4×3.
+- **Base item on rare pages:** rare pages show the item a rare is made from, linking to every rare made from it, and the rare library has an exact Base item filter.
+- **Notification badge** next to your name when you have unread notifications.
+- **Fairer seller averages:** listings priced over 10 times the usual price are left out.
 
 ## 2.6 (mod 2.6)
 
 ### Mod
-- **Stack repeated chat** (on by default; turn it off in Settings › Display): when the exact same message shows up again within 2 minutes, the earlier copy disappears and the new one gets ×2, ×3… after it, even if other messages came in between.
+- **Stack repeated chat** (on by default; turn it off in Settings › Look & tools): when the exact same message shows up again within 2 minutes, the earlier copy disappears and the new one gets ×2, ×3… after it, even if other messages came in between.
 - **Your purchases count as sales:** when you buy from a shop, the mod checks the chest again right after and reports what was bought within seconds, so sales are counted even if the owner collects their payment before the next scan.
 
 ### Site
-- **Prices follow sales:** the price check on rare pages and the value shown for auctions and Secret Santa now lean on what items actually sold for in the last 90 days, next to what they're listed for. Without enough sales yet, they use 75% of the average listing price.
+- **Prices follow sales:** the price check on rare pages and other values across the site now lean on what items actually sold for in the last 90 days, next to what they're listed for. Without enough sales yet, they use 75% of the average listing price.
 - **More sales counted:** when a little stock disappears from a shop that still has plenty left, that now counts as sold too (a chest that's emptied or mostly cleared doesn't).
 
 ## 2.5 (mod 2.5)

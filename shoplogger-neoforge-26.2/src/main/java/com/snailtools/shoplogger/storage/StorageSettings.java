@@ -22,9 +22,6 @@ public final class StorageSettings {
 	public static boolean hologramsOn() { return Config.getOrCreate("storage/holograms", Boolean.class, true); }
 	public static void setHolograms(boolean v) { Config.update("storage/holograms", v); }
 
-	/** "Unindexed" on containers near you that aren't in your storage yet. */
-	public static boolean unindexedLabelsOn() { return Config.getOrCreate("storage/unindexedLabels", Boolean.class, true); }
-	public static void setUnindexedLabels(boolean v) { Config.update("storage/unindexedLabels", v); }
 
 	public static HighlightStyle highlightStyle() { return Config.getOrCreate("storage/highlightStyle", HighlightStyle.class, HighlightStyle.GLOW); }
 	public static void setHighlightStyle(HighlightStyle s) { Config.update("storage/highlightStyle", s); }

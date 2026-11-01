@@ -136,6 +136,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 		));
 
 		com.snailtools.shoplogger.gui.HeldItemPage.setKeys(openLibraryKey, heldItemKey);
+		com.snailtools.shoplogger.storage.StorageKeys.setKey(storageKey);
 
 		// Manual path: player right-clicks a chest/barrel themselves.
 		UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
@@ -298,14 +299,12 @@ public class ShopLoggerClient implements ClientModInitializer {
 			}
 			if (storageKey != null) {
 				while (storageKey.consumeClick()) {
-					if (!libraryKeyHeld) continue; // M on its own does nothing
-					libraryChordUsed = true;
-					com.snailtools.shoplogger.storage.StorageKeys.onAddKey(client);
+					// X+M itself is handled from the raw key press (StorageKeys.onKey); this only drains clicks
 				}
 			}
 			if (libraryKeyHeld && !openLibraryKey.isDown()) {
 				libraryKeyHeld = false;
-				boolean chord = libraryChordUsed;
+				boolean chord = libraryChordUsed | com.snailtools.shoplogger.storage.StorageKeys.consumeChord();
 				libraryChordUsed = false;
 				if (!chord) {
 					if (EmptyHandItems.isCapturing()) {

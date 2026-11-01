@@ -15,5 +15,6 @@ public class KeyboardHandlerMixin {
 	@Inject(method = "keyPress", at = @At("HEAD"), cancellable = true)
 	private void shoplogger$keyPress(long window, int action, KeyEvent event, CallbackInfo ci) {
 		if (HeldItemPage.onKey(action, event)) ci.cancel();
+		else if (com.snailtools.shoplogger.storage.StorageKeys.onKey(action, event)) ci.cancel();
 	}
 }

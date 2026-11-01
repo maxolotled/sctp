@@ -191,10 +191,8 @@ public class SettingsScreen extends UiScreen {
 		List<SettingRow> out = new ArrayList<>();
 		out.add(SettingRow.toggle("My storage", "Track your own chests, barrels, shulker boxes and ender chest (kept on this computer only)",
 				com.snailtools.shoplogger.storage.StorageSettings::isEnabled, v -> { com.snailtools.shoplogger.storage.StorageSettings.setEnabled(v); rebuild(); }));
-		out.add(SettingRow.toggle("Storage holograms", "What's inside, printed on the open side of each container",
+		out.add(SettingRow.toggle("Storage holograms", "What's inside, on every open side of the containers in My storage",
 				com.snailtools.shoplogger.storage.StorageSettings::hologramsOn, com.snailtools.shoplogger.storage.StorageSettings::setHolograms));
-		out.add(SettingRow.toggle("\"Unindexed\" labels", "On containers near you that aren't in My storage yet",
-				com.snailtools.shoplogger.storage.StorageSettings::unindexedLabelsOn, com.snailtools.shoplogger.storage.StorageSettings::setUnindexedLabels));
 		out.add(SettingRow.choice("Highlight style", "How a container lights up when you find an item",
 				List.of(com.snailtools.shoplogger.storage.StorageSettings.HighlightStyle.values()), com.snailtools.shoplogger.storage.StorageSettings::highlightStyle,
 				com.snailtools.shoplogger.storage.StorageSettings::setHighlightStyle, s -> s.label));

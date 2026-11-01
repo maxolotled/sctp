@@ -24,6 +24,9 @@ public final class HeldItemPage {
 	private static net.minecraft.client.KeyMapping libraryKey, itemKey;
 	private static boolean libraryDown; // tracked from key events, so it also works with a screen open
 
+	/** The library key (X) is held down right now (from key events, so other mods sharing keys don't matter). */
+	public static boolean libraryHeld() { return libraryDown; }
+
 	/** Called by each loader once its key mappings exist. */
 	public static void setKeys(net.minecraft.client.KeyMapping library, net.minecraft.client.KeyMapping item) {
 		libraryKey = library;
