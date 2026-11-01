@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0 (mod 3.0)
+
+### Mod
+- **My storage:** keep track of what's in your own chests. Look at a chest, barrel or shulker box and press **X+M** to add it (press it again to take it out), or press X+M while looking at anything else to add every container within 16 blocks. Each one is read the first time you're within reach, and after that every time you open it yourself, keeping a log of what you put in and took out. Your ender chest is tracked whenever you open it. Everything stays on your own computer.
+- **My storage tab:** everything you have, searchable, with how many and in which containers. Click an item to light up every container holding it (a white glow through walls, or a beacon beam) and see the nearest one's coordinates above your hotbar, until you open one of them or press X. The Containers view shows each container's contents and recent changes.
+- **You already have this:** items in your storage get a chest icon in item search and on shop listings, and a banner on their item page. Click it to find where they are.
+- **Storage holograms:** your containers show what's inside (the main item and how many, or "Mixed") on whichever side faces open air. Containers near you that aren't added yet say "Unindexed".
+- **Settings › My storage:** turn the whole feature, the holograms or the "Unindexed" labels on or off, pick the highlight style, and see or remove every container you've added.
+
 ## 2.6 (mod 2.6)
 
 ### Mod

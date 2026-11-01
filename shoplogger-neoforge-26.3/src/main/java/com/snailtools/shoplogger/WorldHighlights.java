@@ -47,6 +47,10 @@ public final class WorldHighlights {
 		BlockPos target = TeleportHighlight.getInstance().highlightTarget();
 		if (target != null) highlight(mc.level, target, TARGET_COLOR);
 
+		if (com.snailtools.shoplogger.storage.StorageHighlight.glow()) {
+			for (BlockPos p : com.snailtools.shoplogger.storage.StorageHighlight.positions()) highlight(mc.level, p, com.snailtools.shoplogger.storage.StorageHighlight.GLOW_COLOR);
+		}
+
 		BlockPos hunt = huntTarget(mc);
 		if (hunt != null) {
 			double dist = Math.sqrt(Vec3.atCenterOf(hunt).distanceToSqr(mc.player.getEyePosition()));
@@ -109,6 +113,9 @@ public final class WorldHighlights {
 		float time = Math.floorMod(mc.level.getGameTime(), 40) + mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		BlockPos pos = TeleportHighlight.getInstance().beaconTarget();
 		if (pos != null) beam(poseStack, collector, camera, pos, time, TARGET_COLOR, 1.0f);
+		if (com.snailtools.shoplogger.storage.StorageHighlight.beam()) {
+			for (BlockPos p : com.snailtools.shoplogger.storage.StorageHighlight.positions()) beam(poseStack, collector, camera, p, time, com.snailtools.shoplogger.storage.StorageHighlight.GLOW_COLOR, 1.0f);
+		}
 		BlockPos hunt = huntTarget(mc);
 		if (hunt != null) {
 			// wider the further away it is, so it still shows from across the map

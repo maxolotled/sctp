@@ -22,6 +22,11 @@ public final class Config {
 
     private static JsonObject root = new JsonObject();
 
+    /** The folder sctp.json lives in (config/sctp/); My storage keeps its files in storage/ under it. */
+    public static Path dir() {
+        return CONFIG_PATH.getParent();
+    }
+
     /** Whether sctp.json was already on disk the moment load() ran — the difference between
      *  a genuinely fresh install and an existing player whose config just doesn't have some
      *  particular key yet (see OnboardingLinkCheck, which needs to tell those apart). */

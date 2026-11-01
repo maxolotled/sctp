@@ -40,6 +40,7 @@ public abstract class LevelRendererMixin {
         try {
             WorldHighlights.submitBeams(poseStack, collector, state.cameraRenderState.pos);
             com.snailtools.shoplogger.StockHolograms.submit(poseStack, collector, state.cameraRenderState.pos);
+            com.snailtools.shoplogger.storage.StorageHolograms.submit(poseStack, collector, state.cameraRenderState.pos);
         } catch (RuntimeException e) {
             // same: a beam is never worth a crash
         }

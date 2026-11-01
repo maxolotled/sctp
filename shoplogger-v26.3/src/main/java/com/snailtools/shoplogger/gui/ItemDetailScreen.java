@@ -95,6 +95,17 @@ public class ItemDetailScreen extends UiScreen {
 		addRenderableWidget(new UiButton(Math.max(tx, x + w - ww), ty, ww, 18, watchText, watching ? UiButton.Style.TAB : UiButton.Style.SECONDARY, this::openWatchOptions)
 				.tooltip(watching ? "Change the max price or stop watching this item" : "Get a chat alert when this item is listed"));
 		bodyY = ty + 24;
+		// My storage: "You have 340 in your storage" with a button that lights up where
+		storageHave = com.snailtools.shoplogger.storage.StorageSettings.isEnabled() ? com.snailtools.shoplogger.storage.StorageIndex.count(isRare ? null : baseItem, name) : 0;
+		if (storageHave > 0) {
+			storageBannerY = bodyY;
+			String fl = "Find it";
+			int fw = font.width(fl) + 16;
+			addRenderableWidget(new UiButton(x + w - fw - 4, bodyY + 2, fw, 16, fl, UiButton.Style.PRIMARY,
+					() -> com.snailtools.shoplogger.storage.StorageHighlight.showItem(isRare ? null : baseItem, name))
+					.tooltip("Light up the containers it's in"));
+			bodyY += 26;
+		}
 
 		if (tab == Tab.LISTINGS) {
 			listingList = new ListingListWidget(minecraft, x - 6, bodyY, w + 12, contentBottom() - bodyY);
@@ -109,6 +120,8 @@ public class ItemDetailScreen extends UiScreen {
 			loadData();
 		}
 	}
+
+	private int storageHave, storageBannerY;
 
 	private int tab(int x, int y, Tab t, String label) {
 		String text = t == Tab.LISTINGS && !loading ? label + " (" + countForWorld() + ")" : label;
@@ -227,6 +240,14 @@ public class ItemDetailScreen extends UiScreen {
 				Draw.pill(g, font, rareData.releaseDate, sx, sy, Theme.PANEL_ALT, Theme.MUTED);
 		} else if (baseItem != null) {
 			g.text(font, Draw.trim(font, baseItem, textW), sx, sy + 2, Theme.FAINT, false);
+		}
+
+		if (storageHave > 0) {
+			Draw.card(g, x, storageBannerY, w, 20, Theme.ACCENT_TINT, Theme.ACCENT_DIM);
+			Draw.item(g, Draw.stack(net.minecraft.world.item.Items.CHEST), x + 5, storageBannerY + 4, 12);
+			int boxes = com.snailtools.shoplogger.storage.StorageIndex.holding(isRare ? null : baseItem, name).size();
+			g.text(font, "You have " + String.format(java.util.Locale.ROOT, "%,d", storageHave) + " in your storage (" + boxes + " container" + (boxes == 1 ? "" : "s") + ")",
+					x + 22, storageBannerY + 6, Theme.TEXT, false);
 		}
 
 		// tab bodies drawn by hand

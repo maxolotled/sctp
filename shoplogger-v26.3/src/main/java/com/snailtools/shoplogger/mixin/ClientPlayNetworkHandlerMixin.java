@@ -33,6 +33,7 @@ public abstract class ClientPlayNetworkHandlerMixin {
 	@Inject(method = "handleContainerContent", at = @At("TAIL"))
 	private void shoplogger$onInventorySynced(ClientboundContainerSetContentPacket packet, CallbackInfo ci) {
 		ShopScanner.onContainerContent(packet.containerId()); // a shop the player opened themselves
+		com.snailtools.shoplogger.storage.StorageTracker.onContent(packet.containerId()); // one of your own containers
 		if (SilentScreenCoordinator.isArmed()) {
 			SilentScreenCoordinator.onInventorySynced(packet.containerId(), (ClientPacketListener) (Object) this);
 		}
@@ -42,6 +43,7 @@ public abstract class ClientPlayNetworkHandlerMixin {
 	@Inject(method = "handleContainerSetSlot", at = @At("TAIL"))
 	private void shoplogger$onSlotSet(ClientboundContainerSetSlotPacket packet, CallbackInfo ci) {
 		ShopScanner.onSlotChanged(packet.getContainerId());
+		com.snailtools.shoplogger.storage.StorageTracker.onSlotChanged(packet.getContainerId());
 	}
 
 	// Commands open server GUIs all the time (/ah, /menu, /shop...) — let the
@@ -51,6 +53,7 @@ public abstract class ClientPlayNetworkHandlerMixin {
 	@Inject(method = "sendCommand", at = @At("HEAD"))
 	private void shoplogger$onSendCommand(String command, CallbackInfo ci) {
 		ShopAutoScanner.getInstance().onPlayerMayOpenScreen();
+		com.snailtools.shoplogger.storage.StorageScanner.getInstance().onPlayerMayOpenScreen();
 	}
 
 	@Inject(method = "sendUnattendedCommand", at = @At("HEAD"))

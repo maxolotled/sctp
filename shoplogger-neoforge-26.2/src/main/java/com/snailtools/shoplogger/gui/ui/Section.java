@@ -23,6 +23,7 @@ public enum Section {
 	RARES("Rares", "Rare item library", Items.NETHER_STAR, p -> new ItemLibraryScreen(p, ItemLibraryScreen.Catalog.RARE)),
 	RAREDLE("Rare-dle", "Guess today's secret rare", Items.AMETHYST_SHARD, RaredleScreen::new),
 	WATCHLIST("Watchlist", "Items you're watching", Items.SPYGLASS, WatchlistScreen::new),
+	STORAGE("My storage", "Everything in your own chests", Items.BARREL, com.snailtools.shoplogger.gui.StorageScreen::new),
 	MARKET("Marketplace", "Player marketplace", Items.EMERALD, MarketplaceScreen::new),
 	MAPART("Mapart", "Mapart scanner", Items.FILLED_MAP, MapartPreviewScreen::new),
 	AUCTIONS("Auctions", "Run rare auctions in-game", Items.BELL, AuctionsScreen::new),
@@ -61,6 +62,7 @@ public enum Section {
 		for (Section s : values()) {
 			if (s == AUCTIONS && !com.snailtools.shoplogger.auction.AuctionHost.isShown()) continue;
 			if (s == HUNT && !com.snailtools.shoplogger.hunt.HuntClient.paired()) continue;
+			if (s == STORAGE && !com.snailtools.shoplogger.storage.StorageSettings.isEnabled()) continue;
 			out.add(s);
 		}
 		return out;

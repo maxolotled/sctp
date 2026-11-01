@@ -47,6 +47,7 @@ public class SettingsScreen extends UiScreen {
 		ALERTS("Alerts", "What gets posted in your chat, and buy warnings"),
 		DISPLAY("Look & tools", "Colour theme, in-world highlights and shortcuts"),
 		EMPTY_HAND("Empty hand", "Click doors, chests and other blocks with an empty slot instead of these items"),
+		STORAGE("My storage", "Your own chests: X+M adds one (or everything within 16 blocks)"),
 		DATA("Data", "Export or upload what you've scanned"),
 		ADVANCED("Advanced", "Temporary testing tools");
 
@@ -177,12 +178,34 @@ public class SettingsScreen extends UiScreen {
 					SettingRow.action("Upload to the Trading Post", "Send your scans to sctp.nl right now",
 							"Upload", () -> ShopUploader.uploadAsync(minecraft, true)));
 			case EMPTY_HAND -> emptyHandRows();
+			case STORAGE -> storageRows();
 			case ADVANCED -> List.of(
 					SettingRow.toggle("Auctions on the dashboard", "Run rare auctions in-game: the Auctions screen, /sold, /unsold, /info, /auction (rejoin for the commands)",
 							com.snailtools.shoplogger.auction.AuctionHost::isShown, com.snailtools.shoplogger.auction.AuctionHost::setShown),
 					SettingRow.toggle("Show scan wait (temporary)", "Show the scanner's wait time, in ms, top-right",
 							TempScanWaitOverlay::isEnabled, TempScanWaitOverlay::setEnabled));
 		};
+	}
+
+	private List<SettingRow> storageRows() {
+		List<SettingRow> out = new ArrayList<>();
+		out.add(SettingRow.toggle("My storage", "Track your own chests, barrels, shulker boxes and ender chest (kept on this computer only)",
+				com.snailtools.shoplogger.storage.StorageSettings::isEnabled, v -> { com.snailtools.shoplogger.storage.StorageSettings.setEnabled(v); rebuild(); }));
+		out.add(SettingRow.toggle("Storage holograms", "What's inside, printed on the open side of each container",
+				com.snailtools.shoplogger.storage.StorageSettings::hologramsOn, com.snailtools.shoplogger.storage.StorageSettings::setHolograms));
+		out.add(SettingRow.toggle("\"Unindexed\" labels", "On containers near you that aren't in My storage yet",
+				com.snailtools.shoplogger.storage.StorageSettings::unindexedLabelsOn, com.snailtools.shoplogger.storage.StorageSettings::setUnindexedLabels));
+		out.add(SettingRow.choice("Highlight style", "How a container lights up when you find an item",
+				List.of(com.snailtools.shoplogger.storage.StorageSettings.HighlightStyle.values()), com.snailtools.shoplogger.storage.StorageSettings::highlightStyle,
+				com.snailtools.shoplogger.storage.StorageSettings::setHighlightStyle, s -> s.label));
+		out.add(SettingRow.action("Open My storage", "Everything in your containers, searchable", "Open",
+				() -> minecraft.setScreenAndShow(new StorageScreen(this))));
+		for (com.snailtools.shoplogger.storage.StorageIndex.Box b : com.snailtools.shoplogger.storage.StorageIndex.all()) {
+			String[] s = com.snailtools.shoplogger.storage.StorageIndex.summary(b);
+			out.add(SettingRow.action(b.label(), s[0] + (s[1].isEmpty() ? "" : " · " + s[1]) + (b.isEnder() ? "" : " · " + b.dim.replace("minecraft:", "")),
+					"Remove", () -> { com.snailtools.shoplogger.storage.StorageIndex.remove(b); rebuild(); }));
+		}
+		return out;
 	}
 
 	private List<SettingRow> emptyHandRows() {

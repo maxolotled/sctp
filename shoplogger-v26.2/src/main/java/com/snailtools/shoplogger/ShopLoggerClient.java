@@ -53,6 +53,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 	private KeyMapping togglePrintKey;
 	private KeyMapping openLibraryKey;
 	private KeyMapping heldItemKey;
+	private KeyMapping storageKey; // X+M: add to My storage
 	// X opens the library when it's let go; pressing I while it's held opens the held item's page instead
 	private boolean libraryKeyHeld = false;
 	private boolean libraryChordUsed = false;
@@ -129,6 +130,13 @@ public class ShopLoggerClient implements ClientModInitializer {
 				KEY_CATEGORY
 		));
 
+		storageKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+				"key.shoplogger.storage",
+				InputConstants.Type.KEYSYM,
+				GLFW.GLFW_KEY_M, // pressed while holding the library key (X)
+				KEY_CATEGORY
+		));
+
 		com.snailtools.shoplogger.gui.HeldItemPage.setKeys(openLibraryKey, heldItemKey);
 
 		// Manual path: player right-clicks a chest/barrel themselves.
@@ -139,7 +147,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 			var be = world.getBlockEntity(pos);
 			// UseBlockCallback also fires for autoscan's own silent useItemOn() call —
 			// only treat this as a real manual click if that's not what's happening.
-			if (!ShopAutoScanner.getInstance().isSelfInteracting()) {
+			if (!ShopAutoScanner.getInstance().isSelfInteracting() && !com.snailtools.shoplogger.storage.StorageScanner.isSelfInteracting()) {
 				if (ShopContainers.isShopContainer(be)) {
 					// Quarantine other in-flight scans against a race with THIS
 					// open, but trust this container's own scan — see ScanQuarantine.
@@ -290,6 +298,13 @@ public class ShopLoggerClient implements ClientModInitializer {
 					com.snailtools.shoplogger.gui.HeldItemPage.open(client);
 				}
 			}
+			if (storageKey != null) {
+				while (storageKey.consumeClick()) {
+					if (!libraryKeyHeld) continue; // M on its own does nothing
+					libraryChordUsed = true;
+					com.snailtools.shoplogger.storage.StorageKeys.onAddKey(client);
+				}
+			}
 			if (libraryKeyHeld && !openLibraryKey.isDown()) {
 				libraryKeyHeld = false;
 				boolean chord = libraryChordUsed;
@@ -299,6 +314,8 @@ public class ShopLoggerClient implements ClientModInitializer {
 						// Settings > Empty hand > Add: X registers what's in your hand
 						EmptyHandItems.captureHeld(client);
 						client.setScreenAndShow(com.snailtools.shoplogger.gui.SettingsScreen.emptyHand(new com.snailtools.shoplogger.gui.HomeScreen()));
+					} else if (com.snailtools.shoplogger.storage.StorageHighlight.isActive()) {
+						com.snailtools.shoplogger.storage.StorageHighlight.clear();
 					} else if (TeleportHighlight.getInstance().isArmed()) {
 						TeleportHighlight.getInstance().clear();
 					} else {

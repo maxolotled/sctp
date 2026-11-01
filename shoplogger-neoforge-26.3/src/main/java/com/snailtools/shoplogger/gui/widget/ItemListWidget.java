@@ -122,6 +122,17 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 			return this;
 		}
 
+		private Runnable onStorage;
+		private String storageTip;
+		private int storageX = -1, storageY;
+
+		/** A chest at the right of the row: it's in your storage; clicking it lights up where. */
+		public ItemEntry withStorage(String tooltip, Runnable onPress) {
+			this.storageTip = tooltip;
+			this.onStorage = onPress;
+			return this;
+		}
+
 		/** A small coloured label on the row, e.g. "Watching" or "Selling". */
 		public ItemEntry withBadge(String text, int color) {
 			this.badge = text;
@@ -146,6 +157,16 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 				Draw.pill(g, font, badge, right, y + (h - 11) / 2, Theme.alpha(badgeColor, 0x33), badgeColor);
 				right -= 6;
 			}
+			if (onStorage != null) {
+				right -= 14;
+				storageX = right;
+				storageY = y + (h - 14) / 2;
+				boolean over = mouseX >= storageX && mouseX < storageX + 14 && mouseY >= storageY && mouseY < storageY + 14;
+				if (over) g.fill(storageX - 1, storageY - 1, storageX + 15, storageY + 15, Theme.alpha(Theme.ACCENT, 0x55));
+				Draw.item(g, Draw.stack(net.minecraft.world.item.Items.CHEST), storageX + 1, storageY + 1, 12);
+				if (over && storageTip != null) g.setTooltipForNextFrame(font, Component.literal(storageTip), mouseX, mouseY);
+				right -= 6;
+			} else storageX = -1;
 			if (!mark.isEmpty()) {
 				right -= 12;
 				int my = y + (h - 12) / 2;
@@ -175,6 +196,10 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 
 		@Override
 		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+			if (onStorage != null && storageX >= 0 && UiLists.over(storageX, storageY, 14, 14, event.x(), event.y())) {
+				onStorage.run();
+				return true;
+			}
 			if (onOpenPage != null && UiLists.over(viewX(), viewY(), VIEW_W, 14, event.x(), event.y())) {
 				onOpenPage.run();
 				return true;

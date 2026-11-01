@@ -278,7 +278,7 @@
 (function(){
 	"use strict";
 	var API = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev";
-	var JARS = { "fabric|26.2": "shoplogger-26.2-2.6.jar", "fabric|26.3": "shoplogger-26.3-2.6.jar", "neoforge|26.2": "shoplogger-neoforge-26.2-2.6.jar", "neoforge|26.3": "shoplogger-neoforge-26.3-2.6.jar" };
+	var JARS = { "fabric|26.2": "shoplogger-26.2-3.0.jar", "fabric|26.3": "shoplogger-26.3-3.0.jar", "neoforge|26.2": "shoplogger-neoforge-26.2-3.0.jar", "neoforge|26.3": "shoplogger-neoforge-26.3-3.0.jar" };
 	function $(id){ return document.getElementById(id); }
 	function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]; }); }
 	function num(n){ return Number(n || 0).toLocaleString(); }

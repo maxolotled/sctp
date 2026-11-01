@@ -28,6 +28,10 @@ public class QolHookManager {
         com.snailtools.shoplogger.auction.DutchClock.tick();
         com.snailtools.shoplogger.hunt.HuntClient.tick(net.minecraft.client.Minecraft.getInstance());
         com.snailtools.shoplogger.ShopScanner.tick(net.minecraft.client.Minecraft.getInstance());
+        com.snailtools.shoplogger.storage.StorageScanner.getInstance().tick(net.minecraft.client.Minecraft.getInstance());
+        com.snailtools.shoplogger.storage.StorageTracker.tick(net.minecraft.client.Minecraft.getInstance());
+        com.snailtools.shoplogger.storage.StorageHighlight.tick(net.minecraft.client.Minecraft.getInstance());
+        com.snailtools.shoplogger.storage.StorageHolograms.tick(net.minecraft.client.Minecraft.getInstance());
     }
 
     /** Returns true if an addon used the click, so the game shouldn't also get it. */

@@ -34,13 +34,18 @@ public abstract class InteractionMixin {
 
 	@Inject(method = "useItemOn", at = @At("HEAD"))
 	private void shoplogger$onUseItemOn(LocalPlayer player, InteractionHand hand, BlockHitResult hit, CallbackInfoReturnable<InteractionResult> cir) {
+		// the storage scanner's own silent click isn't yours
+		if (com.snailtools.shoplogger.storage.StorageScanner.isSelfInteracting()) return;
 		var level = player.level();
 		var pos = hit.getBlockPos();
+		// My storage: an indexed container (or your ender chest) you opened yourself
+		if (!ShopAutoScanner.getInstance().isSelfInteracting()) com.snailtools.shoplogger.storage.StorageTracker.onUse(pos);
 		// A block entity covers chests, barrels, shulkers, furnaces, hoppers and
 		// signs (plugin shop/menu GUIs); a menu provider covers crafting tables,
 		// anvils, looms etc., which have no block entity.
 		if (level.getBlockEntity(pos) != null || level.getBlockState(pos).getMenuProvider(level, pos) != null) {
 			ShopAutoScanner.getInstance().onPlayerMayOpenScreen();
+			com.snailtools.shoplogger.storage.StorageScanner.getInstance().onPlayerMayOpenScreen();
 		}
 	}
 
@@ -51,6 +56,7 @@ public abstract class InteractionMixin {
 		// never open a container.
 		if (target instanceof ItemFrame || target instanceof ArmorStand) return;
 		ShopAutoScanner.getInstance().onPlayerMayOpenScreen();
+		com.snailtools.shoplogger.storage.StorageScanner.getInstance().onPlayerMayOpenScreen();
 	}
 
 	@Inject(method = "useItem", at = @At("HEAD"))

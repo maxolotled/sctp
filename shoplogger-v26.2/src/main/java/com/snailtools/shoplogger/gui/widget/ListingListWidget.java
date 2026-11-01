@@ -97,6 +97,7 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 		private String rareTexture;
 		private boolean rareResolved;
 		private boolean reported;
+		private final int inStorage; // how many of this you have in My storage
 
 		private ListingEntry(Listing listing, boolean showItemName, java.util.function.Consumer<String> onClickSeller) {
 			this.listing = listing;
@@ -106,6 +107,8 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 			this.canReport = !listing.marketplace;
 			this.reported = canReport && ShopReporter.alreadyReported(ShopReporter.fromListing(listing));
 			this.icon = Draw.stackFor(listing.baseItem);
+			this.inStorage = com.snailtools.shoplogger.storage.StorageSettings.isEnabled() && !listing.marketplace
+					? com.snailtools.shoplogger.storage.StorageIndex.count(listing.baseItem, listing.itemName) : 0;
 		}
 
 		/**
@@ -129,10 +132,15 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 		private int tpX() { return getX() + getWidth() - 5 - BTN; }
 		private int reportX() { return (teleportTarget != null ? tpX() - BTN - 3 : getX() + getWidth() - 5 - BTN); }
 		private int buttonsLeft() {
+			if (inStorage > 0) return storageX();
+			return rightButtonsLeft();
+		}
+		private int rightButtonsLeft() {
 			if (canReport) return reportX();
 			if (teleportTarget != null) return tpX();
 			return getX() + getWidth() - 2;
 		}
+		private int storageX() { return rightButtonsLeft() - BTN - 3; }
 
 		@Override
 		public void extractContent(GuiGraphicsExtractor g, int mouseX, int mouseY, boolean hovered, float tickDelta) {
@@ -173,6 +181,11 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 			Draw.right(g, font, price, rightEdge, y + 5, Theme.SHELL);
 			Draw.right(g, font, stock, rightEdge, y + 15, Theme.MUTED);
 
+			if (inStorage > 0) {
+				boolean over = UiLists.rowButton(g, storageX(), btnY(), BTN, BTN, "", Theme.PANEL_ALT, Theme.ACCENT_DIM, Theme.TEXT, mouseX, mouseY);
+				Draw.item(g, Draw.stack(net.minecraft.world.item.Items.CHEST), storageX() + 2, btnY() + 2, 12);
+				if (over) g.setTooltipForNextFrame(font, Component.literal("You have " + inStorage + " in your storage · click to find it"), mouseX, mouseY);
+			}
 			if (canReport) {
 				boolean over = UiLists.rowButton(g, reportX(), btnY(), BTN, BTN, reported ? "✓" : "!",
 						reported ? Theme.PANEL_ALT : 0xFF6E2A22, reported ? Theme.PANEL_HI : Theme.BAD, Theme.TEXT, mouseX, mouseY);
@@ -202,6 +215,10 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 
 		@Override
 		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+			if (inStorage > 0 && UiLists.over(storageX(), btnY(), BTN, BTN, event.x(), event.y())) {
+				com.snailtools.shoplogger.storage.StorageHighlight.showItem(listing.baseItem, listing.itemName);
+				return true;
+			}
 			if (canReport && UiLists.over(reportX(), btnY(), BTN, BTN, event.x(), event.y())) {
 				if (!reported) {
 					reported = ShopReporter.report(Minecraft.getInstance(), ShopReporter.fromListing(listing)) || ShopReporter.alreadyReported(ShopReporter.fromListing(listing));

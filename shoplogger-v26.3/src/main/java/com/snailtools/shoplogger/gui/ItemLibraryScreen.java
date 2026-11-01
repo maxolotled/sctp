@@ -238,6 +238,9 @@ public class ItemLibraryScreen extends UiScreen {
 
 	/** Items on your watchlist get a small spyglass on their row. */
 	private static ItemListWidget.ItemEntry watched(String name, ItemListWidget.ItemEntry e) {
+		int have = com.snailtools.shoplogger.storage.StorageSettings.isEnabled() ? com.snailtools.shoplogger.storage.StorageIndex.count(null, name) : 0;
+		if (have > 0) e = e.withStorage(String.format(java.util.Locale.ROOT, "%,d", have) + " in your storage · click to find it",
+				() -> com.snailtools.shoplogger.storage.StorageHighlight.showItem(null, name));
 		return com.snailtools.shoplogger.WatchlistStore.find(name) != null
 				? e.withMark(com.snailtools.shoplogger.gui.ui.Draw.stack(net.minecraft.world.item.Items.SPYGLASS), "On your watchlist")
 				: e;
