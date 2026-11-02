@@ -18,6 +18,7 @@
 - **Base item on rare pages:** rare pages show the item a rare is made from, linking to every rare made from it, and the rare library has an exact Base item filter.
 - **Notification badge** next to your name when you have unread notifications.
 - **Fairer seller averages:** listings priced over 10 times the usual price are left out.
+- **Rares updated** from the latest Snailcraft Items sheet: 73 new rares: the Fall Fest 2026 decor, coin and prizes (skeletons, chandelabras, the Witch's Cauldron, Felix Felicis...), the Día de Muertos and costume collectibles, 11 bugs in a jar, the S'more set (four marshmallow stages, graham cracker, chocolate bar, S'more), 12 attunements and the Glint Remover enchant, Mushroom Hoe, Paint Thief, Trick-or-Treater, the Jackalhop plushie and pet, two nameplates, two tarot cards, the Creativity 2026 Crate Key and The Mona Lisa Postcard.
 
 ## 2.6 (mod 2.6)
 

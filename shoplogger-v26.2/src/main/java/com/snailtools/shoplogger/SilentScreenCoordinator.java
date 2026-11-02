@@ -23,6 +23,15 @@ public final class SilentScreenCoordinator {
 		 */
 		default boolean accepts(AbstractContainerMenu handler) { return true; }
 
+		/**
+		 * A screen this listener didn't accept arrived. Return true when it's
+		 * still this listener's own answer in another shape (a locked container
+		 * the server shows in its own window): the listener closes it and
+		 * releases itself, and the player never sees it. False (the default)
+		 * shows it to the player as usual.
+		 */
+		default boolean swallowUnexpected(AbstractContainerMenu handler) { return false; }
+
 		void onScreenSuppressed(AbstractContainerMenu handler);
 		void onInventorySynced(int syncId, ClientPacketListener netHandler);
 
@@ -70,6 +79,10 @@ public final class SilentScreenCoordinator {
 
 	public static boolean accepts(AbstractContainerMenu handler) {
 		return current == null || current.accepts(handler);
+	}
+
+	public static boolean swallowUnexpected(AbstractContainerMenu handler) {
+		return current != null && current.swallowUnexpected(handler);
 	}
 
 	public static void onScreenSuppressed(AbstractContainerMenu handler) {

@@ -33,11 +33,17 @@ public final class StorageScanner implements SilentScreenCoordinator.Listener {
 	private static final double REACH = 4.5;
 	private static final long GAP_MS = 800L;      // between two silent opens
 	private static final long HOLD_OFF_MS = 2500L; // after you click something yourself
+	/** Silent opens without an answer before a container waits for you to open it yourself. */
+	public static final int MAX_FAILURES = 3;
+	private static final long RETRY_MS = 30_000L; // x the failures so far
+	/** How soon after our click a window still counts as its answer. */
+	private static final long ANSWER_MS = 2000L;
 
 	private boolean armed, selfInteracting, resolving;
 	private StorageIndex.Box armedBox;
 	private int armedRows, armedSyncId = -1;
 	private boolean armedShulker;
+	private boolean yielding; // letting go for you, not a failed open
 	private long lastAttempt, holdOffUntil;
 
 	/** True during our own silent click, so the click handlers don't take it for yours. */
@@ -46,7 +52,10 @@ public final class StorageScanner implements SilentScreenCoordinator.Listener {
 	/** You did something that may open a screen: let go of a silent open and wait a moment. */
 	public void onPlayerMayOpenScreen() {
 		if (selfInteracting || resolving) return;
-		if (armed) SilentScreenCoordinator.yieldToManualOpen();
+		if (armed) {
+			yielding = true;
+			try { SilentScreenCoordinator.yieldToManualOpen(); } finally { yielding = false; }
+		}
 		holdOffUntil = System.currentTimeMillis() + HOLD_OFF_MS;
 	}
 
@@ -63,7 +72,7 @@ public final class StorageScanner implements SilentScreenCoordinator.Listener {
 		StorageIndex.Box best = null;
 		double bestDist = Double.MAX_VALUE;
 		for (StorageIndex.Box b : StorageIndex.boxes()) {
-			if (!b.waiting() || !b.dim.equals(dim)) continue;
+			if (!b.waiting() || b.locked || !b.dim.equals(dim) || b.failures >= MAX_FAILURES || now < b.retryAt) continue;
 			double d = Vec3.atCenterOf(b.pos()).distanceTo(eye);
 			if (d <= REACH && d < bestDist) { best = b; bestDist = d; }
 		}
@@ -115,6 +124,29 @@ public final class StorageScanner implements SilentScreenCoordinator.Listener {
 		return handler instanceof ChestMenu chest && chest.getRowCount() == armedRows;
 	}
 
+	/**
+	 * Our click got a window that isn't the container's own (a locked shulker or
+	 * chest the server shows read-only in a menu of its own). Close it before
+	 * it's ever drawn and don't open that container silently again; it's read
+	 * when you open it yourself. Only right after our click, so a window you
+	 * opened is never taken.
+	 */
+	@Override
+	public boolean swallowUnexpected(AbstractContainerMenu handler) {
+		if (!armed || armedBox == null || System.currentTimeMillis() - lastAttempt > ANSWER_MS) return false;
+		Minecraft mc = Minecraft.getInstance();
+		StorageIndex.markLocked(armedBox);
+		resolving = true;
+		try {
+			if (mc.getConnection() != null) mc.getConnection().send(new ServerboundContainerClosePacket(handler.containerId));
+			if (mc.player != null && mc.player.containerMenu == handler) mc.player.containerMenu = mc.player.inventoryMenu;
+		} finally {
+			resolving = false;
+		}
+		disarm();
+		return true;
+	}
+
 	@Override
 	public void onScreenSuppressed(AbstractContainerMenu handler) {
 		if (armed) armedSyncId = handler.containerId;
@@ -138,6 +170,12 @@ public final class StorageScanner implements SilentScreenCoordinator.Listener {
 
 	@Override
 	public void onWatchdogTimeout() {
+		// no answer (blocked lid, someone else's claim...): try it a few more times, slower, then leave it to you
+		if (armedBox != null && !yielding) {
+			armedBox.failures++;
+			armedBox.retryAt = System.currentTimeMillis() + RETRY_MS * armedBox.failures;
+			if (armedBox.failures >= MAX_FAILURES) StorageIndex.touch();
+		}
 		disarm();
 		holdOffUntil = System.currentTimeMillis() + HOLD_OFF_MS;
 	}

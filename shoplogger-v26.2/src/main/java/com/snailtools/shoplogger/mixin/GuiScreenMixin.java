@@ -57,6 +57,11 @@ public abstract class GuiScreenMixin {
 		// isn't ours — let the player see it and release the silent open,
 		// rather than logging someone else's items as that shop's stock.
 		if (!SilentScreenCoordinator.accepts(containerScreen.getMenu())) {
+			// ...unless it's still the answer to the silent open, in a different window (a locked container): closed unseen
+			if (SilentScreenCoordinator.swallowUnexpected(containerScreen.getMenu())) {
+				ci.cancel();
+				return;
+			}
 			SilentScreenCoordinator.yieldToManualOpen();
 			return;
 		}

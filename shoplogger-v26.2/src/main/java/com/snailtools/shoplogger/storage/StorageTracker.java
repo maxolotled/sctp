@@ -63,6 +63,7 @@ public final class StorageTracker {
 
 	/** Every client tick. */
 	public static void tick(Minecraft mc) {
+		StorageIndex.tick();
 		if (openMenu == null) return;
 		boolean stillOpen = mc.player != null && mc.player.containerMenu == openMenu;
 		if (!stillOpen) {

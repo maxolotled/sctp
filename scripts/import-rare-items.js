@@ -205,14 +205,16 @@ function normalizeWhitespace(s) {
 
 // Every release date should be one "Mon YYYY", so the site's, the mod's and
 // Rare-dle's month filters/hints can place it: keep only the first date of
-// "Apr 2025 / Jan 2026" (a later re-release, e.g. in a birthday crate), drop
-// "- Present", Summerfest ("Summer YYYY") counts as August, a bare year as
-// January. Anything else (e.g. "Ongoing") is left for a human to decide.
+// "Apr 2025 / Jan 2026" (a later re-release, e.g. in a birthday crate) and of
+// an event's "Oct 2026-Nov 2026", drop "- Present", Summerfest ("Summer YYYY")
+// counts as August, a bare year as January. Anything else (e.g. "Ongoing") is
+// left for a human to decide.
 function normalizeReleaseDate(v) {
 	if (v == null) return v;
 	let s = String(v).trim();
 	s = s.split(/\s*\/\s*/)[0];
 	s = s.replace(/\s*-\s*present$/i, "");
+	s = s.replace(/^([a-z]{3,4} \d{4})\s*-\s*[a-z]{3,4} \d{4}$/i, "$1");
 	s = s.replace(/^sept\b/i, "Sep");
 	s = s.replace(/^summer\s+(\d{4})$/i, "Aug $1");
 	s = s.replace(/^(\d{4})$/, "Jan $1");
@@ -444,10 +446,14 @@ function main() {
 		if (m) maxTextureNum = Math.max(maxTextureNum, parseInt(m[1], 10));
 	}
 
+	// Rows handled in an earlier run. Checked against this snapshot, so several
+	// rows with the same name and category in this run (e.g. the toasting
+	// stages of "Marshmallow on a Stick") are all imported.
+	const priorRuns = new Set(stateProcessed);
 	const appended = [];
 	for (const e of newOnly) {
 		const key = normKey(e);
-		if (stateProcessed.has(key)) {
+		if (priorRuns.has(key)) {
 			console.log(`  skip (already processed in a prior run): ${e.name}`);
 			continue;
 		}
@@ -455,15 +461,27 @@ function main() {
 		if (existingIds.has(id)) {
 			// Same name already used — usually the same item name in a different
 			// category (e.g. a Useable and a Collectible), which is a genuinely
-			// separate entry. Qualify the id with the category; if THAT is taken
-			// too it is an exact duplicate row, so skip it.
-			const qualified = slugify(e.name + " " + e.category);
-			if (existingIds.has(qualified)) {
+			// separate entry. Qualify the id with the category. The same name in
+			// the SAME category is a variant (a rerelease, a deluxe version, a
+			// toasting stage...): numbered like the existing ones, "-2", "-3"...
+			// An identical row (same effect too) is a real duplicate: skipped.
+			const sameRow = currentJson.concat(appended).some((x) => normKey(x) === key && (x.effect || null) === (e.effect || null));
+			if (sameRow) {
 				console.log(`  skip duplicate row: "${e.name}" (${e.category})`);
 				continue;
 			}
-			console.log(`  note: "${e.name}" (${e.category}) shares a name with another entry -> ${qualified}`);
-			id = qualified;
+			const sameCategory = currentJson.concat(appended).some((x) => normKey(x) === key);
+			if (sameCategory) {
+				let n = 2;
+				while (existingIds.has(`${id}-${n}`)) n++;
+				id = `${id}-${n}`;
+			} else {
+				id = slugify(e.name + " " + e.category);
+				let n = 2;
+				const base = id;
+				while (existingIds.has(id)) id = `${base}-${n++}`;
+			}
+			console.log(`  note: "${e.name}" (${e.category}) shares a name with another entry -> ${id}`);
 		}
 
 		let texture = null;

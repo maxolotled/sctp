@@ -68,6 +68,11 @@ public final class StorageIndex {
 		public long scannedAt;     // 0 = still waiting for its first scan
 		public List<Item> items = new ArrayList<>();
 		public List<Change> log = new ArrayList<>();
+		/** The server shows it in its own window (a locked container): never opened silently, read when you open it. */
+		public boolean locked;
+		/** Silent opens that got no answer, and when to try again (StorageScanner; not saved). */
+		public transient int failures;
+		public transient long retryAt;
 
 		public BlockPos pos() { return new BlockPos(x, y, z); }
 		public boolean isEnder() { return "ender".equals(kind); }
@@ -89,6 +94,10 @@ public final class StorageIndex {
 	private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 	private static Data data = new Data();
 	private static String loadedFor = null;
+	/** Goes up on every change, so the lookups below know to rebuild. */
+	private static int version;
+	private static boolean dirty;
+	private static long dirtySince;
 
 	// ---- which account + world, and its file ----
 
@@ -115,7 +124,9 @@ public final class StorageIndex {
 	}
 
 	private static void load(String o) {
+		flush();
 		loadedFor = o;
+		version++;
 		data = new Data();
 		Path f = file(o);
 		if (!Files.exists(f)) return;
@@ -130,7 +141,30 @@ public final class StorageIndex {
 		}
 	}
 
+	/** Something changed: the lookups rebuild, and the file is written within a second (tick). */
 	private static void save() {
+		version++;
+		if (!dirty) dirtySince = System.currentTimeMillis();
+		dirty = true;
+	}
+
+	/** Every client tick (StorageTracker.tick): writes the file once changes have settled for a second. */
+	public static void tick() {
+		if (dirty && System.currentTimeMillis() - dirtySince >= 1000L) flush();
+	}
+
+	/** The server answered a silent open with its own window: leave this one to the player. */
+	public static void markLocked(Box b) {
+		b.locked = true;
+		save();
+	}
+
+	/** A box's state changed outside record/add/remove (StorageScanner gave up on it): redraw its hologram. */
+	public static void touch() { version++; }
+
+	private static void flush() {
+		if (!dirty) return;
+		dirty = false;
 		if (loadedFor == null) return;
 		Path f = file(loadedFor);
 		try {
@@ -192,6 +226,7 @@ public final class StorageIndex {
 			data.ender.dim = "";
 			data.ender.kind = "ender";
 			data.ender.addedAt = System.currentTimeMillis();
+			version++;
 		}
 		return data.ender;
 	}
@@ -258,22 +293,65 @@ public final class StorageIndex {
 		return i.b.equalsIgnoreCase(baseItem) && i.n.equalsIgnoreCase(name);
 	}
 
+	/** How much of an item, and in which containers, keyed like lookupKey; rebuilt after a change. */
+	private static final class Held { int count; final List<Box> boxes = new ArrayList<>(); }
+	private static Map<String, Held> lookup = new HashMap<>();
+	private static List<Object[]> totalsCache = List.of();
+	private static final Map<Box, String[]> summaries = new java.util.IdentityHashMap<>();
+	private static int builtFor = -1;
+
+	/** Rares by their normalized name (decorated names too), vanilla items by base item and name: the same rule as matches. */
+	private static String lookupKey(String baseItem, String name) {
+		if (baseItem == null) {
+			String n = MatchUtil.rareNormalize(name);
+			return n.isEmpty() ? null : "r|" + n;
+		}
+		return "v|" + baseItem.toLowerCase(Locale.ROOT) + "|" + (name == null ? "" : name.toLowerCase(Locale.ROOT));
+	}
+
+	private static void build() {
+		if (builtFor == version && loadedFor != null) return;
+		builtFor = version;
+		summaries.clear();
+		Map<String, Held> map = new HashMap<>();
+		for (Box b : all()) for (Item i : b.items) {
+			for (String k : new String[] { lookupKey(null, i.n), lookupKey(i.b, i.n) }) {
+				if (k == null) continue;
+				Held h = map.computeIfAbsent(k, x -> new Held());
+				h.count += i.c;
+				if (h.boxes.isEmpty() || h.boxes.get(h.boxes.size() - 1) != b) h.boxes.add(b);
+			}
+		}
+		lookup = map;
+		totalsCache = computeTotals();
+	}
+
 	/** How many of an item you have, all containers together (baseItem null for a rare). */
 	public static int count(String baseItem, String name) {
-		int n = 0;
-		for (Box b : all()) for (Item i : b.items) if (matches(i, baseItem, name)) n += i.c;
-		return n;
+		if (!ready()) return 0;
+		build();
+		String k = lookupKey(baseItem, name);
+		Held h = k == null ? null : lookup.get(k);
+		return h == null ? 0 : h.count;
 	}
 
 	/** The containers holding an item. */
 	public static List<Box> holding(String baseItem, String name) {
-		List<Box> out = new ArrayList<>();
-		for (Box b : all()) for (Item i : b.items) if (matches(i, baseItem, name)) { out.add(b); break; }
-		return out;
+		if (!ready()) return new ArrayList<>();
+		build();
+		String k = lookupKey(baseItem, name);
+		Held h = k == null ? null : lookup.get(k);
+		return h == null ? new ArrayList<>() : new ArrayList<>(h.boxes);
 	}
 
 	/** Every item across your storage, most first: [item, containers holding it]. */
 	public static List<Object[]> totals() {
+		if (!ready()) return List.of();
+		build();
+		return totalsCache;
+	}
+
+	private static List<Object[]> computeTotals() {
 		Map<String, Object[]> out = new LinkedHashMap<>();
 		for (Box b : all()) for (Item i : b.items) {
 			Object[] t = out.computeIfAbsent(i.key(), k -> new Object[] { new Item(i.b, i.n, 0), 0 });
@@ -315,6 +393,13 @@ public final class StorageIndex {
 	 * leads (60% of everything, or 3x the next kind), else "Mixed"; then how many.
 	 */
 	public static String[] summary(Box b) {
+		build();
+		return summaries.computeIfAbsent(b, StorageIndex::computeSummary);
+	}
+
+	private static String[] computeSummary(Box b) {
+		if (b.waiting() && b.locked) return new String[] { "Locked", "open it to read it" };
+		if (b.waiting() && b.failures >= StorageScanner.MAX_FAILURES) return new String[] { "Indexed", "open it once to read it" };
 		if (b.waiting()) return new String[] { "Indexed", "scans when you're close" };
 		int total = b.total();
 		if (total == 0) return new String[] { "Empty", "" };

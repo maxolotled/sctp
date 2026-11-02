@@ -65,6 +65,7 @@ public abstract class InteractionMixin {
 		// items like food or pearls never open a container.
 		if (player.getItemInHand(hand).has(DataComponents.CUSTOM_NAME)) {
 			ShopAutoScanner.getInstance().onPlayerMayOpenScreen();
+			com.snailtools.shoplogger.storage.StorageScanner.getInstance().onPlayerMayOpenScreen();
 		}
 	}
 }
