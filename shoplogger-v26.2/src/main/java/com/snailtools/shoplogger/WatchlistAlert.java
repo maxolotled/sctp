@@ -45,7 +45,7 @@ public final class WatchlistAlert {
 
 			String cooldownKey = "watchlist/lastAlert/" + entry.world().toLowerCase(Locale.ROOT)
 					+ "|" + entry.seller().toLowerCase(Locale.ROOT)
-					+ "|" + MatchUtil.alphaOnly(entry.itemName());
+					+ "|" + MatchUtil.watchKey(entry.itemName());
 			long now = System.currentTimeMillis();
 			Long last = Config.get(cooldownKey, Long.class);
 			if (last != null && now - last < COOLDOWN_MS) continue;
@@ -56,9 +56,9 @@ public final class WatchlistAlert {
 	}
 
 	private static WatchedItem findWatched(String itemName, List<WatchedItem> watched) {
-		String normalized = MatchUtil.alphaOnly(itemName);
+		String normalized = MatchUtil.watchKey(itemName);
 		for (WatchedItem w : watched) {
-			if (MatchUtil.alphaOnly(w.itemName).equals(normalized)) return w;
+			if (MatchUtil.watchKey(w.itemName).equals(normalized)) return w;
 		}
 		return null;
 	}

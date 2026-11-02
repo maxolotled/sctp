@@ -40,10 +40,10 @@ public final class WatchlistStore {
 	}
 
 	public static WatchedItem find(String name) {
-		String normalized = MatchUtil.alphaOnly(name);
+		String normalized = MatchUtil.watchKey(name);
 		if (normalized.isEmpty()) return null;
 		for (WatchedItem w : getAll()) {
-			if (MatchUtil.alphaOnly(w.itemName).equals(normalized)) return w;
+			if (MatchUtil.watchKey(w.itemName).equals(normalized)) return w;
 		}
 		return null;
 	}
@@ -60,18 +60,18 @@ public final class WatchlistStore {
 	}
 
 	public static void remove(String name) {
-		String normalized = MatchUtil.alphaOnly(name);
+		String normalized = MatchUtil.watchKey(name);
 		List<WatchedItem> all = getAll();
-		all.removeIf(w -> MatchUtil.alphaOnly(w.itemName).equals(normalized));
+		all.removeIf(w -> MatchUtil.watchKey(w.itemName).equals(normalized));
 		Config.update(CONFIG_PATH, all.toArray(new WatchedItem[0]));
 	}
 
 	/** Updates an existing entry's options in place — no-op if it's not being watched. */
 	public static void updateOptions(String name, Double maxPrice, boolean excludeNoPriceOrDisplay) {
-		String normalized = MatchUtil.alphaOnly(name);
+		String normalized = MatchUtil.watchKey(name);
 		List<WatchedItem> all = getAll();
 		for (WatchedItem w : all) {
-			if (MatchUtil.alphaOnly(w.itemName).equals(normalized)) {
+			if (MatchUtil.watchKey(w.itemName).equals(normalized)) {
 				w.maxPrice = maxPrice;
 				w.excludeNoPriceOrDisplay = excludeNoPriceOrDisplay;
 				break;

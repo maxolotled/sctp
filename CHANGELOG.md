@@ -8,6 +8,7 @@
 - **You already have this:** items in your storage get a chest icon in item search and on shop listings, and a banner on their item page. Click it to find where they are.
 - **Storage holograms:** the containers in My storage show what's inside (the main item and how many, or "Mixed") on the lower half of every side that's fully open to air.
 - **Settings › My storage:** turn the whole feature or its holograms on or off, pick the highlight style, and see or remove every container you've added.
+- **Fixed: yearly items mixed up on the watchlist.** Watching last year's "Creativity Crate Key" no longer alerts you about the "Creativity 2026 Crate Key" (or the other way round): numbers in a name now count.
 
 ### Website
 - **Build list: cheaper to craft:** when buying the ingredients and crafting (crafting table or stonecutter) costs at least half less than buying the block, or nobody sells the block, the list buys the ingredients instead. "Buy the block instead" switches any of them back.
@@ -18,6 +19,7 @@
 - **Base item on rare pages:** rare pages show the item a rare is made from, linking to every rare made from it, and the rare library has an exact Base item filter.
 - **Notification badge** next to your name when you have unread notifications.
 - **Fairer seller averages:** listings priced over 10 times the usual price are left out.
+- **Fixed: yearly items linked to last year's.** A listing of a "2026" key or crate no longer links to (or shows the icon of) last year's rare, and an exact search for it no longer finds last year's too.
 - **Rares updated** from the latest Snailcraft Items sheet: 73 new rares: the Fall Fest 2026 decor, coin and prizes (skeletons, chandelabras, the Witch's Cauldron, Felix Felicis...), the Día de Muertos and costume collectibles, 11 bugs in a jar, the S'more set (four marshmallow stages, graham cracker, chocolate bar, S'more), 12 attunements and the Glint Remover enchant, Mushroom Hoe, Paint Thief, Trick-or-Treater, the Jackalhop plushie and pet, two nameplates, two tarot cards, the Creativity 2026 Crate Key and The Mona Lisa Postcard.
 
 ## 2.6 (mod 2.6)

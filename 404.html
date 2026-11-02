@@ -415,6 +415,9 @@
 		return n > 9 ? (Math.round((n/9)*100)/100) + " DB" : n + " dia";
 	}
 	function alphaOnly(s){ return String(s||"").toLowerCase().replace(/[^a-z]/g, ""); }
+	// Letters and digits only: decorations and case don't matter, numbers do
+	// ("Creativity 2026 Crate Key" isn't last year's "Creativity Crate Key").
+	function itemNameKey(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]/g, ""); }
 
 	// ---------------- rare item name matching ----------------
 	// Rare items have no baseItem worth matching on (many share a generic
@@ -595,7 +598,7 @@
 	var PLACEHOLDER_ICON = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2322332A'/><path d='M4 4 L12 12 M12 4 L4 12' stroke='%2333453A' stroke-width='1.5'/></svg>";
 	var PLACEHOLDER_ICON_JS = PLACEHOLDER_ICON.replace(/'/g, "\\'");
 	function iconFor(r){
-		var tex = textureByName[alphaOnly(r.itemNameDisplay || r.itemName)];
+		var tex = textureByName[itemNameKey(r.itemNameDisplay || r.itemName)];
 		if(!tex) tex = textureByBaseItem[String(r.baseItem||"").trim().toLowerCase()];
 		return tex || PLACEHOLDER_ICON;
 	}
@@ -608,7 +611,7 @@
 			return name ? "/items/enchanted_book?name=" + encodeURIComponent(name) : null;
 		}
 		var displayName = r.itemNameDisplay || r.itemName;
-		var slug = slugByName[alphaOnly(displayName)];
+		var slug = slugByName[itemNameKey(displayName)];
 		if(!slug){
 			var baseKey = String(r.baseItem||"").trim().toLowerCase();
 			slug = slugByBaseItem[baseKey];
@@ -627,14 +630,14 @@
 			var rare = results[1].ok ? await results[1].json() : [];
 			vanilla.forEach(function(it){
 				if(!it.name || !it.texture || !it.id) return;
-				var nameKey = alphaOnly(it.name);
+				var nameKey = itemNameKey(it.name);
 				if(nameKey && !textureByName[nameKey]){ textureByName[nameKey] = it.texture; slugByName[nameKey] = it.id; }
 				var baseKey = String(it.baseItem||"").toLowerCase();
 				if(baseKey && !textureByBaseItem[baseKey]){ textureByBaseItem[baseKey] = it.texture; slugByBaseItem[baseKey] = it.id; }
 			});
 			rare.forEach(function(it){
 				if(!it.name || !it.texture || !it.id) return;
-				var nameKey = alphaOnly(it.name);
+				var nameKey = itemNameKey(it.name);
 				if(nameKey){ textureByName[nameKey] = it.texture; slugByName[nameKey] = it.id; }
 			});
 			if(onLoaded) onLoaded();

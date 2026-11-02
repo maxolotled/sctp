@@ -112,16 +112,18 @@
 
 	// Item names link to their item page: the catalogs map a name (rares first) or base item to its page.
 	var slugByName = {}, slugByBase = {};
-	function alphaOnly(v){ return String(v || "").toLowerCase().replace(/[^a-z]/g, ""); }
+	// Letters and digits only: decorations and case don't matter, numbers do
+	// ("Creativity 2026 Crate Key" isn't last year's "Creativity Crate Key").
+	function itemNameKey(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]/g, ""); }
 	var catalogsReady = Promise.all([
 		fetch("/data/vanilla-items.json").then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
 		fetch("/data/rare-items.json").then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; })
 	]).then(function(res){
-		res[0].forEach(function(it){ var k = alphaOnly(it.name); if(k && !slugByName[k]) slugByName[k] = it.id; if(it.baseItem && !slugByBase[it.baseItem]) slugByBase[it.baseItem] = it.id; });
-		res[1].forEach(function(it){ var k = alphaOnly(it.name); if(k) slugByName[k] = it.id; });
+		res[0].forEach(function(it){ var k = itemNameKey(it.name); if(k && !slugByName[k]) slugByName[k] = it.id; if(it.baseItem && !slugByBase[it.baseItem]) slugByBase[it.baseItem] = it.id; });
+		res[1].forEach(function(it){ var k = itemNameKey(it.name); if(k) slugByName[k] = it.id; });
 	});
 	function itemLink(it){
-		var slug = slugByName[alphaOnly(it.itemName)];
+		var slug = slugByName[itemNameKey(it.itemName)];
 		if(!slug){
 			var base = it.baseItem || (it.itemKey ? String(it.itemKey).replace(/^v:/, "").split("|")[0] : "");
 			slug = slugByBase[base];

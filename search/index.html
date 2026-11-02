@@ -1588,10 +1588,10 @@
 	var PLACEHOLDER_ICON_JS = PLACEHOLDER_ICON.replace(/'/g, "\\'");
 
 	function iconFor(r){
-		// alphaOnly (not plain lowercase) because real shop listings for rare
+		// itemNameKey (not plain lowercase) because real shop listings for rare
 		// items are often decorated ("⋆✳ 1st Birthday Cake ✳⋆") — same
 		// normalization the site already uses for exact-name search matches.
-		var tex = textureByName[alphaOnly(r.itemNameDisplay || r.itemName)];
+		var tex = textureByName[itemNameKey(r.itemNameDisplay || r.itemName)];
 		if(!tex){
 			var baseKey = String(r.baseItem || "").trim().toLowerCase();
 			tex = textureByBaseItem[baseKey];
@@ -1612,7 +1612,7 @@
 			return name ? "/items/enchanted_book?name=" + encodeURIComponent(name) : null;
 		}
 		var displayName = r.itemNameDisplay || r.itemName;
-		var slug = slugByName[alphaOnly(displayName)];
+		var slug = slugByName[itemNameKey(displayName)];
 		if(!slug){
 			var baseKey = String(r.baseItem || "").trim().toLowerCase();
 			slug = slugByBaseItem[baseKey];
@@ -1643,14 +1643,14 @@
 			var rare = rareRes.ok ? await rareRes.json() : [];
 			vanilla.forEach(function(it){
 				if(!it.name || !it.texture || !it.id) return;
-				var nameKey = alphaOnly(it.name);
+				var nameKey = itemNameKey(it.name);
 				if(nameKey && !textureByName[nameKey]){ textureByName[nameKey] = it.texture; slugByName[nameKey] = it.id; }
 				var baseKey = String(it.baseItem || "").toLowerCase();
 				if(baseKey && !textureByBaseItem[baseKey]){ textureByBaseItem[baseKey] = it.texture; slugByBaseItem[baseKey] = it.id; }
 			});
 			rare.forEach(function(it){
 				if(!it.name || !it.texture || !it.id) return;
-				var nameKey = alphaOnly(it.name);
+				var nameKey = itemNameKey(it.name);
 				if(nameKey){ textureByName[nameKey] = it.texture; slugByName[nameKey] = it.id; } // rare names take priority on collision
 			});
 			renderTable();
@@ -1873,9 +1873,12 @@
 	function alphaOnly(s){
 		return String(s||"").toLowerCase().replace(/[^a-z]/g, "");
 	}
+	// Letters and digits only: decorations and case don't matter, numbers do
+	// ("Creativity 2026 Crate Key" isn't last year's "Creativity Crate Key").
+	function itemNameKey(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]/g, ""); }
 
 	function isExactMatch(r, q, scope){
-		if(scope.itemName && alphaOnly(r.itemNameDisplay) === alphaOnly(q)) return true;
+		if(scope.itemName && itemNameKey(r.itemNameDisplay) === itemNameKey(q)) return true;
 		if(scope.baseItem && String(r.baseItem||"").trim().toLowerCase() === q) return true;
 		if(scope.seller && String(r.seller||"").trim().toLowerCase() === q) return true;
 		return false;
@@ -2656,9 +2659,9 @@
 	// Average price for this item, split by world — [DISPLAY] listings excluded,
 	// same convention as the main table's price summary (see renderPriceSummary).
 	function shareAvgHtml(row){
-		var normalized = alphaOnly(row.itemNameDisplay || row.itemName);
+		var normalized = itemNameKey(row.itemNameDisplay || row.itemName);
 		var itemRows = allListings.filter(function(r){
-			return alphaOnly(r.itemNameDisplay || r.itemName) === normalized && String(r.currency||"").toLowerCase() !== "display";
+			return itemNameKey(r.itemNameDisplay || r.itemName) === normalized && String(r.currency||"").toLowerCase() !== "display";
 		});
 		var worlds = ["Firefly","Honeybee"];
 		var statsHtml = worlds.map(function(world){

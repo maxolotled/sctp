@@ -104,9 +104,9 @@ public final class WatchlistJoinCheck {
 	}
 
 	private static WatchedItem findWatched(String itemName, List<WatchedItem> watched) {
-		String normalized = MatchUtil.alphaOnly(itemName);
+		String normalized = MatchUtil.watchKey(itemName);
 		for (WatchedItem w : watched) {
-			if (MatchUtil.alphaOnly(w.itemName).equals(normalized)) return w;
+			if (MatchUtil.watchKey(w.itemName).equals(normalized)) return w;
 		}
 		return null;
 	}
@@ -160,7 +160,7 @@ public final class WatchlistJoinCheck {
 				if (l.marketplace) continue;
 				boolean isDisplay = "display".equalsIgnoreCase(l.currency);
 				if (watchedItem.excludeNoPriceOrDisplay && isDisplay) continue;
-				if (!MatchUtil.alphaOnly(l.itemName).equals(MatchUtil.alphaOnly(watchedItem.itemName))) continue;
+				if (!MatchUtil.watchKey(l.itemName).equals(MatchUtil.watchKey(watchedItem.itemName))) continue;
 				if (WatchlistIgnore.isIgnored(WatchlistIgnore.shopKey(ShopReporter.fromListing(l)))) continue;
 				if (!isDisplay && watchedItem.maxPrice != null && l.pricePerItemInDiamonds() > watchedItem.maxPrice) continue;
 

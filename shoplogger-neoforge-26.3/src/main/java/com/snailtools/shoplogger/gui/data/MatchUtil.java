@@ -22,6 +22,16 @@ public final class MatchUtil {
 		return "v:" + (baseItem == null ? "" : baseItem.toLowerCase()) + "|" + (name == null ? "" : name.toLowerCase());
 	}
 
+	/**
+	 * Watchlist names: lowercase letters and digits only, so decorations, colours
+	 * and case don't matter but numbers do ("Creativity 2026 Crate Key" isn't
+	 * last year's "Creativity Crate Key").
+	 */
+	public static String watchKey(String s) {
+		if (s == null) return "";
+		return s.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]", "");
+	}
+
 	/** Matches index.html's alphaOnly() — used against the /rare-items rentable-name lists (stricter, a-z only, than rareNormalize above). */
 	public static String alphaOnly(String s) {
 		if (s == null) return "";
