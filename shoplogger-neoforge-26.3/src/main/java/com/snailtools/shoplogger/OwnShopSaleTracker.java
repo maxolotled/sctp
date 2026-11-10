@@ -38,27 +38,31 @@ public final class OwnShopSaleTracker {
 			"diamondblock", "minecraft:diamond_block"
 	);
 
-	private static final Map<BlockPos, Boolean> HAS_PENDING_PAYMENT = new HashMap<>();
-	// Payments the owner has already seen by opening the chest themselves: no glow for
-	// those. Cleared when the payment is collected or a new sale comes in.
-	private static final java.util.Set<BlockPos> SEEN = new java.util.HashSet<>();
+	// How much payment sits in each own shop (currency items), as last scanned.
+	private static final Map<BlockPos, Integer> PAYMENT = new HashMap<>();
+	// How much of it the owner has seen by opening the chest themselves. The chest glows
+	// while there's more than that: scans never turn it off, only opening it does, and a
+	// new sale lights it again even when the earlier payment wasn't collected yet.
+	private static final Map<BlockPos, Integer> SEEN = new HashMap<>();
 	private static final String CONFIG_MESSAGES_ENABLED = "ownShopSale/messagesEnabled";
 
 	private OwnShopSaleTracker() {}
 
 	public static boolean hasPendingPayment(BlockPos containerPos) {
-		return HAS_PENDING_PAYMENT.getOrDefault(containerPos, false) && !SEEN.contains(containerPos);
+		int paid = PAYMENT.getOrDefault(containerPos, 0);
+		return paid > 0 && paid > SEEN.getOrDefault(containerPos, 0);
 	}
 
 	/** The owner opened this chest by hand: stop highlighting the payment that's in it now. */
 	public static void acknowledge(BlockPos containerPos) {
-		if (HAS_PENDING_PAYMENT.getOrDefault(containerPos, false)) SEEN.add(containerPos.immutable());
+		int paid = PAYMENT.getOrDefault(containerPos, 0);
+		if (paid > 0) SEEN.put(containerPos.immutable(), paid);
 	}
 
 	/** Own shops with a payment waiting — WorldHighlights draws a green highlight around each. */
 	public static List<BlockPos> pendingPaymentPositions() {
 		List<BlockPos> out = new ArrayList<>();
-		HAS_PENDING_PAYMENT.forEach((pos, pending) -> { if (pending && !SEEN.contains(pos)) out.add(pos); });
+		for (BlockPos pos : PAYMENT.keySet()) if (hasPendingPayment(pos)) out.add(pos);
 		return out;
 	}
 
@@ -74,16 +78,20 @@ public final class OwnShopSaleTracker {
 	public static void check(Minecraft client, ShopSign sign, BlockPos containerPos, AbstractContainerMenu handler, String worldLabel) {
 		String self = client.getUser().getName();
 		if (self == null || !self.equalsIgnoreCase(sign.seller())) {
-			HAS_PENDING_PAYMENT.remove(containerPos); // not our shop — don't track it
+			PAYMENT.remove(containerPos); // not our shop — don't track it
+			SEEN.remove(containerPos);
 			return;
 		}
 
-		String baseItemId = CURRENCY_BASE_ITEMS.get(sign.currency());
-		if (baseItemId == null) return;
+		Integer paid = paymentCount(sign, handler);
+		if (paid == null) return;
 
-		boolean nowHasPayment = containerHasItem(handler, baseItemId);
-		Boolean before = HAS_PENDING_PAYMENT.put(containerPos, nowHasPayment);
-		if (!nowHasPayment || Boolean.FALSE.equals(before)) SEEN.remove(containerPos); // collected, or a new sale
+		boolean nowHasPayment = paid > 0;
+		Integer beforeCount = PAYMENT.put(containerPos.immutable(), paid);
+		Boolean before = beforeCount == null ? null : beforeCount > 0;
+		// collected (all or some): what's left counts as seen only up to what was seen before
+		if (paid < SEEN.getOrDefault(containerPos, 0)) SEEN.put(containerPos.immutable(), paid);
+		if (!nowHasPayment) SEEN.remove(containerPos);
 
 		// Only notify on a genuine LIVE transition (confirmed empty -> now has
 		// payment) observed within this session. If `before` is null, this is
@@ -94,7 +102,8 @@ public final class OwnShopSaleTracker {
 		// Without this, a shop wall with several already-pending payments
 		// floods "Something sold!" for every chest the moment the auto-scanner
 		// discovers them each session, even though nothing new just happened.
-		if (nowHasPayment && Boolean.FALSE.equals(before) && isMessagesEnabled()) {
+		// (a payment that grew since the last scan is a new sale too)
+		if (nowHasPayment && before != null && paid > beforeCount && isMessagesEnabled()) {
 			MutableComponent msg = Component.literal("[ShopLogger] ").withStyle(ChatFormat.PREFIX)
 					.append(Component.literal("Something sold from your shop at " + containerPos.toShortString() + "!").withStyle(ChatFormat.SUCCESS));
 			if (worldLabel != null) {
@@ -107,6 +116,7 @@ public final class OwnShopSaleTracker {
 	/**
 	 * How many of the sign's currency items sit in the shop right now (paid but
 	 * not collected), or null when the currency isn't one we can recognise.
+	 * Only the container's own slots, not the player's inventory below them.
 	 * Uploaded with every scan of ANY shop: the Worker counts a sale only when
 	 * stock went down AND this went up between two scans — see
 	 * detectConfirmedSales in worker.js.
@@ -123,17 +133,5 @@ public final class OwnShopSaleTracker {
 			if (baseItemId.equalsIgnoreCase(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) count += stack.getCount();
 		}
 		return count;
-	}
-
-	/** Only the container's own slots — same bound ShopEntryFactory uses to exclude the player's own inventory slots later in the same handler. */
-	private static boolean containerHasItem(AbstractContainerMenu handler, String baseItemId) {
-		if (!(handler instanceof ChestMenu containerHandler)) return false;
-		int invSize = containerHandler.getContainer().getContainerSize();
-		for (int i = 0; i < invSize && i < handler.slots.size(); i++) {
-			ItemStack stack = handler.getSlot(i).getItem();
-			if (stack == null || stack.isEmpty()) continue;
-			if (baseItemId.equalsIgnoreCase(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) return true;
-		}
-		return false;
 	}
 }

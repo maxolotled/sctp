@@ -108,6 +108,7 @@ public class HomeScreen extends UiScreen {
 			case AUCTIONS -> "Your auctions: lots & payouts";
 			case SETTINGS -> "Scanning, alerts & more";
 			case HUNT -> "The Shellkeeper's ledger";
+			case NOTEPAD -> "Shopping list that ticks itself off, and notes";
 			default -> s.description;
 		};
 	}
@@ -117,6 +118,11 @@ public class HomeScreen extends UiScreen {
 			case WATCHLIST -> {
 				int n = WatchlistStore.getAll().size();
 				yield n == 0 ? null : n + " watched";
+			}
+			case NOTEPAD -> {
+				int n = 0;
+				for (com.snailtools.shoplogger.notepad.Notepad.Need need : com.snailtools.shoplogger.notepad.Notepad.shopping()) if (!need.complete()) n++;
+				yield n == 0 ? null : n + " to buy";
 			}
 			case MAPART -> MapartScanner.getInstance().isEnabled() ? "On" : "Off";
 			case SETTINGS -> ShopAutoScanner.getInstance().isEnabled() ? null : "Scanning off";

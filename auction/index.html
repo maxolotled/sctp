@@ -389,7 +389,7 @@
 				$("lineupCard").hidden = false;
 				$("lineupTitle").textContent = "Up for auction so far" + (total ? " (" + total + " item" + (total === 1 ? "" : "s") + ")" : "");
 				$("lineup").innerHTML = items.length ? items.map(function(i){
-					return '<div class="li" title="' + esc(i.itemName) + '"><img class="ico" src="' + esc(i.texture || "") + '" alt=""><span>' + esc(i.itemName) + '</span>' + (i.count > 1 ? '<span class="n">&times;' + i.count + '</span>' : '') + '</div>';
+					return '<div class="li" title="' + esc(i.itemName) + '"><img class="ico" src="' + esc(i.texture || "/items/textures/_placeholder.svg") + '" alt=""><span>' + esc(i.itemName) + '</span>' + (i.count > 1 ? '<span class="n">&times;' + i.count + '</span>' : '') + '</div>';
 				}).join("") : '<div class="empty">Nothing entered yet. Be the first!</div>';
 			})
 			.catch(function(){ $("lineupCard").hidden = true; });
@@ -485,7 +485,7 @@
 
 	// a row in the "hand in these items" list after submitting
 	function itemRowHtml(it){
-		return '<div class="item-row"><img class="ico" src="' + esc(it.texture || "") + '" alt="">' +
+		return '<div class="item-row"><img class="ico" src="' + esc(it.texture || "/items/textures/_placeholder.svg") + '" alt="">' +
 			'<div><div class="nm">' + (it.quantity > 1 ? it.quantity + "× " : "") + esc(it.itemName) + '</div><div class="px">' + (it.hostPicks ? "the host picks the price" : isRegular() ? "starting price " + esc(fmtDia(it.startDia)) : "start " + esc(fmtDia(it.startDia)) + " · lowest " + esc(fmtDia(it.minDia))) + '</div></div></div>';
 	}
 	function renderList(){

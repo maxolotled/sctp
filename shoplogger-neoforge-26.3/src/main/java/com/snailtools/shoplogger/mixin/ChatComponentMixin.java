@@ -19,7 +19,7 @@ import java.util.List;
 
 /** Stacks repeated chat lines (see ChatStacker). The newest line is allMessages[0]. */
 @Mixin(ChatComponent.class)
-public abstract class ChatComponentMixin {
+public abstract class ChatComponentMixin implements ChatStacker.ChatAccess {
 
 	@Shadow @Final private List<GuiMessage> allMessages;
 
@@ -28,10 +28,20 @@ public abstract class ChatComponentMixin {
 		throw new AssertionError();
 	}
 
+	@Override
+	public List<GuiMessage> shoplogger$allMessages() {
+		return allMessages;
+	}
+
+	@Override
+	public void shoplogger$refresh() {
+		refreshTrimmedMessages();
+	}
+
 	@ModifyVariable(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
 			at = @At("HEAD"), argsOnly = true, ordinal = 0)
 	private Component shoplogger$stackRepeats(Component message) {
-		ChatStacker.Result r = ChatStacker.onMessage(message, allMessages);
+		ChatStacker.Result r = ChatStacker.onMessage(this, message, allMessages);
 		// the earlier copy was taken out of chat: redraw it without that line
 		if (r.removed()) refreshTrimmedMessages();
 		return r.message();

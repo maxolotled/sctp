@@ -51,6 +51,10 @@ public class ItemLibraryScreen extends UiScreen {
 	private ItemListWidget list;
 	private int listX, listY, listW, listH;
 
+	/** The catalog lists rares in the order they were added, so "Newest added" is that order backwards. */
+	private static final List<String> RARE_SORTS = List.of("Newest added", "Oldest added", "A to Z", "Z to A");
+	private static String rareSort = RARE_SORTS.get(0); // kept while the game runs
+
 	private String keepQuery = "";
 	private String selectedCategory = ANY;
 	private String selectedRelease = ALL;
@@ -92,11 +96,13 @@ public class ItemLibraryScreen extends UiScreen {
 		y += 26;
 
 		if (catalog == Catalog.RARE) {
-			int chipW = Math.min(170, (w - 6) / 2);
+			int chipW = Math.min(160, (w - 12) / 3);
 			addRenderableWidget(new UiChip<>(x, y, chipW, 18, "Category", categoryValues, selectedCategory, v -> v,
 					v -> { selectedCategory = v; refreshList(); }));
 			addRenderableWidget(new UiChip<>(x + chipW + 6, y, chipW, 18, "Released", releaseValues, selectedRelease, v -> v,
 					v -> { selectedRelease = v; refreshList(); }));
+			addRenderableWidget(new UiChip<>(x + (chipW + 6) * 2, y, chipW, 18, "Sort", RARE_SORTS, rareSort, v -> v,
+					v -> { rareSort = v; refreshList(); }));
 			y += 24;
 		}
 
@@ -216,7 +222,14 @@ public class ItemLibraryScreen extends UiScreen {
 						openDetail(new ItemDetailScreen(this, it.name, it.baseItem, it.texture, false, null)))));
 			}
 		} else {
-			for (RareItem it : rareItems) {
+			List<RareItem> ordered = new ArrayList<>(rareItems);
+			switch (rareSort) {
+				case "Newest added" -> java.util.Collections.reverse(ordered);
+				case "A to Z" -> ordered.sort(java.util.Comparator.comparing((RareItem r) -> sortName(r.name)));
+				case "Z to A" -> ordered.sort(java.util.Comparator.comparing((RareItem r) -> sortName(r.name)).reversed());
+				default -> { }
+			}
+			for (RareItem it : ordered) {
 				if (!selectedCategory.equals(ANY) && !selectedCategory.equals(it.category)) continue;
 				if (!selectedRelease.equals(ALL) && !releaseTags.getOrDefault(it, Set.of()).contains(selectedRelease)) continue;
 				if (!q.isEmpty() && !matchesSearch(it, q)) continue;
@@ -228,6 +241,11 @@ public class ItemLibraryScreen extends UiScreen {
 		}
 		list.setScrollAmount(restoreScroll);
 		restoreScroll = 0;
+	}
+
+	/** A name as it's sorted: letters and digits only, so "XV. The Devil" and decorated names sort by their words. */
+	private static String sortName(String name) {
+		return name == null ? "" : name.replaceAll("[^\\p{L}\\p{N} ]", "").trim().toLowerCase(Locale.ROOT);
 	}
 
 	/** Opens an item page, remembering where the list was scrolled to for when you come back. */

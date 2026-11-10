@@ -272,7 +272,7 @@ public final class ShopEntryFactory {
 	}
 
 	/** Returns the item stacks inside a bundle, or null if this isn't a (non-empty) bundle. */
-	private static List<ItemStack> readBundleContents(ItemStack stack) {
+	public static List<ItemStack> readBundleContents(ItemStack stack) {
 		if (!(stack.getItem() instanceof BundleItem)) return null;
 
 		BundleContents contents = stack.get(DataComponents.BUNDLE_CONTENTS);

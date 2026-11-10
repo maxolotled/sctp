@@ -126,7 +126,7 @@ public final class WatchlistAlert {
 	static Component buildRemoveButton(String itemName) {
 		String removeCommand = "/watchremove " + itemName;
 		return Component.literal("[Stop watching]").setStyle(Style.EMPTY
-				.withColor(ChatFormatting.RED)
+				.withColor(0xB57BFF) // purple, apart from the marketplace's light purple
 				.withClickEvent(new ClickEvent.RunCommand(removeCommand))
 				.withHoverEvent(new HoverEvent.ShowText(Component.literal("Remove from your watchlist"))));
 	}

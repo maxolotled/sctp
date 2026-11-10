@@ -5,7 +5,7 @@
 <title>What's New in 3.0 - SCTP</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='%23101B14'/><circle cx='100' cy='100' r='60' fill='%23B7E23D'/></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="What's new in SCTP 3.0: My storage keeps track of your own chests, tidier chat, prices that follow real sales, and a build list that knows when crafting is cheaper.">
+<meta name="description" content="What's new in SCTP 3.0: My storage keeps track of your own chests, a notepad shopping list that ticks itself off, tidier chat, prices that follow real sales, and a build list that knows when crafting is cheaper.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -143,11 +143,12 @@
 		<a href="#storage"><span class="toc-num">01</span>My storage</a>
 		<a href="#find"><span class="toc-num">02</span>Find what you have</a>
 		<a href="#holograms"><span class="toc-num">03</span>Storage holograms</a>
-		<a href="#chat"><span class="toc-num">04</span>Tidier chat</a>
-		<a href="#sales"><span class="toc-num">05</span>Prices from real sales</a>
-		<a href="#build-list"><span class="toc-num">06</span>Build list upgrades</a>
-		<a href="#wishlist"><span class="toc-num">07</span>Wishlist stars</a>
-		<a href="#site-extras"><span class="toc-num">08</span>More on the site</a>
+		<a href="#notepad"><span class="toc-num">04</span>Notepad</a>
+		<a href="#chat"><span class="toc-num">05</span>Tidier chat</a>
+		<a href="#sales"><span class="toc-num">06</span>Prices from real sales</a>
+		<a href="#build-list"><span class="toc-num">07</span>Build list upgrades</a>
+		<a href="#wishlist"><span class="toc-num">08</span>Wishlist stars</a>
+		<a href="#site-extras"><span class="toc-num">09</span>More on the site</a>
 	</nav>
 
 	<div class="steps">
@@ -163,6 +164,7 @@
 						<li>Each container is read the first time you're close enough to open it. After that it updates whenever you open it yourself, and keeps a short log of what you put in and took out.</li>
 						<li>Shulker boxes inside your chests count too, and your <b>ender chest</b> is kept up to date every time you open it.</li>
 						<li>It's all kept on your own computer. Nothing about your storage is uploaded.</li>
+					<li>All the mod's keys are now changed in <b>Settings &rsaquo; Keys</b> instead of Options &rsaquo; Controls. Keys you'd changed are carried over.</li>
 					</ul>
 					<div class="tip"><b>Shop chests stay out.</b> Your storage is for your own containers; shops keep being scanned for the Trading Post as always.</div>
 				</div>
@@ -185,7 +187,10 @@
 						<li>The new <b>My storage</b> tab lists everything you own across your chests, with a search box. Click an item to find it.</li>
 						<li>Every container holding it lights up with a <b>white glow</b> you can see through walls, and the line above your hotbar shows the nearest one's coordinates. It goes away when you open one of them, or press <b>X</b>.</li>
 						<li>Already have something you're shopping for? Items in your storage get a <b>chest icon</b> in item search and on shop listings, and a banner on their item page. Click it to find yours first.</li>
-						<li>The <b>Containers</b> view shows each chest's contents and what changed lately.</li>
+						<li>Sort by most, fewest, A to Z or what changed lately, and narrow it down: only rares, only vanilla items, a rare category or type (all your snails, all your Decor), or a creative menu group like Redstone.</li>
+					<li><b>Mark</b> anything with a ★ ◆ ❤ ● ▲ or ■ (the ☆ on its row), then show just that mark: borrowed items, favourite tools, whatever you keep losing.</li>
+					<li>Opening one lit-up container turns off just that one, and inside it the slots holding the item are outlined. <b>Find 5 unread</b> lights up the nearest containers still waiting for their first read.</li>
+					<li>Bundles count too, and the <b>Containers</b> view shows each chest's contents and what changed lately.</li>
 					</ul>
 				</div>
 				<div style="display:flex;flex-direction:column;gap:10px;">
@@ -227,14 +232,40 @@
 			</div>
 		</section>
 
+		<section class="step" id="notepad">
+			<div class="step-head"><div class="step-num">4</div><h3>Notepad</h3><span class="new-pill">MOD &amp; WEBSITE</span></div>
+			<p class="step-lede">A shopping list that ticks itself off. Press <b>N</b>.</p>
+			<div class="step-body">
+				<div class="notes">
+					<ul>
+						<li>Add what you need and how many. As the items arrive in your inventory, each line counts down, and it's ticked off once you have them all.</li>
+						<li><b>TP</b> on a line takes you to the cheapest shop selling it right now.</li>
+						<li>Building something? On the <a href="/list/">build list</a>, press <b>Copy for the notepad</b> and paste it in the mod. Or take what's still missing from Litematica's material list.</li>
+						<li>A <b>Notes</b> page for everything else: &ldquo;holding Snaruto for Tina&rdquo;, &ldquo;restock glass&rdquo;.</li>
+						<li>Either page can stay on screen as a small card; drag it wherever you like.</li>
+					</ul>
+				</div>
+				<div class="demo-row">
+					<span class="demo-label">On screen</span>
+					<span style="display:flex;flex-direction:column;gap:2px;min-width:180px;background:rgba(0,0,0,0.35);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;">
+						<b style="color:var(--accent);">Shopping list</b>
+						<span style="display:flex;justify-content:space-between;gap:12px;">Glass <b style="color:var(--accent);">72</b></span>
+						<span style="display:flex;justify-content:space-between;gap:12px;">Stone <b style="color:var(--accent);">64</b></span>
+						<span style="display:flex;justify-content:space-between;gap:12px;">Oak Log <b style="color:var(--accent);">12</b></span>
+					</span>
+				</div>
+			</div>
+		</section>
+
 		<section class="step" id="chat">
-			<div class="step-head"><div class="step-num">4</div><h3>Tidier chat</h3><span class="new-pill">MOD</span></div>
+			<div class="step-head"><div class="step-num">5</div><h3>Tidier chat</h3><span class="new-pill">MOD</span></div>
 			<p class="step-lede">Selling a stack of butterflies used to fill your whole chat. Not anymore.</p>
 			<div class="step-body">
 				<div class="notes">
 					<ul>
 						<li>When the exact same message shows up again within 2 minutes, the earlier one disappears and the new one gets <b>×2</b>, <b>×3</b> and so on.</li>
 						<li>It works even when other messages came in between.</li>
+					<li>A message with a linked item, like two different shulkers both called [Shulker Box], gets a <b>▸</b>: click it to see every message again, each with its own item.</li>
 						<li>On by default. Turn it off in <b>Settings &rsaquo; Look &amp; tools</b>.</li>
 					</ul>
 				</div>
@@ -246,7 +277,7 @@
 		</section>
 
 		<section class="step" id="sales">
-			<div class="step-head"><div class="step-num">5</div><h3>Prices from real sales</h3><span class="new-pill">MOD &amp; WEBSITE</span></div>
+			<div class="step-head"><div class="step-num">6</div><h3>Prices from real sales</h3><span class="new-pill">MOD &amp; WEBSITE</span></div>
 			<p class="step-lede">What something is listed for and what it actually sells for aren't the same. SCTP now leans on the sales.</p>
 			<div class="notes">
 				<ul>
@@ -259,7 +290,7 @@
 		</section>
 
 		<section class="step" id="build-list">
-			<div class="step-head"><div class="step-num">6</div><h3>Build list upgrades</h3><span class="new-pill">WEBSITE</span></div>
+			<div class="step-head"><div class="step-num">7</div><h3>Build list upgrades</h3><span class="new-pill">WEBSITE</span></div>
 			<p class="step-lede">The <a href="/list/">build list</a> turns a Litematica material list into a shopping route. Now it also tells you when crafting is cheaper.</p>
 			<div class="step-body">
 				<div class="notes">
@@ -277,7 +308,7 @@
 		</section>
 
 		<section class="step" id="wishlist">
-			<div class="step-head"><div class="step-num">7</div><h3>Wishlist stars everywhere</h3><span class="new-pill">WEBSITE</span></div>
+			<div class="step-head"><div class="step-num">8</div><h3>Wishlist stars everywhere</h3><span class="new-pill">WEBSITE</span></div>
 			<p class="step-lede">Star the rares and mapart you want, right where you find them.</p>
 			<div class="step-body">
 				<div class="notes">
@@ -295,7 +326,7 @@
 		</section>
 
 		<section class="step" id="site-extras">
-			<div class="step-head"><div class="step-num">8</div><h3>More on the site</h3><span class="new-pill">WEBSITE</span></div>
+			<div class="step-head"><div class="step-num">9</div><h3>More on the site</h3><span class="new-pill">WEBSITE</span></div>
 			<div class="notes">
 				<ul>
 					<li><b>Sort every list:</b> the rare and vanilla libraries, the mapart catalog and your collection can be sorted A to Z, Z to A, newest or oldest (and mapart by likes or size). Your choice is remembered.</li>

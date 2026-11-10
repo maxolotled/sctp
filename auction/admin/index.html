@@ -330,14 +330,15 @@
 				g.items.map(function(i){
 					var soldUnit = !i.soldDia ? "db" : i.soldDia % 576 === 0 ? "stx" : i.soldDia % 9 === 0 ? "db" : "dia";
 					var soldVal = i.soldDia ? (soldUnit === "stx" ? i.soldDia / 576 : soldUnit === "db" ? i.soldDia / 9 : i.soldDia) : "";
-					return '<tr data-row="' + esc(i.id) + '" class="' + esc(i.status) + '"><td><div class="it"><img class="ico" src="' + esc(i.texture || "") + '" alt="">' + (i.quantity > 1 ? '<b>' + i.quantity + '×</b>&nbsp;' : '') + esc(i.itemName) + '</div></td>' +
+					return '<tr data-row="' + esc(i.id) + '" class="' + esc(i.status) + '"><td><div class="it"><img class="ico" src="' + esc(i.texture || "/items/textures/_placeholder.svg") + '" alt="">' + (i.quantity > 1 ? '<b>' + i.quantity + '×</b>&nbsp;' : '') + esc(i.itemName) + '</div></td>' +
 						'<td class="num price-cell"' + (regular ? '' : ' colspan="2"') + '>' + priceView(i, regular) + '</td>' + '<td class="num">' + (i.estimateDia != null ? "≈ " + fmtDia(i.estimateDia) : "–") + '</td>' +
 						'<td><span class="pill ' + esc(i.status) + '">' + esc(i.status) + '</span></td>' +
 						'<td><div class="sell"><input type="number" min="0" step="any" data-amt value="' + soldVal + '"><select data-unit><option value="db"' + (soldUnit === "db" ? " selected" : "") + '>DB</option><option value="stx"' + (soldUnit === "stx" ? " selected" : "") + '>STX</option><option value="dia"' + (soldUnit === "dia" ? " selected" : "") + '>dia</option></select></div></td>' +
 						'<td class="preview" data-preview>' + (i.status === "sold" ? "cut " + fmtDia(i.cutDia) + " · gets " + fmtDia(i.payoutDia) : "") + '</td>' +
 						'<td><div class="acts"><button type="button" class="btn-ghost" data-act="sold">Sold</button><button type="button" class="btn-ghost" data-act="unsold">Unsold</button>' +
 						(i.status !== "entered" ? '<button type="button" class="btn-ghost" data-act="entered" title="Back to not-yet-auctioned">Reset</button>' : '') +
-						(i.status !== "removed" ? '<button type="button" class="btn-bad" data-act="removed" title="Remove this entry (e.g. never handed in)">Remove</button>' : '') + '</div></td></tr>';
+						(i.status !== "removed" ? '<button type="button" class="btn-bad" data-act="removed" title="Remove this entry (e.g. never handed in)">Remove</button>' : '') +
+						(i.texture && String(i.rareId).indexOf("custom-") === 0 ? '<button type="button" class="btn-ghost" data-rm-pic title="Take the picture off this player\'s own item">Remove picture</button>' : '') + '</div></td></tr>';
 				}).join("") + '</tbody></table></div></div>';
 		}).join("");
 	}
@@ -408,6 +409,15 @@
 			tr.querySelector("[data-amt]").addEventListener("input", update);
 			tr.querySelector("[data-unit]").addEventListener("change", update);
 			tr.querySelector("[data-amt]").addEventListener("keydown", function(e){ if(e.key === "Enter") tr.querySelector('[data-act="sold"]').click(); });
+			var rmPic = tr.querySelector("[data-rm-pic]");
+			if(rmPic) rmPic.addEventListener("click", function(){
+				if(!confirm("Take this picture off the item?")) return;
+				rmPic.disabled = true;
+				api("/admin/auctions/remove-picture", { method: "POST", body: { itemId: tr.getAttribute("data-row") } }).then(function(res){
+					if(!res.ok){ rmPic.disabled = false; alert(res.d.error || "Couldn't remove the picture"); return; }
+					loadItems();
+				});
+			});
 			tr.querySelectorAll("[data-act]").forEach(function(btn){
 				btn.onclick = function(){
 					var status = btn.getAttribute("data-act");

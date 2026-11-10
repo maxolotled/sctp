@@ -31,6 +31,8 @@ public class QolHookManager {
         com.snailtools.shoplogger.storage.StorageScanner.getInstance().tick(net.minecraft.client.Minecraft.getInstance());
         com.snailtools.shoplogger.storage.StorageTracker.tick(net.minecraft.client.Minecraft.getInstance());
         com.snailtools.shoplogger.storage.StorageHighlight.tick(net.minecraft.client.Minecraft.getInstance());
+        com.snailtools.shoplogger.ModKeys.tick();
+        com.snailtools.shoplogger.notepad.Notepad.tick(net.minecraft.client.Minecraft.getInstance());
         com.snailtools.shoplogger.storage.StorageHolograms.tick(net.minecraft.client.Minecraft.getInstance());
     }
 
@@ -61,6 +63,7 @@ public class QolHookManager {
         if(questHelper != null) questHelper.onHUDRender(guiGraphics);
         TempScanWaitOverlay.onHudRender(guiGraphics); // TEMPORARY — see CHANGELOG 2.2
         com.snailtools.shoplogger.auction.DutchClock.render(guiGraphics);
+        com.snailtools.shoplogger.notepad.Notepad.renderCard(guiGraphics);
 
     }
 

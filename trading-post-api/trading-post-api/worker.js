@@ -7115,7 +7115,8 @@ async function handleSubmitForm(request, env) {
 // at /pw auction. All prices are whole diamonds (1 DB = 9). See migration 0041.
 //   GET  /auction/current?mcUsername=       (public) the auction taking entries, else the next upcoming one, + entry counts
 //   GET  /auction/estimate?rareId=&world=   (public, cached 10 min) SCTP's value for a rare + suggested starting bid / lowest limit
-//   POST /auction/submit                    (public, login optional) {auctionId, mcUsername, items: [{rareId, startDia, minDia, hostPicks?}]} — start must be above min (hostPicks: true leaves the price to the host); SCTP's value is advice only
+//   GET  /auction/image?id=                 (public) -> a picture uploaded for an own item (from R2)
+//   POST /auction/submit                    (public, login optional; an own item has custom: {name, texture?, image?} instead of rareId, see cleanAuctionCustomItem) {auctionId, mcUsername, items: [{rareId, startDia, minDia, hostPicks?}]} — start must be above min (hostPicks: true leaves the price to the host); SCTP's value is advice only
 //   GET  /auction/lineup?auctionId=         (public, cached 1 min) what's entered so far: item + count, no prices or sellers
 //   GET  /auction/mine                      (any account) your entries across every auction
 //   GET  /admin/auctions                    ("auctions") every auction, with entry counts
@@ -7410,22 +7411,61 @@ async function handleAuctionSubmit(request, env) {
 		return json({ error: left ? `This auction only has room for ${left} more item${left === 1 ? "" : "s"}.` : "This auction is full." }, 400);
 	}
 
-	const result = await saveAuctionItems(env, auction, mcUsername, accountId, items);
+	const result = await saveAuctionItems(env, auction, mcUsername, accountId, items, new URL(request.url).origin);
 	if (result.error) return json({ error: result.error }, 400);
 	return json({ ok: true, batchId: result.batchId, shulkerName: `Registered ${mcUsername}`, linkedToAccount: !!accountId, items: result.saved, auction: auctionPublic(auction) });
 }
 
+const AUCTION_IMAGE_MAX_BYTES = 100 * 1024;
+const AUCTION_IMAGE_MAX_SIDE = 128; // the form shrinks pictures to this before sending them
+const AUCTION_CATALOG_TEXTURE = /^\/items\/textures\/[A-Za-z0-9_.-]+\.png$/;
+
+/**
+ * An item that isn't a known rare: {name, texture?, image?}. No picture, or
+ * texture = another item's picture (a site path), or image = an uploaded PNG in
+ * base64. Returns {error} or {name, texture, png}.
+ */
+function cleanAuctionCustomItem(custom, catalog) {
+	const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9']/g, "");
+	const name = String(custom.name || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+	if (norm(name).length < 2 || name.length > 60) return { error: "Give your own item a name of 2 to 60 characters." };
+	const known = catalog.items.find((r) => norm(r.name) === norm(name));
+	if (known) return { error: `${known.name} is already a rare: pick it from the search instead.` };
+	const texture = custom.texture ? String(custom.texture) : null;
+	if (texture && !AUCTION_CATALOG_TEXTURE.test(texture)) return { error: `Pick another picture for ${name}.` };
+	if (!custom.image) return { name, texture, png: null };
+	let png;
+	try { png = Uint8Array.from(atob(String(custom.image)), (c) => c.charCodeAt(0)); } catch (e) {
+		return { error: `The picture for ${name} couldn't be read.` };
+	}
+	const size = readPngSize(png);
+	if (png.length > AUCTION_IMAGE_MAX_BYTES || !size || !size.width || !size.height || size.width > AUCTION_IMAGE_MAX_SIDE || size.height > AUCTION_IMAGE_MAX_SIDE) {
+		return { error: `The picture for ${name} couldn't be used. Try another one.` };
+	}
+	return { name, texture: null, png };
+}
+
 // Validates and stores one batch (one shulker) of entries. Shared by the
-// public form and the admin "add items for a player". Returns {error} or {batchId, saved}.
-async function saveAuctionItems(env, auction, mcUsername, accountId, items) {
+// public form, the admin "add items for a player" and the mod. Returns {error}
+// or {batchId, saved}. origin (this Worker's address) is for uploaded pictures.
+async function saveAuctionItems(env, auction, mcUsername, accountId, items, origin) {
 	const catalog = await getRareCatalog();
 	const estimates = new Map();
 	const now = new Date().toISOString();
 	const batchId = newId();
 	const stmts = [];
 	const saved = [];
+	const pictures = [];
 	for (const it of items) {
-		const rare = catalog.byId.get(String(it.rareId || ""));
+		const id = newId();
+		// rare stands for the lot's item below: a catalog rare, or the player's own item
+		let rare = catalog.byId.get(String(it.rareId || ""));
+		const own = !it.rareId && it.custom ? cleanAuctionCustomItem(it.custom, catalog) : null;
+		if (own && own.error) return { error: own.error };
+		if (own) {
+			rare = { id: "custom-" + id, name: own.name, texture: own.png ? `${origin}/auction/image?id=${id}` : own.texture };
+			if (own.png) pictures.push({ id, png: own.png });
+		}
 		if (!rare) return { error: "One of the items isn't a known rare." };
 		let startDia = Math.round(Number(it.startDia));
 		let minDia = Math.round(Number(it.minDia));
@@ -7445,14 +7485,19 @@ async function saveAuctionItems(env, auction, mcUsername, accountId, items) {
 			if (minDia >= startDia) return { error: `The starting bid for ${rare.name} must be higher than its lowest limit.` };
 		}
 		// SCTP's value is only advice for the player; it's stored so admins can see it next to the entry
-		if (!estimates.has(rare.id)) estimates.set(rare.id, await auctionEstimate(env, rare, auction.world));
-		const est = estimates.get(rare.id);
-		const id = newId();
+		if (!own && !estimates.has(rare.id)) estimates.set(rare.id, await auctionEstimate(env, rare, auction.world));
+		const est = own ? { value: null } : estimates.get(rare.id);
 		stmts.push(env.DB.prepare(
 			`INSERT INTO auctionItems (id, auctionId, batchId, mcUsername, accountId, rareId, itemName, texture, estimateDia, startDia, minDia, hostPicks, quantity, status, createdAt, updatedAt)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'entered', ?, ?)`
 		).bind(id, auction.id, batchId, mcUsername, accountId, rare.id, rare.name, rare.texture || null, est.value != null ? est.value * quantity : null, startDia, minDia, hostPicks ? 1 : 0, quantity, now, now));
 		saved.push({ id, rareId: rare.id, itemName: rare.name, texture: rare.texture || null, startDia, minDia, hostPicks: hostPicks ? 1 : 0, quantity });
+	}
+	// only once every entry passed, so a refused entry stores nothing
+	try {
+		for (const p of pictures) await env.SNAPSHOTS.put(`auction-images/${p.id}.png`, p.png, { httpMetadata: { contentType: "image/png" } });
+	} catch (e) {
+		return { error: "Couldn't store the picture. Please try again." };
 	}
 	await env.DB.batch(stmts);
 	return { batchId, saved };
@@ -7475,13 +7520,23 @@ async function handleAdminAddAuctionItems(request, env) {
 	const items = Array.isArray(body.items) ? body.items : [];
 	if (items.length === 0) return json({ error: "Add at least one item first." }, 400);
 	const account = await env.DB.prepare("SELECT id FROM admins WHERE mcVerified = 1 AND lower(mcUsername) = lower(?)").bind(mcUsername).first();
-	const result = await saveAuctionItems(env, auction, mcUsername, account ? account.id : null, items);
+	const result = await saveAuctionItems(env, auction, mcUsername, account ? account.id : null, items, new URL(request.url).origin);
 	if (result.error) return json({ error: result.error }, 400);
 	return json({ ok: true, batchId: result.batchId, linkedToAccount: !!account, items: result.saved });
 }
 
 // What's been entered so far, for bidders to look forward to: item and count
 // only, no prices and no sellers.
+async function handleGetAuctionImage(request, env) {
+	const id = new URL(request.url).searchParams.get("id") || "";
+	if (!/^[0-9a-f-]{36}$/.test(id)) return json({ error: "Bad id" }, 400);
+	const obj = await env.SNAPSHOTS.get(`auction-images/${id}.png`);
+	if (!obj) return json({ error: "Not found" }, 404);
+	return new Response(obj.body, {
+		headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff", ...corsHeaders() },
+	});
+}
+
 async function handleGetAuctionLineup(request, env, ctx) {
 	return cachedGet(request, ctx, 60, async () => {
 		const auctionId = new URL(request.url).searchParams.get("auctionId") || "";
@@ -7565,6 +7620,20 @@ async function handleAdminAuctionItems(request, env) {
 	const auctionId = new URL(request.url).searchParams.get("auctionId") || "";
 	const { results } = await env.DB.prepare("SELECT * FROM auctionItems WHERE auctionId = ? ORDER BY lower(mcUsername), batchId, createdAt").bind(auctionId).all();
 	return json({ items: results });
+}
+
+// POST /admin/auctions/remove-picture {itemId} ("auctions"): takes the picture
+// off a player's own item (pictures aren't checked before they show up).
+async function handleAdminAuctionRemovePicture(request, env) {
+	const auth = await requireAdminAuth(request, env, "auctions");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const item = await env.DB.prepare("SELECT id, rareId FROM auctionItems WHERE id = ?").bind(String(body.itemId || "")).first();
+	if (!item || !item.rareId.startsWith("custom-")) return json({ error: "That isn't a player's own item." }, 404);
+	await env.SNAPSHOTS.delete(`auction-images/${item.id}.png`);
+	await env.DB.prepare("UPDATE auctionItems SET texture = NULL, updatedAt = ? WHERE id = ?").bind(new Date().toISOString(), item.id).run();
+	return json({ ok: true });
 }
 
 // POST /admin/auctions/item-price {itemId, startDia, minDia?} ("auctions") — the
@@ -8871,6 +8940,7 @@ const ROUTES = [
 	["POST", "/secret-santa/admin/gift-status", handleSantaAdminGiftStatus],
 	["GET", "/auction/estimate", handleAuctionEstimate],
 	["POST", "/auction/submit", handleAuctionSubmit],
+	["GET", "/auction/image", handleGetAuctionImage],
 	["GET", "/auction/lineup", handleGetAuctionLineup],
 	["GET", "/auction/mine", handleGetMyAuctionItems],
 	["GET", "/admin/auctions", handleAdminListAuctions],
@@ -8879,6 +8949,7 @@ const ROUTES = [
 	["POST", "/admin/auctions/add-items", handleAdminAddAuctionItems],
 	["POST", "/admin/auctions/result", handleAdminAuctionResult],
 	["POST", "/admin/auctions/item-price", handleAdminAuctionItemPrice],
+	["POST", "/admin/auctions/remove-picture", handleAdminAuctionRemovePicture],
 	["POST", "/admin/auctions/delete", handleAdminDeleteAuction],
 	["GET", "/short-link", handleResolveShortLink],
 	["GET", "/admin/short-links", handleAdminListShortLinks],

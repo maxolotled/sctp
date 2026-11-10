@@ -67,6 +67,7 @@ public class ShopLoggerClient {
 	private KeyMapping openLibraryKey;
 	private KeyMapping heldItemKey;
 	private KeyMapping storageKey; // X+M: add to My storage
+	private KeyMapping notepadKey; // N: the notepad
 	// X opens the library when it's let go; pressing I while it's held opens the held item's page instead
 	private boolean libraryKeyHeld = false;
 	private boolean libraryChordUsed = false;
@@ -102,18 +103,18 @@ public class ShopLoggerClient {
 		exportKey = new KeyMapping(
 				"key.shoplogger.export",
 				InputConstants.Type.KEYSYM,
-				GLFW.GLFW_KEY_UNKNOWN, // unbound by default; set it in Controls
+				GLFW.GLFW_KEY_UNKNOWN, // unbound by default; set it in Settings › Keys
 				KEY_CATEGORY
 		);
-		event.register(exportKey);
+		ModKeys.add(exportKey); // Settings › Keys, not Options › Controls (see ModKeys)
 
 		toggleAutoScanKey = new KeyMapping(
 				"key.shoplogger.toggle_autoscan",
 				InputConstants.Type.KEYSYM,
-				GLFW.GLFW_KEY_MINUS, // defaults to '-'; rebind in Controls
+				GLFW.GLFW_KEY_MINUS, // defaults to '-'; rebind in Settings › Keys
 				KEY_CATEGORY
 		);
-		event.register(toggleAutoScanKey);
+		ModKeys.add(toggleAutoScanKey); // Settings › Keys, not Options › Controls (see ModKeys)
 
 		uploadKey = new KeyMapping(
 				"key.shoplogger.upload",
@@ -121,23 +122,23 @@ public class ShopLoggerClient {
 				GLFW.GLFW_KEY_UNKNOWN,
 				KEY_CATEGORY
 		);
-		event.register(uploadKey);
+		ModKeys.add(uploadKey); // Settings › Keys, not Options › Controls (see ModKeys)
 
 		toggleMarkersKey = new KeyMapping(
 				"key.shoplogger.toggle_markers",
 				InputConstants.Type.KEYSYM,
-				GLFW.GLFW_KEY_UNKNOWN, // unbound by default; set it in Controls
+				GLFW.GLFW_KEY_UNKNOWN, // unbound by default; set it in Settings › Keys
 				KEY_CATEGORY
 		);
-		event.register(toggleMarkersKey);
+		ModKeys.add(toggleMarkersKey); // Settings › Keys, not Options › Controls (see ModKeys)
 
 		togglePrintKey = new KeyMapping(
 				"key.shoplogger.toggle_print",
 				InputConstants.Type.KEYSYM,
-				GLFW.GLFW_KEY_UNKNOWN, // unbound by default; set it in Controls
+				GLFW.GLFW_KEY_UNKNOWN, // unbound by default; set it in Settings › Keys
 				KEY_CATEGORY
 		);
-		event.register(togglePrintKey);
+		ModKeys.add(togglePrintKey); // Settings › Keys, not Options › Controls (see ModKeys)
 
 		openLibraryKey = new KeyMapping(
 				"key.shoplogger.open_library",
@@ -145,7 +146,7 @@ public class ShopLoggerClient {
 				GLFW.GLFW_KEY_X,
 				KEY_CATEGORY
 		);
-		event.register(openLibraryKey);
+		ModKeys.add(openLibraryKey); // Settings › Keys, not Options › Controls (see ModKeys)
 
 		heldItemKey = new KeyMapping(
 				"key.shoplogger.open_held_item",
@@ -153,7 +154,7 @@ public class ShopLoggerClient {
 				GLFW.GLFW_KEY_I, // pressed while holding the library key (X)
 				KEY_CATEGORY
 		);
-		event.register(heldItemKey);
+		ModKeys.add(heldItemKey); // Settings › Keys, not Options › Controls (see ModKeys)
 
 		storageKey = new KeyMapping(
 				"key.shoplogger.storage",
@@ -161,7 +162,15 @@ public class ShopLoggerClient {
 				GLFW.GLFW_KEY_M, // pressed while holding the library key (X)
 				KEY_CATEGORY
 		);
-		event.register(storageKey);
+		ModKeys.add(storageKey); // Settings › Keys, not Options › Controls (see ModKeys)
+
+		notepadKey = new KeyMapping(
+				"key.shoplogger.notepad",
+				InputConstants.Type.KEYSYM,
+				GLFW.GLFW_KEY_N,
+				KEY_CATEGORY
+		);
+		ModKeys.add(notepadKey);
 		com.snailtools.shoplogger.gui.HeldItemPage.setKeys(openLibraryKey, heldItemKey);
 		com.snailtools.shoplogger.storage.StorageKeys.setKey(storageKey);
 	}
@@ -246,6 +255,15 @@ public class ShopLoggerClient {
 										.then(RequiredArgumentBuilder.<CommandSourceStack, Integer>argument("z", IntegerArgumentType.integer())
 												.then(RequiredArgumentBuilder.<CommandSourceStack, String>argument("seller", StringArgumentType.greedyString())
 														.executes(ShopLoggerClient::watchTp)))))));
+
+		// click target of a stacked chat line's ▸ (see ChatStacker): shows the messages it stands for
+		dispatcher.register(LiteralArgumentBuilder.<CommandSourceStack>literal("sctpunfold")
+				.then(RequiredArgumentBuilder.<CommandSourceStack, Integer>argument("id", IntegerArgumentType.integer())
+				.executes(ctx -> {
+						if (!com.snailtools.shoplogger.qol.ChatStacker.unfold(IntegerArgumentType.getInteger(ctx, "id")))
+							ChatFormat.send(net.minecraft.client.Minecraft.getInstance(), ChatFormat.NEUTRAL, "Those messages aren't in chat anymore.");
+						return 1;
+					})));
 
 		dispatcher.register(LiteralArgumentBuilder.<CommandSourceStack>literal("watchremove")
 				.then(RequiredArgumentBuilder.<CommandSourceStack, String>argument("item", StringArgumentType.greedyString())
@@ -343,6 +361,9 @@ public class ShopLoggerClient {
 				// X+M itself is handled from the raw key press (StorageKeys.onKey); this only drains clicks
 			}
 		}
+		if (notepadKey != null && notepadKey.consumeClick() && client.gui.screen() == null) {
+			client.setScreenAndShow(new com.snailtools.shoplogger.gui.NotepadScreen(null));
+		}
 		if (libraryKeyHeld && !openLibraryKey.isDown()) {
 			libraryKeyHeld = false;
 			boolean chord = libraryChordUsed | com.snailtools.shoplogger.storage.StorageKeys.consumeChord();
@@ -352,7 +373,7 @@ public class ShopLoggerClient {
 					// Settings > Empty hand > Add: X registers what's in your hand
 					EmptyHandItems.captureHeld(client);
 					client.setScreenAndShow(com.snailtools.shoplogger.gui.SettingsScreen.emptyHand(new com.snailtools.shoplogger.gui.HomeScreen()));
-				} else if (com.snailtools.shoplogger.storage.StorageHighlight.isActive()) {
+				} else if (com.snailtools.shoplogger.storage.StorageHighlight.isShowing()) {
 					com.snailtools.shoplogger.storage.StorageHighlight.clear();
 				} else if (TeleportHighlight.getInstance().isArmed()) {
 					TeleportHighlight.getInstance().clear();

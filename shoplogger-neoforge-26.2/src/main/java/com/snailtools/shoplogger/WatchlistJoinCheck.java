@@ -146,8 +146,8 @@ public final class WatchlistJoinCheck {
 	private static List<Component> buildListingMatches(String world, List<WatchedItem> watched, List<Listing> listings) {
 		List<Component> out = new ArrayList<>();
 		for (WatchedItem watchedItem : watched) {
-			Listing best = null;
-			int sellerCount = 0;
+			// each seller's cheapest matching listing
+			java.util.Map<String, Listing> bySeller = new java.util.LinkedHashMap<>();
 
 			for (Listing l : listings) {
 				if (!world.equalsIgnoreCase(l.world)) continue;
@@ -164,21 +164,43 @@ public final class WatchlistJoinCheck {
 				if (WatchlistIgnore.isIgnored(WatchlistIgnore.shopKey(ShopReporter.fromListing(l)))) continue;
 				if (!isDisplay && watchedItem.maxPrice != null && l.pricePerItemInDiamonds() > watchedItem.maxPrice) continue;
 
-				sellerCount++;
-				if (best == null || l.pricePerItemInDiamonds() < best.pricePerItemInDiamonds()) best = l;
+				String key = l.seller == null ? "" : l.seller.toLowerCase(java.util.Locale.ROOT);
+				Listing had = bySeller.get(key);
+				if (had == null || l.pricePerItemInDiamonds() < had.pricePerItemInDiamonds()) bySeller.put(key, l);
 			}
 
-			if (best != null) out.add(buildListingMatch(watchedItem.itemName, best, sellerCount));
+			if (bySeller.isEmpty()) continue;
+			// cheapest first: the alert is about the cheapest, the rest are listed on hover in that order
+			List<Listing> sellers = new ArrayList<>(bySeller.values());
+			sellers.sort(java.util.Comparator.comparingDouble(Listing::pricePerItemInDiamonds));
+			out.add(buildListingMatch(watchedItem.itemName, sellers));
 		}
 		return out;
 	}
 
-	private static Component buildListingMatch(String watchedName, Listing best, int sellerCount) {
-		String extra = sellerCount > 1 ? " (+" + (sellerCount - 1) + " more seller" + (sellerCount > 2 ? "s" : "") + ")" : "";
+	/** At most this many other sellers are named in the "+N more sellers" hover. */
+	private static final int MORE_SELLERS_SHOWN = 15;
+
+	private static Component buildListingMatch(String watchedName, List<Listing> sellers) {
+		Listing best = sellers.get(0);
+		int more = sellers.size() - 1;
 
 		MutableComponent msg = Component.literal("[ShopLogger] ").withStyle(ChatFormat.PREFIX)
 				.append(Component.literal("Watching: ").withStyle(ChatFormat.SUCCESS))
-				.append(Component.literal(best.itemName + " (" + best.priceLabel + ") at " + best.seller + "'s shop" + extra + "  ").withStyle(ChatFormat.RESULT));
+				.append(Component.literal(best.itemName + " (" + best.priceLabel + ") at " + best.seller + "'s shop").withStyle(ChatFormat.RESULT));
+		if (more > 0) {
+			// hover: the other sellers, cheapest first
+			MutableComponent list = Component.literal("Also selling it, cheapest first:").withStyle(ChatFormat.NEUTRAL);
+			for (int i = 1; i < sellers.size() && i <= MORE_SELLERS_SHOWN; i++) {
+				Listing l = sellers.get(i);
+				list.append(Component.literal("\n" + l.seller + " — " + l.priceLabel).withStyle(ChatFormat.RESULT));
+			}
+			if (more > MORE_SELLERS_SHOWN) list.append(Component.literal("\n…and " + (more - MORE_SELLERS_SHOWN) + " more").withStyle(ChatFormat.NEUTRAL));
+			msg.append(Component.literal(" (+" + more + " more seller" + (more > 1 ? "s" : "") + ")").setStyle(net.minecraft.network.chat.Style.EMPTY
+					.withColor(net.minecraft.ChatFormatting.WHITE).withUnderlined(true)
+					.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(list))));
+		}
+		msg.append(Component.literal("  "));
 
 		BlockPos pos = parsePosition(best.position);
 		if (pos != null) {

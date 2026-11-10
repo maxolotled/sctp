@@ -25,4 +25,16 @@ public final class StorageSettings {
 
 	public static HighlightStyle highlightStyle() { return Config.getOrCreate("storage/highlightStyle", HighlightStyle.class, HighlightStyle.GLOW); }
 	public static void setHighlightStyle(HighlightStyle s) { Config.update("storage/highlightStyle", s); }
+
+	/** What opening one of the lit-up containers does. */
+	public enum OpenStops {
+		THAT_ONE("Only that one stops"),
+		ALL("They all stop");
+
+		public final String label;
+		OpenStops(String label) { this.label = label; }
+	}
+
+	public static OpenStops openStops() { return Config.getOrCreate("storage/openStops", OpenStops.class, OpenStops.THAT_ONE); }
+	public static void setOpenStops(OpenStops v) { Config.update("storage/openStops", v); }
 }

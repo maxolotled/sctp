@@ -15,7 +15,6 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientConfigurationConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
@@ -52,6 +51,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 	private KeyMapping openLibraryKey;
 	private KeyMapping heldItemKey;
 	private KeyMapping storageKey; // X+M: add to My storage
+	private KeyMapping notepadKey; // N: the notepad
 	// X opens the library when it's let go; pressing I while it's held opens the held item's page instead
 	private boolean libraryKeyHeld = false;
 	private boolean libraryChordUsed = false;
@@ -79,59 +79,66 @@ public class ShopLoggerClient implements ClientModInitializer {
 		Config.load();
 		QolHookManager.onInit();
 
-		exportKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+		exportKey = ModKeys.add(new KeyMapping(
 				"key.shoplogger.export",
 				InputConstants.Type.KEYBOARD,
-				InputConstants.UNKNOWN.getValue(), // unbound by default; set it in Controls
+				InputConstants.UNKNOWN.getValue(), // unbound by default; set it in Settings › Keys
 				KEY_CATEGORY
 		));
 
-		toggleAutoScanKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+		toggleAutoScanKey = ModKeys.add(new KeyMapping(
 				"key.shoplogger.toggle_autoscan",
 				InputConstants.Type.KEYBOARD,
-				InputConstants.KEY_MINUS, // defaults to '-'; rebind in Controls
+				InputConstants.KEY_MINUS, // defaults to '-'; rebind in Settings › Keys
 				KEY_CATEGORY
 		));
 
-		uploadKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+		uploadKey = ModKeys.add(new KeyMapping(
 				"key.shoplogger.upload",
 				InputConstants.Type.KEYBOARD,
 				InputConstants.UNKNOWN.getValue(),
 				KEY_CATEGORY
 		));
 
-		toggleMarkersKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+		toggleMarkersKey = ModKeys.add(new KeyMapping(
 				"key.shoplogger.toggle_markers",
 				InputConstants.Type.KEYBOARD,
-				InputConstants.UNKNOWN.getValue(), // unbound by default; set it in Controls
+				InputConstants.UNKNOWN.getValue(), // unbound by default; set it in Settings › Keys
 				KEY_CATEGORY
 		));
 
-		togglePrintKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+		togglePrintKey = ModKeys.add(new KeyMapping(
 				"key.shoplogger.toggle_print",
 				InputConstants.Type.KEYBOARD,
-				InputConstants.UNKNOWN.getValue(), // unbound by default; set it in Controls
+				InputConstants.UNKNOWN.getValue(), // unbound by default; set it in Settings › Keys
 				KEY_CATEGORY
 		));
 
-		openLibraryKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+		openLibraryKey = ModKeys.add(new KeyMapping(
 				"key.shoplogger.open_library",
 				InputConstants.Type.KEYBOARD,
 				InputConstants.KEY_X,
 				KEY_CATEGORY
 		));
 
-		heldItemKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+		heldItemKey = ModKeys.add(new KeyMapping(
 				"key.shoplogger.open_held_item",
 				InputConstants.Type.KEYBOARD,
 				InputConstants.KEY_I, // pressed while holding the library key (X)
 				KEY_CATEGORY
 		));
 
-		storageKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+		storageKey = ModKeys.add(new KeyMapping(
 				"key.shoplogger.storage",
 				InputConstants.Type.KEYBOARD,
 				InputConstants.KEY_M, // pressed while holding the library key (X)
+				KEY_CATEGORY
+		));
+
+		notepadKey = ModKeys.add(new KeyMapping(
+				"key.shoplogger.notepad",
+				InputConstants.Type.KEYBOARD,
+				78, // N (GLFW_KEY_N)
 				KEY_CATEGORY
 		));
 
@@ -208,6 +215,15 @@ public class ShopLoggerClient implements ClientModInitializer {
 											.then(ClientCommands.argument("z", IntegerArgumentType.integer())
 													.then(ClientCommands.argument("seller", StringArgumentType.greedyString())
 															.executes(ShopLoggerClient::watchTp)))))));
+
+			// click target of a stacked chat line's ▸ (see ChatStacker): shows the messages it stands for
+			dispatcher.register(ClientCommands.literal("sctpunfold")
+					.then(ClientCommands.argument("id", IntegerArgumentType.integer())
+					.executes(ctx -> {
+						if (!com.snailtools.shoplogger.qol.ChatStacker.unfold(IntegerArgumentType.getInteger(ctx, "id")))
+							ChatFormat.send(net.minecraft.client.Minecraft.getInstance(), ChatFormat.NEUTRAL, "Those messages aren't in chat anymore.");
+						return 1;
+					})));
 
 			dispatcher.register(ClientCommands.literal("watchremove")
 					.then(ClientCommands.argument("item", StringArgumentType.greedyString())
@@ -302,6 +318,9 @@ public class ShopLoggerClient implements ClientModInitializer {
 					// X+M itself is handled from the raw key press (StorageKeys.onKey); this only drains clicks
 				}
 			}
+			if (notepadKey != null && notepadKey.consumeClick() && client.gui.screen() == null) {
+				client.setScreenAndShow(new com.snailtools.shoplogger.gui.NotepadScreen(null));
+			}
 			if (libraryKeyHeld && !openLibraryKey.isDown()) {
 				libraryKeyHeld = false;
 				boolean chord = libraryChordUsed | com.snailtools.shoplogger.storage.StorageKeys.consumeChord();
@@ -311,7 +330,7 @@ public class ShopLoggerClient implements ClientModInitializer {
 						// Settings > Empty hand > Add: X registers what's in your hand
 						EmptyHandItems.captureHeld(client);
 						client.setScreenAndShow(com.snailtools.shoplogger.gui.SettingsScreen.emptyHand(new com.snailtools.shoplogger.gui.HomeScreen()));
-					} else if (com.snailtools.shoplogger.storage.StorageHighlight.isActive()) {
+					} else if (com.snailtools.shoplogger.storage.StorageHighlight.isShowing()) {
 						com.snailtools.shoplogger.storage.StorageHighlight.clear();
 					} else if (TeleportHighlight.getInstance().isArmed()) {
 						TeleportHighlight.getInstance().clear();

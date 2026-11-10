@@ -1,6 +1,7 @@
 package com.snailtools.shoplogger.gui;
 
 import com.snailtools.shoplogger.ChatFormat;
+import com.snailtools.shoplogger.ModKeys;
 import com.snailtools.shoplogger.CsvExporter;
 import com.snailtools.shoplogger.ExcelExporter;
 import com.snailtools.shoplogger.OwnShopSaleTracker;
@@ -48,6 +49,7 @@ public class SettingsScreen extends UiScreen {
 		DISPLAY("Look & tools", "Colour theme, in-world highlights and shortcuts"),
 		EMPTY_HAND("Empty hand", "Click doors, chests and other blocks with an empty slot instead of these items"),
 		STORAGE("My storage", "Your own chests: X+M adds one (or everything within 16 blocks)"),
+		KEYS("Keys", "Click a key to change it. They're here, not in Options › Controls"),
 		DATA("Data", "Export or upload what you've scanned"),
 		ADVANCED("Advanced", "Temporary testing tools");
 
@@ -179,6 +181,7 @@ public class SettingsScreen extends UiScreen {
 							"Upload", () -> ShopUploader.uploadAsync(minecraft, true)));
 			case EMPTY_HAND -> emptyHandRows();
 			case STORAGE -> storageRows();
+			case KEYS -> keyRows();
 			case ADVANCED -> List.of(
 					SettingRow.toggle("Auctions on the dashboard", "Run rare auctions in-game: the Auctions screen, /sold, /unsold, /info, /auction (rejoin for the commands)",
 							com.snailtools.shoplogger.auction.AuctionHost::isShown, com.snailtools.shoplogger.auction.AuctionHost::setShown),
@@ -196,6 +199,9 @@ public class SettingsScreen extends UiScreen {
 		out.add(SettingRow.choice("Highlight style", "How a container lights up when you find an item",
 				List.of(com.snailtools.shoplogger.storage.StorageSettings.HighlightStyle.values()), com.snailtools.shoplogger.storage.StorageSettings::highlightStyle,
 				com.snailtools.shoplogger.storage.StorageSettings::setHighlightStyle, s -> s.label));
+		out.add(SettingRow.choice("Opening a lit-up container", "Whether opening one turns off just that container's light, or all of them",
+				List.of(com.snailtools.shoplogger.storage.StorageSettings.OpenStops.values()), com.snailtools.shoplogger.storage.StorageSettings::openStops,
+				com.snailtools.shoplogger.storage.StorageSettings::setOpenStops, s -> s.label));
 		out.add(SettingRow.action("Open My storage", "Everything in your containers, searchable", "Open",
 				() -> minecraft.setScreenAndShow(new StorageScreen(this))));
 		for (com.snailtools.shoplogger.storage.StorageIndex.Box b : com.snailtools.shoplogger.storage.StorageIndex.all()) {
@@ -204,6 +210,32 @@ public class SettingsScreen extends UiScreen {
 					"Remove", () -> { com.snailtools.shoplogger.storage.StorageIndex.remove(b); rebuild(); }));
 		}
 		return out;
+	}
+
+	/** The key waiting for its new binding (Settings › Keys), or null. */
+	private net.minecraft.client.KeyMapping listening;
+
+	private List<SettingRow> keyRows() {
+		List<SettingRow> out = new ArrayList<>();
+		for (net.minecraft.client.KeyMapping k : ModKeys.all()) {
+			String hint = ModKeys.hint(k);
+			out.add(SettingRow.key(ModKeys.label(k), hint.isEmpty() ? "Click, then press the new key (Esc cancels, Backspace clears)" : hint,
+					() -> ModKeys.keyText(k), () -> listening == k, () -> listening = listening == k ? null : k));
+		}
+		out.add(SettingRow.action("Reset all keys", "Back to X, X+I, X+M and the rest", "Reset", () -> { listening = null; ModKeys.resetAll(); }));
+		return out;
+	}
+
+	@Override
+	public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+		if (listening == null) return super.keyPressed(event);
+		int key = event.key();
+		if (key != com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE) {
+			boolean clear = key == com.mojang.blaze3d.platform.InputConstants.KEY_BACKSPACE || key == com.mojang.blaze3d.platform.InputConstants.KEY_DELETE;
+			ModKeys.set(listening, clear ? com.mojang.blaze3d.platform.InputConstants.UNKNOWN : com.mojang.blaze3d.platform.InputConstants.getKey(event));
+		}
+		listening = null;
+		return true;
 	}
 
 	private List<SettingRow> emptyHandRows() {

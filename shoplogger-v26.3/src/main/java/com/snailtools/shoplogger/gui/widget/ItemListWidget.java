@@ -133,6 +133,31 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 			return this;
 		}
 
+		private String pageLabel = "View";
+		private String pageTip = "Open this item's page: listings and price history";
+
+		/** Renames the row's right-hand button (normally "View", the item page), e.g. to "TP". */
+		public ItemEntry withPageButton(String label, String tooltip) {
+			this.pageLabel = label;
+			this.pageTip = tooltip;
+			return this;
+		}
+
+		private String tag;
+		private int tagColor;
+		private String tagTip;
+		private Runnable onTag;
+		private int tagX = -1, tagY;
+
+		/** A clickable symbol at the right of the row (My storage's marks: ★ ◆ ❤...), with a tooltip. */
+		public ItemEntry withTag(String symbol, int color, String tooltip, Runnable onPress) {
+			this.tag = symbol;
+			this.tagColor = color;
+			this.tagTip = tooltip;
+			this.onTag = onPress;
+			return this;
+		}
+
 		/** A small coloured label on the row, e.g. "Watching" or "Selling". */
 		public ItemEntry withBadge(String text, int color) {
 			this.badge = text;
@@ -167,6 +192,16 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 				if (over && storageTip != null) g.setTooltipForNextFrame(font, Component.literal(storageTip), mouseX, mouseY);
 				right -= 6;
 			} else storageX = -1;
+			if (tag != null) {
+				right -= 14;
+				tagX = right;
+				tagY = y + (h - 14) / 2;
+				boolean over = mouseX >= tagX && mouseX < tagX + 14 && mouseY >= tagY && mouseY < tagY + 14;
+				if (over) g.fill(tagX - 1, tagY - 1, tagX + 15, tagY + 15, Theme.alpha(Theme.ACCENT, 0x55));
+				Draw.centered(g, font, tag, tagX + 7, tagY + 3, tagColor);
+				if (over && tagTip != null) g.setTooltipForNextFrame(font, Component.literal(tagTip), mouseX, mouseY);
+				right -= 6;
+			} else tagX = -1;
 			if (!mark.isEmpty()) {
 				right -= 12;
 				int my = y + (h - 12) / 2;
@@ -187,8 +222,8 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 			}
 
 			if (onOpenPage != null) {
-				boolean over = UiLists.rowButton(g, viewX(), viewY(), VIEW_W, 14, "View", Theme.PANEL_ALT, Theme.ACCENT_DIM, Theme.TEXT, mouseX, mouseY);
-				if (over) g.setTooltipForNextFrame(font, Component.literal("Open this item's page: listings and price history"), mouseX, mouseY);
+				boolean over = UiLists.rowButton(g, viewX(), viewY(), VIEW_W, 14, pageLabel, Theme.PANEL_ALT, Theme.ACCENT_DIM, Theme.TEXT, mouseX, mouseY);
+				if (over) g.setTooltipForNextFrame(font, Component.literal(pageTip), mouseX, mouseY);
 			} else {
 				g.text(font, "›", x + w - 10, y + (h - 8) / 2, hovered ? Theme.ACCENT : Theme.FAINT, false);
 			}
@@ -198,6 +233,10 @@ public class ItemListWidget extends AbstractSelectionList<ItemListWidget.ItemEnt
 		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
 			if (onStorage != null && storageX >= 0 && UiLists.over(storageX, storageY, 14, 14, event.x(), event.y())) {
 				onStorage.run();
+				return true;
+			}
+			if (onTag != null && tagX >= 0 && UiLists.over(tagX, tagY, 14, 14, event.x(), event.y())) {
+				onTag.run();
 				return true;
 			}
 			if (onOpenPage != null && UiLists.over(viewX(), viewY(), VIEW_W, 14, event.x(), event.y())) {

@@ -31,8 +31,10 @@ public final class StorageHolograms {
 	private static final float SCALE = 0.0095f;
 	private static final int MAIN = 0xFFEDEFEA;
 	private static final int SUB = 0xFFAEB5AC;
-	/** Where the two lines are centred, from the block's middle: in its lower half. */
-	private static final double LOW = -0.24;
+	/** Where the lines end (their bottom), from the block's middle: near the bottom of the side, so longer text grows upward. */
+	private static final double BOTTOM = -0.40;
+	/** Widest a line gets (in font pixels) before the name wraps: about the width of a chest's side. */
+	private static final int MAX_LINE = 86;
 
 	/** Every client tick (nothing to do: what's shown is read straight from the index each frame). */
 	public static void tick(Minecraft mc) {}
@@ -88,8 +90,8 @@ public final class StorageHolograms {
 			pose.pushPose();
 			pose.translate(center.x - camera.x, center.y - camera.y, center.z - camera.z);
 			pose.mulPose(new Matrix4f().rotationY((float) Math.toRadians(-d.toYRot())));
-			pose.translate(0.0, LOW, depth + 0.004);
-			text(pose, collector, font, lines);
+			pose.translate(0.0, BOTTOM, depth + 0.004);
+			text(pose, collector, font, lines, true);
 			pose.popPose();
 		}
 		if (anySide) return;
@@ -105,18 +107,47 @@ public final class StorageHolograms {
 		pose.mulPose(new Matrix4f().rotationY((float) Math.toRadians(-toCam.toYRot())));
 		pose.translate(0.0, lid + 0.004, 0.0);
 		pose.mulPose(new Matrix4f().rotationX((float) Math.toRadians(-90)));
-		text(pose, collector, font, lines);
+		text(pose, collector, font, lines, false);
 		pose.popPose();
 	}
 
-	private static void text(PoseStack pose, SubmitNodeCollector collector, Font font, String[] lines) {
+	/**
+	 * The name (wrapped onto a second line when it's too wide, then cut off) and
+	 * the amount under it. fromBottom: the last line ends at the pose's origin;
+	 * otherwise the block of lines is centred on it.
+	 */
+	private static void text(PoseStack pose, SubmitNodeCollector collector, Font font, String[] lines, boolean fromBottom) {
 		pose.scale(SCALE, -SCALE, SCALE);
-		FormattedCharSequence l1 = Component.literal(lines[0]).getVisualOrderText();
-		int y = lines[1].isEmpty() ? -4 : -9;
-		collector.submitText(pose, -font.width(l1) / 2f, y, l1, false, Font.DisplayMode.POLYGON_OFFSET, 0xF000F0, MAIN, 0, 0);
-		if (!lines[1].isEmpty()) {
-			FormattedCharSequence l2 = Component.literal(lines[1]).getVisualOrderText();
-			collector.submitText(pose, -font.width(l2) / 2f, y + 10, l2, false, Font.DisplayMode.POLYGON_OFFSET, 0xF000F0, SUB, 0, 0);
+		java.util.List<String> name = wrap(font, lines[0]);
+		boolean amount = !lines[1].isEmpty();
+		int count = name.size() + (amount ? 1 : 0);
+		int height = count * 10 - 2;
+		int y = fromBottom ? -height : -height / 2;
+		for (String s : name) {
+			FormattedCharSequence l = Component.literal(s).getVisualOrderText();
+			collector.submitText(pose, -font.width(l) / 2f, y, l, false, Font.DisplayMode.POLYGON_OFFSET, 0xF000F0, MAIN, 0, 0);
+			y += 10;
 		}
+		if (amount) {
+			FormattedCharSequence l2 = Component.literal(lines[1]).getVisualOrderText();
+			collector.submitText(pose, -font.width(l2) / 2f, y, l2, false, Font.DisplayMode.POLYGON_OFFSET, 0xF000F0, SUB, 0, 0);
+		}
+	}
+
+	/** A name in at most two lines, split between words; what still doesn't fit ends in "…". */
+	static java.util.List<String> wrap(Font font, String text) {
+		if (font.width(text) <= MAX_LINE) return java.util.List.of(text);
+		String[] words = text.split(" ");
+		StringBuilder first = new StringBuilder();
+		int i = 0;
+		while (i < words.length && font.width(first + (first.length() > 0 ? " " : "") + words[i]) <= MAX_LINE) {
+			if (first.length() > 0) first.append(' ');
+			first.append(words[i++]);
+		}
+		if (first.length() == 0) { first.append(font.plainSubstrByWidth(words[0], MAX_LINE)); words[0] = words[0].substring(first.length()); }
+		String rest = String.join(" ", java.util.Arrays.copyOfRange(words, i, words.length)).trim();
+		if (rest.isEmpty()) return java.util.List.of(first.toString());
+		if (font.width(rest) > MAX_LINE) rest = font.plainSubstrByWidth(rest, MAX_LINE - font.width("…")).trim() + "…";
+		return java.util.List.of(first.toString(), rest);
 	}
 }

@@ -73,6 +73,8 @@ public final class StorageIndex {
 		/** Silent opens that got no answer, and when to try again (StorageScanner; not saved). */
 		public transient int failures;
 		public transient long retryAt;
+		/** Since when its spot has held no container of its kind (StorageScanner; not saved), 0 = it's there. */
+		public transient long missingSince;
 
 		public BlockPos pos() { return new BlockPos(x, y, z); }
 		public boolean isEnder() { return "ender".equals(kind); }
@@ -89,6 +91,27 @@ public final class StorageIndex {
 	private static final class Data {
 		List<Box> boxes = new ArrayList<>();
 		Box ender;
+		/** Your marks on items, by Item.key(): "star", "diamond"... (see Mark). */
+		Map<String, String> marks = new HashMap<>();
+	}
+
+	/** A mark you can put on an item, to find it again by its mark. */
+	public enum Mark {
+		STAR("star", "★", "Star", 0xFFFFD84A),
+		DIAMOND("diamond", "◆", "Diamond", 0xFF5EE3E8),
+		HEART("heart", "❤", "Heart", 0xFFFF5C7A),
+		CIRCLE("circle", "●", "Circle", 0xFF7DDA58),
+		TRIANGLE("triangle", "▲", "Triangle", 0xFFFF9F43),
+		SQUARE("square", "■", "Square", 0xFFB28DFF);
+
+		public final String id, glyph, label;
+		public final int color;
+		Mark(String id, String glyph, String label, int color) { this.id = id; this.glyph = glyph; this.label = label; this.color = color; }
+
+		public static Mark of(String id) {
+			for (Mark m : values()) if (m.id.equals(id)) return m;
+			return null;
+		}
 	}
 
 	private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
@@ -134,6 +157,7 @@ public final class StorageIndex {
 			Data d = GSON.fromJson(r, Data.class);
 			if (d != null) {
 				if (d.boxes == null) d.boxes = new ArrayList<>();
+				if (d.marks == null) d.marks = new HashMap<>();
 				data = d;
 			}
 		} catch (Exception e) {
@@ -262,7 +286,7 @@ public final class StorageIndex {
 		return changed;
 	}
 
-	/** What's in an open container's own slots (not the player's), shulker boxes counted with their contents. */
+	/** What's in an open container's own slots (not the player's), with what's inside shulker boxes and bundles counted too. */
 	public static List<Item> read(AbstractContainerMenu menu) {
 		Minecraft mc = Minecraft.getInstance();
 		Map<String, Item> out = new LinkedHashMap<>();
@@ -271,11 +295,28 @@ public final class StorageIndex {
 			if (slot.container == mc.player.getInventory()) continue;
 			ItemStack stack = slot.getItem();
 			if (stack.isEmpty()) continue;
-			count(out, stack);
-			List<ItemStack> inside = ShopEntryFactory.readShulkerContents(stack);
-			if (inside != null) for (ItemStack s : inside) count(out, s);
+			countWithContents(out, stack, 0);
 		}
 		return new ArrayList<>(out.values());
+	}
+
+	/** An item, then whatever it holds: a shulker box's contents, a bundle's (also inside a shulker). */
+	private static void countWithContents(Map<String, Item> out, ItemStack stack, int depth) {
+		count(out, stack);
+		if (depth >= 2) return;
+		List<ItemStack> inside = ShopEntryFactory.readShulkerContents(stack);
+		if (inside == null) inside = ShopEntryFactory.readBundleContents(stack);
+		if (inside != null) for (ItemStack s : inside) countWithContents(out, s, depth + 1);
+	}
+
+	/** The stack itself, or something inside it (a shulker box or bundle), is this exact item (base item and name). */
+	public static boolean holdsExactly(ItemStack stack, String baseItem, String name) {
+		if (stack.isEmpty()) return false;
+		if (BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().equals(baseItem) && ShopEntryFactory.displayNameFor(stack).equals(name)) return true;
+		List<ItemStack> inside = ShopEntryFactory.readShulkerContents(stack);
+		if (inside == null) inside = ShopEntryFactory.readBundleContents(stack);
+		if (inside != null) for (ItemStack s : inside) if (holdsExactly(s, baseItem, name)) return true;
+		return false;
 	}
 
 	private static void count(Map<String, Item> out, ItemStack stack) {
@@ -296,7 +337,7 @@ public final class StorageIndex {
 	/** How much of an item, and in which containers, keyed like lookupKey; rebuilt after a change. */
 	private static final class Held { int count; final List<Box> boxes = new ArrayList<>(); }
 	private static Map<String, Held> lookup = new HashMap<>();
-	private static List<Object[]> totalsCache = List.of();
+	private static List<Total> totalsCache = List.of();
 	private static final Map<Box, String[]> summaries = new java.util.IdentityHashMap<>();
 	private static int builtFor = -1;
 
@@ -344,23 +385,61 @@ public final class StorageIndex {
 		return h == null ? new ArrayList<>() : new ArrayList<>(h.boxes);
 	}
 
-	/** Every item across your storage, most first: [item, containers holding it]. */
-	public static List<Object[]> totals() {
+	/** The containers holding exactly this item: same base item and the same name, decorations included. */
+	public static List<Box> holdingExactly(String baseItem, String name) {
+		List<Box> out = new ArrayList<>();
+		for (Box b : all()) for (Item i : b.items) if (i.b.equals(baseItem) && i.n.equals(name)) { out.add(b); break; }
+		return out;
+	}
+
+	/** One item across your storage: how many, in how many containers, and when it last went in or out. */
+	public record Total(Item item, int boxes, long changedAt) {}
+
+	/** Every item across your storage, most first. */
+	public static List<Total> totals() {
 		if (!ready()) return List.of();
 		build();
 		return totalsCache;
 	}
 
-	private static List<Object[]> computeTotals() {
-		Map<String, Object[]> out = new LinkedHashMap<>();
-		for (Box b : all()) for (Item i : b.items) {
-			Object[] t = out.computeIfAbsent(i.key(), k -> new Object[] { new Item(i.b, i.n, 0), 0 });
-			((Item) t[0]).c += i.c;
-			t[1] = (Integer) t[1] + 1;
+	private static List<Total> computeTotals() {
+		Map<String, Item> sums = new LinkedHashMap<>();
+		Map<String, Integer> boxes = new HashMap<>();
+		Map<String, Long> changed = new HashMap<>();
+		for (Box b : all()) {
+			for (Item i : b.items) {
+				sums.computeIfAbsent(i.key(), k -> new Item(i.b, i.n, 0)).c += i.c;
+				boxes.merge(i.key(), 1, Integer::sum);
+				changed.merge(i.key(), b.scannedAt, Math::max); // at least when its container was first read
+			}
+			for (Change c : b.log) changed.merge(c.b + "|" + c.n, c.at, Math::max);
 		}
-		List<Object[]> list = new ArrayList<>(out.values());
-		list.sort(Comparator.comparingInt((Object[] t) -> -((Item) t[0]).c));
+		List<Total> list = new ArrayList<>();
+		for (Item i : sums.values()) list.add(new Total(i, boxes.get(i.key()), changed.getOrDefault(i.key(), 0L)));
+		list.sort(Comparator.comparingInt((Total t) -> -t.item().c));
 		return list;
+	}
+
+	// ---- marks ----
+
+	public static Mark markOf(Item item) {
+		return ready() ? Mark.of(data.marks.get(item.key())) : null;
+	}
+
+	/** Puts a mark on an item (null takes it off). */
+	public static void setMark(Item item, Mark mark) {
+		if (!ready()) return;
+		if (mark == null) data.marks.remove(item.key()); else data.marks.put(item.key(), mark.id);
+		save();
+	}
+
+	// ---- containers that are gone ----
+
+	/** A container that was broken (or swapped for another kind) since: it's taken out of My storage. */
+	public static void forget(Box b) {
+		if (!ready() || b.isEnder()) return;
+		data.boxes.remove(b);
+		save();
 	}
 
 	// ---- the hologram's summary ----

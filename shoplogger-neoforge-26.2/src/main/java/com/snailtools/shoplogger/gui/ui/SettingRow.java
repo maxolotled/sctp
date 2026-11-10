@@ -26,7 +26,7 @@ public class SettingRow extends AbstractButton {
 
 	public static final int HEIGHT = 30;
 
-	private enum Kind { TOGGLE, CHOICE, STEPPER, ACTION }
+	private enum Kind { TOGGLE, CHOICE, STEPPER, ACTION, KEY }
 
 	private final Kind kind;
 	private final String label;
@@ -48,6 +48,9 @@ public class SettingRow extends AbstractButton {
 	private String actionLabel;
 	private Runnable action;
 	private long actionDoneAt;
+
+	private Supplier<String> keyText;
+	private BooleanSupplier keyListening;
 
 	private double lastClickX = -1;
 
@@ -91,6 +94,15 @@ public class SettingRow extends AbstractButton {
 		return r;
 	}
 
+	/** A key binding: shows the key; clicking runs onPress (which starts listening for the new key). */
+	public static SettingRow key(String label, String description, Supplier<String> keyText, BooleanSupplier listening, Runnable onPress) {
+		SettingRow r = new SettingRow(Kind.KEY, label, description);
+		r.keyText = keyText;
+		r.keyListening = listening;
+		r.action = onPress;
+		return r;
+	}
+
 	// ---- input -----------------------------------------------------------
 
 	@Override
@@ -130,6 +142,7 @@ public class SettingRow extends AbstractButton {
 				action.run();
 				actionDoneAt = System.currentTimeMillis();
 			}
+			case KEY -> action.run();
 		}
 	}
 
@@ -153,6 +166,7 @@ public class SettingRow extends AbstractButton {
 			}
 			case STEPPER -> font.width("000 " + unit) + 36;
 			case ACTION -> font.width(actionLabel) + 16;
+			case KEY -> Math.max(70, Math.max(font.width(keyText.get()), font.width("Press a key…")) + 16);
 		};
 	}
 
@@ -206,6 +220,11 @@ public class SettingRow extends AbstractButton {
 				boolean done = System.currentTimeMillis() - actionDoneAt < 1800;
 				Draw.round(g, cx, midY - 7, cw, 14, done ? Theme.GO : hover ? Theme.ACCENT_HI : Theme.ACCENT);
 				Draw.centered(g, font, done ? "Done ✓" : actionLabel, cx + cw / 2, midY - 4, done ? Theme.TEXT : Theme.ACCENT_INK);
+			}
+			case KEY -> {
+				boolean listening = keyListening.getAsBoolean();
+				Draw.card(g, cx, midY - 7, cw, 14, listening ? Theme.PANEL_HI : Theme.SLOT, listening || hover ? Theme.ACCENT : Theme.LINE);
+				Draw.centered(g, font, listening ? "Press a key…" : keyText.get(), cx + cw / 2, midY - 4, listening ? Theme.ACCENT : Theme.TEXT);
 			}
 		}
 	}

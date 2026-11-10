@@ -56,6 +56,14 @@ public final class SilentScreenCoordinator {
 
 	private static Listener current;
 	private static long armedAtMillis;
+	private static long lastYieldAt;
+
+	/**
+	 * When a silent open last let go for one of yours. Its window may still
+	 * arrive after that (the server got that click first), so a window that
+	 * opens soon after can't be told apart from the one you asked for.
+	 */
+	public static long lastYieldAt() { return lastYieldAt; }
 
 	private SilentScreenCoordinator() {}
 
@@ -112,6 +120,7 @@ public final class SilentScreenCoordinator {
 	 */
 	public static void yieldToManualOpen() {
 		if (current == null) return;
+		lastYieldAt = System.currentTimeMillis();
 		Listener stuck = current;
 		current = null;
 		stuck.onWatchdogTimeout();

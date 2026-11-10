@@ -228,6 +228,7 @@
 			<div id="craftList"></div>
 		</div>
 		<div class="done-bar" id="doneBar" hidden><span id="doneCount"></span><button type="button" class="btn-ghost" id="clearDone" style="padding:5px 12px;">Clear checkmarks</button></div>
+		<div class="done-bar" id="notepadBar"><button type="button" class="btn-ghost" id="copyNotepad" style="padding:5px 12px;">Copy for the notepad</button><span id="notepadHint">In the mod, press N and choose "Paste code from /list": each line ticks itself off as you buy it.</span></div>
 		<div id="shopCards"></div>
 		<div class="section" id="shortfallSection" style="display:none;">
 			<h2 style="font-size:16px;color:var(--bad);">Not enough stock</h2>
@@ -937,12 +938,34 @@
 	document.getElementById("convertToggle").checked = convertOn();
 	document.getElementById("convertToggle").addEventListener("change", function(){ setConvert(this.checked); });
 
+	// ---------------- the mod's notepad ----------------
+	// The shopping list as a code the mod pastes (Notepad › Paste code from /list):
+	// "SCTP-LIST:" + base64url of {v, items: [{n: name, b: item id, c: how many}]}.
+	var lastNeeds = [];
+	function notepadCode(){
+		var json = JSON.stringify({ v: 1, items: lastNeeds.map(function(m){ return { n: m.name, b: m.key, c: m.qty }; }) });
+		var b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+		return "SCTP-LIST:" + b64;
+	}
+	document.getElementById("copyNotepad").addEventListener("click", function(){
+		var btn = this, hint = document.getElementById("notepadHint");
+		var code = notepadCode();
+		function done(ok){
+			btn.textContent = ok ? "Copied!" : "Copy for the notepad";
+			if(!ok) hint.textContent = "Couldn't copy. Select and copy this code: " + code;
+			setTimeout(function(){ btn.textContent = "Copy for the notepad"; }, 1800);
+		}
+		if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(function(){ done(true); }, function(){ done(false); });
+		else done(false);
+	});
+
 	function calculate(){
 		var world = document.getElementById("worldSelect").value;
 		var status = document.getElementById("calcStatus");
 		status.textContent = "Calculating…";
 		setTimeout(function(){
 			var plan = planCrafting(world);
+			lastNeeds = plan.mats;
 			var result = runOptimizer(world, balance, plan.mats);
 			renderResults(result);
 			renderCrafts(plan.crafts);

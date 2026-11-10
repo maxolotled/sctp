@@ -131,6 +131,11 @@ public final class RareRentalHighlighter {
 	}
 
 	private int getScreenField(AbstractContainerScreen<?> screen, String name) {
+		return screenField(screen, name);
+	}
+
+	/** A container screen's leftPos / topPos (where its slots are drawn from). Also used by StorageHighlight. */
+	public static int screenField(AbstractContainerScreen<?> screen, String name) {
 		try {
 			Field field = AbstractContainerScreen.class.getDeclaredField(name);
 			field.setAccessible(true);

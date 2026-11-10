@@ -7,5 +7,6 @@
   "key.shoplogger.open_library": "Open Item Library",
   "key.shoplogger.open_held_item": "Item page for held item (hold Open Item Library + this, default X+I)",
   "key.category.shoplogger.main": "Shop Logger",
-  "key.shoplogger.storage": "Add to My storage (hold Open Item Library + this, default X+M)"
+  "key.shoplogger.storage": "Add to My storage (hold Open Item Library + this, default X+M)",
+  "key.shoplogger.notepad": "Open the notepad"
 }

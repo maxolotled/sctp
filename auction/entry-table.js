@@ -1,7 +1,8 @@
 // Fast auction entry: search a rare and it's added as a table row straight
 // away (Enter adds the top match), with its prices pre-filled from SCTP's
-// suggestions and editable in the row. Shared by /auction (players) and
-// /auction/admin ("add items for a player").
+// suggestions and editable in the row. An item that isn't in the catalog can
+// be added by name, with no picture, another item's picture or an uploaded one.
+// Shared by /auction (players) and /auction/admin ("add items for a player").
 //
 //   var entry = SctpAuctionEntry.create(rootEl, {
 //     api: "https://…workers.dev",
@@ -10,7 +11,7 @@
 //     onChange: function(){ … }                    // rows added/removed/edited
 //   });
 //   entry.count()      -> number of rows
-//   entry.validate()   -> {error} or {items: [{rareId, quantity, startDia, minDia, hostPicks}]}, and marks bad rows
+//   entry.validate()   -> {error} or {items: [{rareId | custom: {name, texture?, image?}, quantity, startDia, minDia, hostPicks}]}, and marks bad rows
 //                         (a row is a lot: quantity of the same rare, priced as a whole)
 //                         (hostPicks rows: "let the host pick" is ticked, no prices sent)
 //   entry.clear(), entry.focus()
@@ -49,6 +50,17 @@
 		".ae-x{background:transparent;border:none;color:var(--muted);font-size:19px;cursor:pointer;padding:4px 6px;line-height:1;}" +
 		".ae-x:hover{color:var(--bad);}" +
 		".ae-empty{color:var(--muted);font-size:13.5px;padding:14px;text-align:center;}" +
+		".ae-link{background:transparent;border:none;color:var(--accent);font:inherit;font-size:13px;padding:6px 0 0;cursor:pointer;text-decoration:underline;}" +
+		".ae-custom{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel-alt);display:flex;flex-direction:column;gap:10px;}" +
+		".ae-custom label.ae-lb,.ae-custom .ae-lb{display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;}" +
+		".ae-custom input[type=text]{width:100%;}" +
+		".ae-pics{display:flex;flex-wrap:wrap;gap:6px 16px;}" +
+		".ae-pics label{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;}" +
+		".ae-pics input{width:auto;margin:0;accent-color:var(--accent);}" +
+		".ae-texpick{position:relative;}" +
+		".ae-chosen{display:flex;align-items:center;gap:9px;font-size:13px;}" +
+		".ae-cbtns{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}" +
+		".ae-cerr{color:var(--bad);font-size:12.5px;font-weight:600;margin:0;}" +
 		".ae-msg{font-size:12.5px;margin:8px 0 0;min-height:1em;color:var(--warn);}";
 	document.head.appendChild(style);
 
@@ -56,6 +68,39 @@
 	function loadRares(){
 		if(!raresPromise) raresPromise = fetch("/data/rare-items.json").then(function(r){ return r.json(); }).catch(function(){ raresPromise = null; return []; });
 		return raresPromise;
+	}
+	// The items whose picture can be borrowed for an own item: every rare and vanilla item that has a real one.
+	var picturesPromise = null;
+	function loadPictures(){
+		if(!picturesPromise) picturesPromise = Promise.all([
+			loadRares(),
+			fetch("/data/vanilla-items.json").then(function(r){ return r.json(); }).catch(function(){ picturesPromise = null; return []; })
+		]).then(function(res){
+			return res[0].concat(res[1]).filter(function(i){ return /\.png$/.test(i.texture || ""); });
+		});
+		return picturesPromise;
+	}
+	// An uploaded picture, shrunk to fit 128x128 and turned into a PNG, as a data: URL.
+	var PICTURE_SIDE = 128;
+	function pictureToPng(file){
+		return new Promise(function(resolve, reject){
+			var url = URL.createObjectURL(file), img = new Image();
+			img.onload = function(){
+				URL.revokeObjectURL(url);
+				var w = img.naturalWidth, h = img.naturalHeight;
+				if(!w || !h){ reject(); return; }
+				var scale = Math.min(1, PICTURE_SIDE / Math.max(w, h));
+				var c = document.createElement("canvas");
+				c.width = Math.max(1, Math.round(w * scale));
+				c.height = Math.max(1, Math.round(h * scale));
+				var ctx = c.getContext("2d");
+				ctx.imageSmoothingEnabled = scale < 1; // small textures stay crisp
+				ctx.drawImage(img, 0, 0, c.width, c.height);
+				resolve(c.toDataURL("image/png"));
+			};
+			img.onerror = function(){ URL.revokeObjectURL(url); reject(); };
+			img.src = url;
+		});
 	}
 	function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 	function norm(s){ return String(s || "").toLowerCase().replace(/[^a-z0-9']/g, ""); }
@@ -77,6 +122,8 @@
 		return { val: String(dia), unit: "dia" };
 	}
 
+	var pickerSeq = 0; // keeps each table's radio group apart
+
 	function create(root, opts){
 		var rows = [];       // {key, rare, est, start:{val,unit}, min:{val,unit}, touched}
 		var seq = 0, activeIdx = -1, rares = [];
@@ -84,10 +131,29 @@
 
 		root.innerHTML =
 			'<div class="ae-picker"><input type="text" class="ae-search" placeholder="Search rare items… press Enter to add the top match" autocomplete="off" spellcheck="false" aria-label="Add a rare"><div class="ae-results" hidden></div></div>' +
+			'<button type="button" class="ae-link" data-open-custom>Item not listed? Add your own</button>' +
+			'<div class="ae-custom" hidden>' +
+				'<div><label class="ae-lb">Item name<input type="text" class="ae-cname" maxlength="60" autocomplete="off" spellcheck="false"></label></div>' +
+				'<div><div class="ae-lb">Picture</div><div class="ae-pics" role="radiogroup" aria-label="Picture">' +
+					'<label><input type="radio" name="aePic' + (++pickerSeq) + '" value="none" checked>No picture</label>' +
+					'<label><input type="radio" name="aePic' + pickerSeq + '" value="item">Another item\'s picture</label>' +
+					'<label><input type="radio" name="aePic' + pickerSeq + '" value="upload">Upload a picture</label>' +
+				'</div></div>' +
+				'<div class="ae-texpick" hidden><input type="text" class="ae-texsearch" placeholder="Search any item…" autocomplete="off" spellcheck="false" aria-label="Find an item to borrow its picture"><div class="ae-results ae-texresults" hidden></div></div>' +
+				'<div class="ae-upload" hidden><input type="file" class="ae-file" accept="image/*" aria-label="Your picture"></div>' +
+				'<div class="ae-chosen" hidden></div>' +
+				'<p class="ae-cerr" hidden></p>' +
+				'<div class="ae-cbtns"><button type="button" class="btn" data-custom-add>Add item</button><button type="button" class="btn-ghost" data-custom-cancel>Cancel</button></div>' +
+			'</div>' +
 			'<div class="ae-wrap"><table class="ae-table"><thead></thead><tbody></tbody></table></div>' +
 			'<p class="ae-msg"></p>';
 		var search = root.querySelector(".ae-search"), results = root.querySelector(".ae-results");
 		var thead = root.querySelector("thead"), tbody = root.querySelector("tbody"), msg = root.querySelector(".ae-msg");
+		var customBox = root.querySelector(".ae-custom"), customOpen = root.querySelector("[data-open-custom]");
+		var cname = root.querySelector(".ae-cname"), cerr = root.querySelector(".ae-cerr"), chosen = root.querySelector(".ae-chosen");
+		var texPick = root.querySelector(".ae-texpick"), texSearch = root.querySelector(".ae-texsearch"), texResults = root.querySelector(".ae-texresults");
+		var upload = root.querySelector(".ae-upload"), file = root.querySelector(".ae-file");
+		var picture = null; // the own item's picture so far: {texture} (another item's) or {dataUrl} (uploaded)
 
 		function auction(){ return opts.getAuction() || {}; }
 		function regular(){ return auction().type === "regular"; }
@@ -107,7 +173,7 @@
 			if(!search.value.trim()){ results.hidden = true; return; }
 			results.innerHTML = h.length ? h.map(function(r){
 				return '<button type="button" data-id="' + esc(r.id) + '"><img class="ae-ico" src="' + esc(r.texture || "") + '" alt="" loading="lazy">' + esc(r.name) + '<span class="cat">' + esc(r.category || "") + '</span></button>';
-			}).join("") : '<div class="none">No rare matches that</div>';
+			}).join("") : '<div class="none">No rare matches that</div><button type="button" data-own>Add "' + esc(search.value.trim()) + '" as your own item</button>';
 			results.hidden = false;
 		}
 		search.addEventListener("input", showResults);
@@ -128,6 +194,12 @@
 			}
 		});
 		results.addEventListener("click", function(e){
+			if(e.target.closest("button[data-own]")){
+				openCustom(search.value.trim());
+				search.value = "";
+				results.hidden = true;
+				return;
+			}
 			var b = e.target.closest("button[data-id]");
 			if(!b) return;
 			var rare = rares.filter(function(r){ return r.id === b.getAttribute("data-id"); })[0];
@@ -136,20 +208,126 @@
 			results.hidden = true;
 			search.focus();
 		});
-		document.addEventListener("click", function(e){ if(!root.contains(e.target)) results.hidden = true; });
+		document.addEventListener("click", function(e){
+			if(!root.contains(e.target)) results.hidden = true;
+			if(!texPick.contains(e.target)) texResults.hidden = true;
+		});
+
+		// ---- your own item ----
+		function picMode(){ return customBox.querySelector("input[type=radio]:checked").value; }
+		function showChosen(){
+			var src = picture && (picture.dataUrl || picture.texture);
+			chosen.hidden = !src;
+			chosen.innerHTML = src ? '<img class="ae-ico" src="' + esc(src) + '" alt="">' + esc(picture.label) : "";
+		}
+		function setPicture(p){ picture = p; cerr.hidden = true; showChosen(); }
+		function resetCustom(){
+			cname.value = "";
+			customBox.querySelector('input[value="none"]').checked = true;
+			texSearch.value = "";
+			texResults.hidden = true;
+			file.value = "";
+			cerr.hidden = true;
+			syncPicMode();
+		}
+		function syncPicMode(){
+			var mode = picMode();
+			texPick.hidden = mode !== "item";
+			upload.hidden = mode !== "upload";
+			setPicture(null);
+			texSearch.value = "";
+			file.value = "";
+		}
+		function openCustom(name){
+			customBox.hidden = false;
+			customOpen.hidden = true;
+			if(name) cname.value = name;
+			cname.focus();
+		}
+		function closeCustom(){
+			resetCustom();
+			customBox.hidden = true;
+			customOpen.hidden = false;
+		}
+		function customError(text){ cerr.textContent = text; cerr.hidden = false; }
+		function addCustom(){
+			var name = cname.value.replace(/\s+/g, " ").trim();
+			if(norm(name).length < 2){ customError("Give your item a name."); cname.focus(); return; }
+			var known = rares.filter(function(r){ return norm(r.name) === norm(name); })[0];
+			if(known){ customError(known.name + " is already a rare: pick it from the search instead."); return; }
+			var mode = picMode();
+			if(mode !== "none" && !picture){ customError(mode === "item" ? "Pick an item, or choose No picture." : "Choose a picture, or choose No picture."); return; }
+			var custom = { name: name };
+			if(picture && picture.texture) custom.texture = picture.texture;
+			if(picture && picture.dataUrl) custom.image = picture.dataUrl.split(",")[1];
+			if(add({ custom: custom, name: name, texture: picture ? picture.dataUrl || picture.texture : "" })) closeCustom();
+		}
+		customOpen.addEventListener("click", function(){ openCustom(""); });
+		root.querySelector("[data-custom-cancel]").addEventListener("click", function(){ msg.textContent = ""; closeCustom(); });
+		root.querySelector("[data-custom-add]").addEventListener("click", addCustom);
+		customBox.querySelector(".ae-pics").addEventListener("change", function(){
+			syncPicMode();
+			if(picMode() === "item") texSearch.focus();
+		});
+		cname.addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); addCustom(); } });
+		function showTexResults(){
+			var q = norm(texSearch.value);
+			if(!q){ texResults.hidden = true; return; }
+			loadPictures().then(function(all){
+				if(norm(texSearch.value) !== q) return;
+				var h = all.filter(function(i){ return norm(i.name).indexOf(q) !== -1; })
+					.sort(function(a, b){ return (norm(a.name).indexOf(q) === 0 ? 0 : 1) - (norm(b.name).indexOf(q) === 0 ? 0 : 1) || a.name.localeCompare(b.name); })
+					.slice(0, 10);
+				texResults.innerHTML = h.length ? h.map(function(i){
+					return '<button type="button" data-tex="' + esc(i.texture) + '" data-name="' + esc(i.name) + '"><img class="ae-ico" src="' + esc(i.texture) + '" alt="" loading="lazy">' + esc(i.name) + '</button>';
+				}).join("") : '<div class="none">No item matches that</div>';
+				texResults.hidden = false;
+			});
+		}
+		texSearch.addEventListener("input", showTexResults);
+		texSearch.addEventListener("keydown", function(e){
+			if(e.key === "Enter"){
+				e.preventDefault();
+				var first = texResults.querySelector("button");
+				if(first) first.click();
+			} else if(e.key === "Escape" && !texResults.hidden){
+				e.stopPropagation();
+				texResults.hidden = true;
+			}
+		});
+		texResults.addEventListener("click", function(e){
+			var b = e.target.closest("button[data-tex]");
+			if(!b) return;
+			setPicture({ texture: b.getAttribute("data-tex"), label: "Picture of " + b.getAttribute("data-name") });
+			texSearch.value = "";
+			texResults.hidden = true;
+		});
+		file.addEventListener("change", function(){
+			var chosenFile = file.files[0];
+			setPicture(null);
+			if(!chosenFile) return;
+			pictureToPng(chosenFile).then(function(dataUrl){
+				setPicture({ dataUrl: dataUrl, label: chosenFile.name });
+			}).catch(function(){
+				file.value = "";
+				customError("That file couldn't be read as a picture. Try a PNG or JPG.");
+			});
+		});
 
 		// ---- rows ----
 		function add(rare){
 			var limit = opts.limit ? opts.limit() : Infinity;
 			if(rows.length >= limit){
 				msg.textContent = limit ? "You can enter " + limit + " item" + (limit === 1 ? "" : "s") + " in this auction." : "You've reached the item limit for this auction.";
-				return;
+				return false;
 			}
 			msg.textContent = "";
 			var row = { key: ++seq, rare: rare, est: null, start: { val: "", unit: "db" }, min: { val: "", unit: "db" }, touched: false, host: false, qty: 1 };
 			rows.push(row);
+			if(rare.custom) row.est = { value: null, own: true }; // SCTP has no value for it
 			render();
 			changed();
+			if(rare.custom) return true;
 			var a = auction();
 			fetch(opts.api + "/auction/estimate?rareId=" + encodeURIComponent(rare.id) + "&world=" + encodeURIComponent(a.world || "Firefly"))
 				.then(function(r){ return r.json(); })
@@ -161,6 +339,7 @@
 					if(rows.indexOf(row) !== -1) render();
 					changed();
 				});
+			return true;
 		}
 
 		// fill in SCTP's suggested prices for the whole lot
@@ -205,7 +384,7 @@
 		}
 		function valueHtml(row){
 			if(!row.est) return '<span class="ae-val">…</span>';
-			if(row.est.value == null) return '<div class="ae-val">–<small>' + (row.est.failed ? "couldn't load" : "no price data") + '</small></div>';
+			if(row.est.value == null) return '<div class="ae-val">–<small>' + (row.est.own ? "your own item" : row.est.failed ? "couldn't load" : "no price data") + '</small></div>';
 			if(row.qty > 1) return '<div class="ae-val">≈ ' + esc(fmtDia(lotValue(row))) + '<small>' + esc(fmtDia(row.est.value)) + ' each · ' + esc(row.est.basis || "") + '</small></div>';
 			return '<div class="ae-val">≈ ' + esc(fmtDia(row.est.value)) + '<small>' + esc(row.est.basis || "") + '</small></div>';
 		}
@@ -214,7 +393,7 @@
 		function rowHtml(row){
 			var c = check(row);
 			return '<tr data-k="' + row.key + '">' +
-				'<td><div class="ae-item"><img class="ae-ico" src="' + esc(row.rare.texture || "") + '" alt="">' + esc(row.rare.name) + '</div></td>' +
+				'<td><div class="ae-item"><img class="ae-ico" src="' + esc(row.rare.texture || "/items/textures/_placeholder.svg") + '" alt="">' + esc(row.rare.name) + '</div></td>' +
 				'<td><input type="number" class="ae-qty" min="1" max="999" step="1" data-qty value="' + row.qty + '" aria-label="How many ' + esc(row.rare.name) + '" title="How many in this lot (priced together)"></td>' +
 				'<td>' + valueHtml(row) + '</td>' +
 				'<td>' + (row.host ? '<div class="ae-hostnote">The host sets the price' + (regular() ? '' : 's') + '</div>' : moneyHtml("start", row.start) + '<div data-n="start">' + noteHtml(c.start, showBadFor[row.key]) + '</div>') +
@@ -281,7 +460,7 @@
 
 		return {
 			count: function(){ return rows.length; },
-			clear: function(){ rows = []; showBadFor = {}; msg.textContent = ""; render(); changed(); },
+			clear: function(){ rows = []; showBadFor = {}; msg.textContent = ""; closeCustom(); render(); changed(); },
 			focus: function(){ search.focus(); },
 			rerender: render,
 			validate: function(){
@@ -297,8 +476,12 @@
 				if(!rows.length) return { error: "Add at least one item first." };
 				if(firstBad) return { error: "Fix the prices marked in red (" + firstBad + ")." };
 				return { items: rows.map(function(row){
-					if(row.host) return { rareId: row.rare.id, quantity: row.qty, hostPicks: true };
-					var v = vals(row); return { rareId: row.rare.id, quantity: row.qty, startDia: v.start, minDia: v.min };
+					var what = row.rare.custom ? { custom: row.rare.custom, quantity: row.qty } : { rareId: row.rare.id, quantity: row.qty };
+					if(row.host){ what.hostPicks = true; return what; }
+					var v = vals(row);
+					what.startDia = v.start;
+					what.minDia = v.min;
+					return what;
 				}) };
 			},
 		};

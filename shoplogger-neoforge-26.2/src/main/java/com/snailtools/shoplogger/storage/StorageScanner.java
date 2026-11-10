@@ -45,6 +45,33 @@ public final class StorageScanner implements SilentScreenCoordinator.Listener {
 	private boolean armedShulker;
 	private boolean yielding; // letting go for you, not a failed open
 	private long lastAttempt, holdOffUntil;
+	private int ticks;
+
+	/** Containers nearer than this are checked for still being there (their chunk is surely loaded). */
+	private static final double GONE_CHECK_RANGE = 24.0;
+	/** How long a spot must stay without its container before it counts as broken (not a hiccup while blocks load). */
+	private static final long GONE_AFTER_MS = 3000L;
+
+	/**
+	 * A container in My storage that was broken, or swapped for another kind,
+	 * is taken out of it: whatever's there now isn't what was read. The chat
+	 * says so, so a container that's put back can be added again with X+M.
+	 */
+	private void forgetBroken(Minecraft mc, long now) {
+		String dim = StorageIndex.dimension();
+		Vec3 eye = mc.player.getEyePosition();
+		for (StorageIndex.Box b : new java.util.ArrayList<>(StorageIndex.boxes())) {
+			if (!b.dim.equals(dim) || Vec3.atCenterOf(b.pos()).distanceTo(eye) > GONE_CHECK_RANGE || !mc.level.hasChunkAt(b.pos())) { b.missingSince = 0; continue; }
+			net.minecraft.world.level.block.entity.BlockEntity be = mc.level.getBlockEntity(b.pos());
+			boolean there = StorageContainers.isContainer(be) && StorageContainers.kind(be).equals(b.kind);
+			if (there) { b.missingSince = 0; continue; }
+			if (b.missingSince == 0) { b.missingSince = now; continue; }
+			if (now - b.missingSince < GONE_AFTER_MS) continue;
+			StorageIndex.forget(b);
+			com.snailtools.shoplogger.ChatFormat.send(mc, com.snailtools.shoplogger.ChatFormat.INFO,
+					b.label() + " is gone, so it's out of My storage. Put one back? Add it with X+M.");
+		}
+	}
 
 	/** True during our own silent click, so the click handlers don't take it for yours. */
 	public static boolean isSelfInteracting() { return INSTANCE.selfInteracting || INSTANCE.resolving; }
@@ -62,8 +89,14 @@ public final class StorageScanner implements SilentScreenCoordinator.Listener {
 	public void tick(Minecraft mc) {
 		if (armed || mc.level == null || mc.player == null || mc.gameMode == null) return;
 		if (!StorageSettings.isEnabled() || !StorageIndex.ready()) return;
-		if (mc.player.containerMenu != mc.player.inventoryMenu || mc.player.isShiftKeyDown()) return;
 		long now = System.currentTimeMillis();
+		if (mc.player.containerMenu != mc.player.inventoryMenu) {
+			// a container of yours is open: wait a bit after it closes too, in case you open the next one right away
+			holdOffUntil = Math.max(holdOffUntil, now + HOLD_OFF_MS);
+			return;
+		}
+		if (++ticks % 20 == 0) forgetBroken(mc, now);
+		if (mc.player.isShiftKeyDown()) return;
 		if (now < holdOffUntil || now - lastAttempt < GAP_MS) return;
 		if (SilentScreenCoordinator.isArmed()) return;
 

@@ -1,5 +1,6 @@
 package com.snailtools.shoplogger.storage;
 
+import com.snailtools.shoplogger.SilentScreenCoordinator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -12,16 +13,24 @@ import net.minecraft.world.level.block.entity.BlockEntity;
  * moment its contents arrive, again a few ticks after anything in it changes
  * (you put something in or took something out), and once more as you close it.
  * Each read logs the difference (StorageIndex.record).
+ *
+ * A window only counts for the container you clicked when it has that
+ * container's shape (a double chest's 6 rows, a shulker box's own screen...),
+ * and not right after a silent open let go for your click: that window may be
+ * the silent one's, arriving late. Skipping a read is better than writing one
+ * container's items into another.
  */
 public final class StorageTracker {
 
 	private StorageTracker() {}
 
 	private static final long PENDING_MS = 3000L;
+	private static final long AFTER_YIELD_MS = 2000L;
 	private static final int RESCAN_DELAY_TICKS = 3;
 
 	private static StorageIndex.Box pending;
 	private static long pendingAt;
+	private static int pendingRows; // 6 for a double chest, else 3; 0 = a shulker box's own screen
 	private static StorageIndex.Box openBox;
 	private static AbstractContainerMenu openMenu;
 	private static int rescanIn = -1;
@@ -37,8 +46,15 @@ public final class StorageTracker {
 		if (box != null) {
 			pending = box;
 			pendingAt = System.currentTimeMillis();
+			pendingRows = box.isEnder() ? 3 : "shulker".equals(StorageContainers.kind(be)) ? 0 : StorageContainers.rows(mc.level, clicked);
 			StorageHighlight.onOpened(box);
 		}
+	}
+
+	/** Does this window look like the container that was clicked? */
+	private static boolean fits(AbstractContainerMenu menu, int rows) {
+		if (rows == 0) return menu instanceof ShulkerBoxMenu;
+		return menu instanceof ChestMenu chest && chest.getRowCount() == rows;
 	}
 
 	/** A container's full contents arrived (ClientPlayNetworkHandlerMixin). */
@@ -48,12 +64,37 @@ public final class StorageTracker {
 		AbstractContainerMenu menu = mc.player.containerMenu;
 		if (menu == null || menu.containerId != containerId) return;
 		if (openMenu == menu) { rescanIn = RESCAN_DELAY_TICKS; return; } // a refresh of the one that's open
+		if (openMenu != null && pending == null && fits(menu, rowsOf(openBox))) {
+			// the server opened the same container's window again (no click in between): keep following it
+			openMenu = menu;
+			rescanIn = RESCAN_DELAY_TICKS;
+			return;
+		}
+		closeOpen();
 		if (pending == null || System.currentTimeMillis() - pendingAt > PENDING_MS) return;
-		if (!(menu instanceof ChestMenu) && !(menu instanceof ShulkerBoxMenu)) return;
-		openBox = pending;
-		openMenu = menu;
+		StorageIndex.Box box = pending;
 		pending = null;
+		if (pendingAt - SilentScreenCoordinator.lastYieldAt() < AFTER_YIELD_MS) return; // may be the silent open's window
+		if (!fits(menu, pendingRows)) return; // not the container you clicked (or a locked one's own window)
+		openBox = box;
+		openMenu = menu;
 		StorageIndex.record(openBox, StorageIndex.read(menu));
+	}
+
+	private static int rowsOf(StorageIndex.Box box) {
+		Minecraft mc = Minecraft.getInstance();
+		if (box == null || mc.level == null) return -1;
+		if (box.isEnder()) return 3;
+		if ("shulker".equals(box.kind)) return 0;
+		return StorageContainers.rows(mc.level, box.pos());
+	}
+
+	/** The open container was closed (or replaced): one last read of what its window showed. */
+	private static void closeOpen() {
+		if (openMenu != null) StorageIndex.record(openBox, StorageIndex.read(openMenu));
+		openMenu = null;
+		openBox = null;
+		rescanIn = -1;
 	}
 
 	/** One slot of an open container changed (ClientPlayNetworkHandlerMixin). */
@@ -65,13 +106,11 @@ public final class StorageTracker {
 	public static void tick(Minecraft mc) {
 		StorageIndex.tick();
 		if (openMenu == null) return;
-		boolean stillOpen = mc.player != null && mc.player.containerMenu == openMenu;
-		if (!stillOpen) {
-			// closed: one last read of what the screen showed
-			StorageIndex.record(openBox, StorageIndex.read(openMenu));
-			openMenu = null;
-			openBox = null;
-			rescanIn = -1;
+		AbstractContainerMenu now = mc.player == null ? null : mc.player.containerMenu;
+		if (now != openMenu) {
+			// a new window of the same shape without a click: the server re-opened it; wait for its contents (onContent)
+			if (now != null && now != mc.player.inventoryMenu && pending == null && fits(now, rowsOf(openBox))) return;
+			closeOpen();
 			return;
 		}
 		if (rescanIn > 0 && --rescanIn == 0) {

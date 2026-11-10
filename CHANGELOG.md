@@ -8,10 +8,25 @@
 - **You already have this:** items in your storage get a chest icon in item search and on shop listings, and a banner on their item page. Click it to find where they are.
 - **Storage holograms:** the containers in My storage show what's inside (the main item and how many, or "Mixed") on the lower half of every side that's fully open to air.
 - **Settings › My storage:** turn the whole feature or its holograms on or off, pick the highlight style, and see or remove every container you've added.
+- **Notepad** (press **N**): a shopping list that ticks itself off. Add items with how many you need; as they arrive in your inventory the line counts down, and **TP** takes you to the cheapest shop selling it. Paste a code from sctp.nl/list, or take what's missing from Litematica's material list. A Notes page for everything else ("holding Snaruto for Tina"). Either page can stay on screen as a small card you can move.
+- **My storage, sorted and grouped:** sort by most, fewest, A to Z, Z to A or recently changed. Show only rares, only vanilla items or what you've marked, and browse by group: a rare category (Decor, Collectibles...), a rare type (Snail, Sword...) or a creative menu group (Building blocks, Redstone...).
+- **Marks:** put a ★ ◆ ❤ ● ▲ or ■ on any item in My storage (the ☆ on its row), then show just that mark to find borrowed items or favourite tools again.
+- **Finding things:** opening one of the lit-up containers now turns off only that one (Settings › My storage can make it turn them all off), and inside it the slots holding the item are outlined. Rares whose names differ only in their symbols are found apart.
+- **Bundles count:** what's in bundles (in your chests, or in shulker boxes in them) is in My storage too.
+- **Find unread containers:** a button in My storage lights up the 5 nearest containers still waiting for their first read.
+- **Broken containers leave My storage:** a container that's broken or swapped for another kind is taken out (the chat says so), so a new one in its spot isn't mistaken for it.
+- **More reliable reads:** opening and closing containers quickly no longer writes one chest's items into another, and a container no longer shows as empty until it's opened a second time.
+- **Holograms** sit lower on the side, and long item names wrap onto a second line.
+- **Keys in Settings › Keys:** every key of the mod is changed there now, not in Options › Controls. Keys you had changed are carried over.
+- **Chat with linked items:** a repeated message with a linked item ("[Shulker Box]") still stacks, with a ▸ after the count: click it to see every message again, each with its own item.
+- **Watchlist alerts:** an item that several shops sell alerts with the cheapest, and hovering "+N more sellers" lists the others, cheapest first. "Stop watching" is purple now.
+- **Rares sort:** the rare library sorts by newest added (the default), oldest, A to Z or Z to A, so new rares are right at the top.
+- **Fixed: the sold glow:** a new sale on a shop chest whose earlier payment you hadn't collected yet lights the chest up again. Scans never turn it off; only opening the chest yourself does.
 - **Fixed: yearly items mixed up on the watchlist.** Watching last year's "Creativity Crate Key" no longer alerts you about the "Creativity 2026 Crate Key" (or the other way round): numbers in a name now count.
 
 ### Website
 - **Build list: cheaper to craft:** when buying the ingredients and crafting (crafting table or stonecutter) costs at least half less than buying the block, or nobody sells the block, the list buys the ingredients instead. "Buy the block instead" switches any of them back.
+- **Build list to the notepad:** "Copy for the notepad" under your list gives a code the mod's notepad pastes as a shopping list, crafting swaps included.
 - **Build list checkmarks:** tick off each line as you buy it; it gets crossed out, a shop dims once you're done there, and your ticks stay when you reload. "Clear checkmarks" starts over.
 - **Wishlist stars on cards:** every card in the rare library and the mapart catalog has a ☆ when you're logged in, to add it to (or take it off) your wishlist.
 - **Sort every list:** the rare and vanilla libraries, the mapart catalog and your collection sort A to Z, Z to A, newest or oldest (mapart also by likes or size), and remember your choice.
