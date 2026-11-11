@@ -75,6 +75,10 @@ public final class StorageIndex {
 		public transient long retryAt;
 		/** Since when its spot has held no container of its kind (StorageScanner; not saved), 0 = it's there. */
 		public transient long missingSince;
+		/** Your own name for it and the item shown as its icon (My storage › Containers), null = none. */
+		public String name, icon;
+		/** The name its window showed when you last opened it, when it was renamed in an anvil (null = its plain name). */
+		public String title;
 
 		public BlockPos pos() { return new BlockPos(x, y, z); }
 		public boolean isEnder() { return "ender".equals(kind); }
@@ -82,10 +86,16 @@ public final class StorageIndex {
 		public int total() { int t = 0; for (Item i : items) t += i.c; return t; }
 		public String where() { return isEnder() ? "Ender chest" : x + ", " + y + ", " + z; }
 		public String label() {
+			if (name != null && !name.isBlank()) return name;
+			return plainLabel();
+		}
+		/** "Chest at 1, 64, 2", whatever it's called. */
+		public String plainLabel() {
 			if (isEnder()) return "Ender chest";
 			String k = "barrel".equals(kind) ? "Barrel" : "shulker".equals(kind) ? "Shulker box" : "Chest";
 			return k + " at " + x + ", " + y + ", " + z;
 		}
+		public boolean named() { return name != null && !name.isBlank(); }
 	}
 
 	private static final class Data {
@@ -99,7 +109,7 @@ public final class StorageIndex {
 	public enum Mark {
 		STAR("star", "★", "Star", 0xFFFFD84A),
 		DIAMOND("diamond", "◆", "Diamond", 0xFF5EE3E8),
-		HEART("heart", "❤", "Heart", 0xFFFF5C7A),
+		HEART("heart", "♥", "Heart", 0xFFFF5C7A),
 		CIRCLE("circle", "●", "Circle", 0xFF7DDA58),
 		TRIANGLE("triangle", "▲", "Triangle", 0xFFFF9F43),
 		SQUARE("square", "■", "Square", 0xFFB28DFF);
@@ -430,6 +440,20 @@ public final class StorageIndex {
 	public static void setMark(Item item, Mark mark) {
 		if (!ready()) return;
 		if (mark == null) data.marks.remove(item.key()); else data.marks.put(item.key(), mark.id);
+		save();
+	}
+
+	// ---- your names and icons for containers ----
+
+	/** Gives a container your own name (blank takes it off). */
+	public static void setName(Box b, String name) {
+		b.name = name == null || name.isBlank() ? null : name.trim();
+		save();
+	}
+
+	/** Shows an item as a container's icon (null: back to its own block). */
+	public static void setIcon(Box b, String itemId) {
+		b.icon = itemId == null || itemId.isBlank() ? null : itemId;
 		save();
 	}
 

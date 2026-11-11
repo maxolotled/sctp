@@ -6,6 +6,7 @@ import com.snailtools.shoplogger.gui.ui.Draw;
 import com.snailtools.shoplogger.gui.ui.Section;
 import com.snailtools.shoplogger.gui.ui.Theme;
 import com.snailtools.shoplogger.gui.ui.UiButton;
+import com.snailtools.shoplogger.gui.ui.UiField;
 import com.snailtools.shoplogger.gui.ui.UiScreen;
 import com.snailtools.shoplogger.gui.widget.ItemListWidget;
 import com.snailtools.shoplogger.storage.StorageHighlight;
@@ -16,7 +17,7 @@ import net.minecraft.client.gui.screens.Screen;
 import java.util.List;
 import java.util.Locale;
 
-/** One container in My storage: what's in it, what went in and out lately, and where it is. */
+/** One container in My storage: what's in it, what went in and out lately, and where it is. You can name it and pick its icon here. */
 public class StorageBoxScreen extends UiScreen {
 
 	private final StorageIndex.Box box;
@@ -45,9 +46,22 @@ public class StorageBoxScreen extends UiScreen {
 			int hw = font.width(hl) + 16;
 			bx -= hw + 6;
 			addRenderableWidget(new UiButton(bx, y, hw, 18, hl, UiButton.Style.PRIMARY, () -> StorageHighlight.show(box.label(), List.of(box))));
+
+			// your name for it (saved as you type) and its icon
+			String ic = "Icon";
+			int iw = font.width(ic) + 30;
+			bx -= iw + 6;
+			addRenderableWidget(new UiButton(bx, y, iw, 18, ic, UiButton.Style.SECONDARY, this::pickIcon)
+					.icon(com.snailtools.shoplogger.gui.ui.Draw.stackFor(StorageScreen.iconFor(box))).tooltip("The item shown for this container in My storage"));
+			nameField = new UiField(font, x, y - 1, Math.max(80, bx - 6 - x), 20, "Name it, e.g. \"Wool\" or \"Tina's stuff\"…", false);
+			nameField.box.setMaxLength(48);
+			nameField.box.setValue(box.named() ? box.name : "");
+			nameField.box.setResponder(v -> StorageIndex.setName(box, v));
+			addRenderableOnly(nameField.frame());
+			addRenderableWidget(nameField.box);
 		}
 
-		listY = y + 40;
+		listY = y + 52;
 		list = new ItemListWidget(minecraft, x - 6, listY, w + 12, contentBottom() - listY);
 		addRenderableWidget(list);
 		for (StorageIndex.Item i : box.items) {
@@ -63,6 +77,17 @@ public class StorageBoxScreen extends UiScreen {
 		}
 	}
 
+	private UiField nameField;
+
+	private void pickIcon() {
+		// what's in it first, then its own block
+		java.util.List<String> ids = new java.util.ArrayList<>();
+		for (StorageIndex.Item i : box.items) if (!ids.contains(i.b)) ids.add(i.b);
+		String own = switch (box.kind) { case "barrel" -> "minecraft:barrel"; case "shulker" -> "minecraft:shulker_box"; default -> "minecraft:chest"; };
+		if (!ids.contains(own)) ids.add(own);
+		minecraft.setScreenAndShow(new IconPickerScreen(this, box.label(), ids, id -> StorageIndex.setIcon(box, id)));
+	}
+
 	private static String ago(long ms) {
 		long m = ms / 60000;
 		if (m < 1) return "just now";
@@ -73,11 +98,11 @@ public class StorageBoxScreen extends UiScreen {
 
 	@Override
 	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-		int x = contentX(), y = contentY();
+		int x = contentX(), y = contentY() + (box.isEnder() ? 0 : 24);
 		String[] s = StorageIndex.summary(box);
-		g.text(font, box.isEnder() ? "Your ender chest" : box.where() + " · " + box.dim.replace("minecraft:", ""), x, y + 5, Theme.TEXT, false);
+		g.text(font, box.isEnder() ? "Your ender chest" : box.plainLabel() + " · " + box.dim.replace("minecraft:", ""), x, y + 1, Theme.TEXT, false);
 		String line = box.waiting() ? "Not read yet: walk within reach of it" : s[0] + (s[1].isEmpty() ? "" : " · " + s[1]) + " · read " + ago(System.currentTimeMillis() - box.scannedAt);
-		g.text(font, Draw.trim(font, line, contentW() / 2), x, y + 18, Theme.MUTED, false);
+		g.text(font, Draw.trim(font, line, contentW()), x, y + 12, Theme.MUTED, false);
 		g.text(font, "INSIDE" + (box.log.isEmpty() ? "" : " · THEN RECENT CHANGES"), x, listY - 10, Theme.FAINT, false);
 	}
 

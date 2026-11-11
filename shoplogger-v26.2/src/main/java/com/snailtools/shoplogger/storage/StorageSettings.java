@@ -19,8 +19,25 @@ public final class StorageSettings {
 	public static boolean isEnabled() { return Config.getOrCreate("storage/enabled", Boolean.class, true); }
 	public static void setEnabled(boolean v) { Config.update("storage/enabled", v); if (!v) StorageHighlight.clear(); }
 
-	public static boolean hologramsOn() { return Config.getOrCreate("storage/holograms", Boolean.class, true); }
-	public static void setHolograms(boolean v) { Config.update("storage/holograms", v); }
+	/** What the holograms on your containers say. */
+	public enum HologramMode {
+		SUPPLY("Main item"),        // what's mostly in it and how many
+		NAME("Container name"),     // the name you gave it (or its anvil name), else the main item
+		INDEXED("In My storage?"),  // on every container around: whether it's in My storage yet
+		OFF("Off");
+
+		public final String label;
+		HologramMode(String label) { this.label = label; }
+	}
+
+	public static HologramMode hologramMode() {
+		HologramMode m = Config.get("storage/hologramMode", HologramMode.class);
+		if (m != null) return m;
+		// from before there were modes: on or off
+		return Config.getOrCreate("storage/holograms", Boolean.class, true) ? HologramMode.SUPPLY : HologramMode.OFF;
+	}
+	public static void setHologramMode(HologramMode m) { Config.update("storage/hologramMode", m); }
+	public static boolean hologramsOn() { return hologramMode() != HologramMode.OFF; }
 
 
 	public static HighlightStyle highlightStyle() { return Config.getOrCreate("storage/highlightStyle", HighlightStyle.class, HighlightStyle.GLOW); }

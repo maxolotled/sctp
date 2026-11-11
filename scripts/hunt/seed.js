@@ -19,8 +19,21 @@ const API = "https://snailcraft-trading-post.snailcraft-trading-post.workers.dev
 const TOKEN = process.env.HUNT_ADMIN_TOKEN;
 if (!TOKEN) { console.error("Set HUNT_ADMIN_TOKEN first."); process.exit(1); }
 
+/** fetch, tried again (up to 4 times, waiting a bit longer each time) when the connection drops or the server has a hiccup (5xx). */
+async function fetchRetry(url, opts) {
+	for (let i = 1; ; i++) {
+		try {
+			const res = await fetch(url, opts);
+			if (res.status < 500 || i >= 4) return res;
+		} catch (e) {
+			if (i >= 4) throw e;
+		}
+		await new Promise((r) => setTimeout(r, 1500 * i));
+	}
+}
+
 async function post(p, body) {
-	const res = await fetch(API + p, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + TOKEN }, body: JSON.stringify(body) });
+	const res = await fetchRetry(API + p, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + TOKEN }, body: JSON.stringify(body) });
 	const d = await res.json().catch(() => ({}));
 	if (!res.ok) throw new Error(p + ": " + (d.error || res.status));
 	return d;
@@ -87,7 +100,7 @@ async function uploadGenerated(dir) {
 	for (const key of keys) if (!fs.existsSync(path.join(dir, key))) throw new Error("missing picture " + key + " (a --no-images dry run can't be uploaded)");
 
 	for (const key of keys) {
-		const res = await fetch(API + "/admin/hunt/image?key=" + encodeURIComponent(key), {
+		const res = await fetchRetry(API + "/admin/hunt/image?key=" + encodeURIComponent(key), {
 			method: "POST", headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "image/webp" }, body: fs.readFileSync(path.join(dir, key)),
 		});
 		if (!res.ok) throw new Error("picture " + key + ": " + res.status);

@@ -6,6 +6,7 @@ import com.snailtools.shoplogger.gui.ui.Draw;
 import com.snailtools.shoplogger.gui.ui.Section;
 import com.snailtools.shoplogger.gui.ui.Theme;
 import com.snailtools.shoplogger.gui.ui.UiButton;
+import com.snailtools.shoplogger.gui.ui.UiChip;
 import com.snailtools.shoplogger.gui.ui.UiField;
 import com.snailtools.shoplogger.gui.ui.UiScreen;
 import com.snailtools.shoplogger.gui.widget.ItemListWidget;
@@ -67,13 +68,58 @@ public class NotepadScreen extends UiScreen {
 			button(bx, ay, "Clear bought", UiButton.Style.GHOST, () -> { Notepad.clearDone(); rebuild(); });
 		}
 
+		// the bottom bar: the order (shopping list), and clearing the page
+		int barY = contentBottom() - 20;
+		if (!notesPage) {
+			addRenderableWidget(new UiChip<>(x, barY + 1, Math.min(170, w / 3), 18, "Sort", Notepad.SORTS, Notepad.sort(), v -> v, v -> {
+				Notepad.setSort(v);
+				if (Notepad.sortsByPrice()) Notepad.loadListings(this::refillIfOpen);
+				fill();
+			}));
+		}
+		boolean empty = notesPage ? Notepad.notes().isEmpty() : Notepad.shopping().isEmpty();
+		String clearLabel = notesPage ? "Clear notes" : "Clear shopping list";
+		int cw = font.width("Click again to clear") + 16;
+		clearButton = new UiButton(x + w - cw, barY, cw, 20, clearLabel, UiButton.Style.DANGER, () -> {
+			if (System.currentTimeMillis() - clearArmedAt > 3000L) {
+				// one more click within 3 seconds really clears it
+				clearArmedAt = System.currentTimeMillis();
+				clearButton.setMessage(net.minecraft.network.chat.Component.literal("Click again to clear"));
+				return;
+			}
+			clearArmedAt = 0;
+			if (notesPage) Notepad.clearNotes(); else Notepad.clearShopping();
+			rebuild();
+		});
+		clearButton.active = !empty;
+		clearButton.tooltip(notesPage ? "Deletes every note" : "Removes every line, bought or not");
+		addRenderableWidget(clearButton);
+
 		listX = x - 6;
 		listY = ay + 30;
 		listW = w + 12;
-		listH = contentBottom() - listY;
+		listH = barY - 6 - listY;
 		list = new ItemListWidget(minecraft, listX, listY, listW, listH);
 		addRenderableWidget(list);
 		fill();
+		// the prices on each line (and the price sorts) need the listings
+		if (!notesPage && !Notepad.shopping().isEmpty()) Notepad.loadListings(this::refillIfOpen);
+	}
+
+	private UiButton clearButton;
+	private long clearArmedAt;
+
+	private void refillIfOpen() {
+		if (minecraft.gui.screen() == this && list != null) fill();
+	}
+
+	@Override
+	public void tick() {
+		super.tick();
+		if (clearButton != null && clearArmedAt != 0 && System.currentTimeMillis() - clearArmedAt > 3000L) {
+			clearArmedAt = 0;
+			clearButton.setMessage(net.minecraft.network.chat.Component.literal(notesPage ? "Clear notes" : "Clear shopping list"));
+		}
 	}
 
 	private int button(int x, int y, String label, UiButton.Style style, Runnable onPress) {
@@ -111,36 +157,61 @@ public class NotepadScreen extends UiScreen {
 		list.clearAllEntries();
 		if (notesPage) {
 			for (Notepad.Note n : Notepad.notes()) {
-				ItemListWidget.ItemEntry e = ItemListWidget.forVanilla((n.done ? "✓ " : "") + n.text, n.done ? "minecraft:book" : "minecraft:writable_book",
-						n.done ? "Done · click to undo" : "Click to tick it off", () -> { n.done = !n.done; Notepad.changed(); fill(); });
+				String icon = n.icon != null ? n.icon : n.done ? "minecraft:book" : "minecraft:writable_book";
+				ItemListWidget.ItemEntry e = ItemListWidget.forVanilla((n.done ? "✓ " : "") + n.text, icon,
+						n.done ? "Done · click to undo" : "Click to tick it off", () -> { n.done = !n.done; Notepad.changed(); fill(); },
+						() -> minecraft.setScreenAndShow(new IconPickerScreen(this, "this note", java.util.List.of(), id -> { n.icon = id; Notepad.changed(); })));
+				e.withPageButton("Icon", "Pick an item to show next to this note (also on the card on screen)");
 				e.withTag("✕", Theme.BAD, "Delete this note", () -> { Notepad.removeNote(n); fill(); });
 				list.addItemEntry(e);
 			}
 			return;
 		}
-		for (Notepad.Need n : Notepad.shopping()) {
+		for (Notepad.Need n : Notepad.ordered()) {
 			String sub = n.complete() ? "Bought ✓" + (n.done && n.got < n.need ? " (ticked off)" : "")
-					: Notepad.fmt(n.left()) + " left · " + Notepad.fmt(n.got) + " of " + Notepad.fmt(n.need);
+					: Notepad.fmt(n.left()) + " left · " + Notepad.fmt(n.got) + " of " + Notepad.fmt(n.need) + priceNote(n);
 			String texture = n.base == null && RareIcons.isLoaded() ? RareIcons.textureFor(n.name) : null;
 			Runnable edit = () -> minecraft.setScreenAndShow(new NotepadItemScreen(this, n));
 			Runnable tp = () -> Notepad.teleportToCheapest(n);
 			ItemListWidget.ItemEntry e = texture != null ? ItemListWidget.forRare(n.name, sub, texture, edit, tp)
 					: ItemListWidget.forVanilla(n.name, n.base, sub, edit, tp);
-			e.withPageButton("TP", "Teleport to the cheapest shop selling it");
+			e.withPageButton("TP", "Teleport to the cheapest shop for what's left (counting how much each shop sells at once)");
 			e.withTag(n.complete() ? "✓" : "○", n.complete() ? Theme.ACCENT : Theme.FAINT, n.complete() ? "Bought · click to undo" : "Tick it off",
 					() -> { if (n.complete()) { n.done = false; if (n.got >= n.need) n.got = 0; } else n.done = true; Notepad.changed(); fill(); });
 			list.addItemEntry(e);
 		}
 	}
 
+	/** What's in My storage, then what the rest costs: " · 40 in storage · about 3 dia", " · only 20 for sale", " · nobody sells it"... */
+	private static String priceNote(Notepad.Need n) {
+		int stored = Notepad.stored(n);
+		if (stored >= n.left()) return " · all in My storage";
+		String s = stored > 0 ? " · " + Notepad.fmt(stored) + " in storage" : "";
+		com.snailtools.shoplogger.notepad.BuyPlan p = Notepad.plan(n);
+		if (p == null) return s; // listings still loading
+		if (p.empty()) return s + " · nobody sells it";
+		if (!p.enough()) return s + " · only " + Notepad.fmt(p.items) + " for sale";
+		return s + " · about " + Notepad.diamonds(p.diamonds) + (stored > 0 ? " for the rest" : "");
+	}
+
 	@Override
 	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-		if (notesPage) return;
+		if (notesPage || Notepad.shopping().isEmpty()) return;
 		int open = 0;
-		for (Notepad.Need n : Notepad.shopping()) if (!n.complete()) open++;
-		if (!Notepad.shopping().isEmpty()) {
-			Draw.right(g, font, open + " to buy · " + (Notepad.shopping().size() - open) + " bought", contentX() + contentW(), contentY() + 54, Theme.MUTED);
+		double total = 0;
+		boolean priced = true;
+		for (Notepad.Need n : Notepad.shopping()) {
+			if (n.complete()) continue;
+			open++;
+			com.snailtools.shoplogger.notepad.BuyPlan p = Notepad.plan(n);
+			if (p == null) priced = false; else total += p.diamonds;
 		}
+		String text = open + " to buy · " + (Notepad.shopping().size() - open) + " bought" + (open > 0 && priced ? " · about " + Notepad.diamonds(total) + " in all" : "");
+		// centred in the bottom bar, between the sort and the clear button
+		int barY = contentBottom() - 20;
+		int left = contentX() + Math.min(170, contentW() / 3) + 8, right = clearButton == null ? contentX() + contentW() : clearButton.getX() - 8;
+		String shown = Draw.trim(font, text, Math.max(0, right - left));
+		g.text(font, shown, left + (right - left - font.width(shown)) / 2, barY + 6, Theme.MUTED, false);
 	}
 
 	@Override

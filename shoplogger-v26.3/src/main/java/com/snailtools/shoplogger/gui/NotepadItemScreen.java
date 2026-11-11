@@ -39,7 +39,7 @@ public class NotepadItemScreen extends UiScreen {
 		addRenderableWidget(gotField.box);
 
 		int by = y + 60, bx = x;
-		bx += button(bx, by, "TP to cheapest", UiButton.Style.PRIMARY, () -> Notepad.teleportToCheapest(need)) + 4;
+		bx += button(bx, by, "TP to best shop", UiButton.Style.PRIMARY, () -> Notepad.teleportToCheapest(need)) + 4;
 		bx += button(bx, by, need.done ? "Not bought yet" : "Tick off", UiButton.Style.GHOST, () -> { need.done = !need.done; Notepad.changed(); rebuild(); }) + 4;
 		button(bx, by, "Remove", UiButton.Style.DANGER, () -> { Notepad.remove(need); onClose(); });
 	}

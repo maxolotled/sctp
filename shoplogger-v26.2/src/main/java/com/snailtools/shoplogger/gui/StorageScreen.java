@@ -49,6 +49,12 @@ public class StorageScreen extends UiScreen {
 	private ItemListWidget list;
 	private int listX, listY, listW, listH;
 
+	/** Containers ticked in the Containers view, for doing something to several at once. */
+	private static final java.util.Set<StorageIndex.Box> selected = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+	private UiButton selLight, selIcon, selRemove, selAll, selClear;
+	private long removeArmedAt;
+	private int barY;
+
 	public StorageScreen(Screen parent) {
 		super("My storage", parent, Section.STORAGE);
 	}
@@ -93,9 +99,82 @@ public class StorageScreen extends UiScreen {
 		listY = y + 60;
 		listW = w + 12;
 		listH = contentBottom() - listY;
+		if (byContainer) {
+			// the bar for the ticked containers
+			selected.retainAll(StorageIndex.all());
+			listH -= 26;
+			barY = contentBottom() - 20;
+			int bx = x + w;
+			selClear = barButton(bx, "Clear", UiButton.Style.GHOST, () -> { selected.clear(); refresh(); });
+			bx -= selClear.getWidth() + 4;
+			selRemove = barButton(bx, "Click again to remove", UiButton.Style.DANGER, this::removeSelected);
+			bx -= selRemove.getWidth() + 4;
+			selIcon = barButton(bx, "Icon", UiButton.Style.SECONDARY, this::iconSelected);
+			bx -= selIcon.getWidth() + 4;
+			selLight = barButton(bx, "Light up", UiButton.Style.PRIMARY, () -> {
+				List<StorageIndex.Box> boxes = new ArrayList<>(selected);
+				StorageHighlight.show(boxes.size() == 1 ? boxes.get(0).label() : boxes.size() + " containers", boxes);
+			});
+			bx -= selLight.getWidth() + 4;
+			selAll = barButton(bx, "Select all", UiButton.Style.GHOST, this::selectAllShown);
+			updateBar();
+		}
 		list = new ItemListWidget(minecraft, listX, listY, listW, listH);
 		addRenderableWidget(list);
 		refresh();
+	}
+
+	private UiButton barButton(int right, String label, UiButton.Style style, Runnable onPress) {
+		int bw = font.width(label) + 16;
+		UiButton b = new UiButton(right - bw, barY, bw, 20, label, style, onPress);
+		addRenderableWidget(b);
+		return b;
+	}
+
+	/** The bar's buttons follow how many are ticked. */
+	private void updateBar() {
+		if (selLight == null) return;
+		boolean any = !selected.isEmpty();
+		for (UiButton b : new UiButton[] { selLight, selIcon, selRemove, selClear }) { b.visible = any; }
+		selAll.visible = true;
+		boolean armed = System.currentTimeMillis() - removeArmedAt < 3000L;
+		selRemove.setMessage(net.minecraft.network.chat.Component.literal(armed ? "Click again to remove" : "Remove " + selected.size()));
+	}
+
+	private void selectAllShown() {
+		String q = keepSearch.trim().toLowerCase(Locale.ROOT);
+		for (StorageIndex.Box b : sortedBoxes()) if (matchesBox(b, q)) selected.add(b);
+		refresh();
+	}
+
+	private void removeSelected() {
+		if (System.currentTimeMillis() - removeArmedAt > 3000L) { removeArmedAt = System.currentTimeMillis(); updateBar(); return; }
+		removeArmedAt = 0;
+		int n = selected.size();
+		for (StorageIndex.Box b : new ArrayList<>(selected)) StorageIndex.remove(b);
+		selected.clear();
+		com.snailtools.shoplogger.ChatFormat.send(minecraft, com.snailtools.shoplogger.ChatFormat.SUCCESS, "Took " + n + " container" + (n == 1 ? "" : "s") + " out of My storage.");
+		rebuild();
+	}
+
+	private void iconSelected() {
+		List<String> ids = new ArrayList<>();
+		for (StorageIndex.Box b : selected) for (StorageIndex.Item i : b.items) if (!ids.contains(i.b) && ids.size() < 40) ids.add(i.b);
+		List<StorageIndex.Box> boxes = new ArrayList<>(selected);
+		minecraft.setScreenAndShow(new IconPickerScreen(this, boxes.size() + " containers", ids, id -> { for (StorageIndex.Box b : boxes) StorageIndex.setIcon(b, id); }));
+	}
+
+	@Override
+	public void tick() {
+		super.tick();
+		if (selRemove != null && removeArmedAt != 0 && System.currentTimeMillis() - removeArmedAt > 3000L) { removeArmedAt = 0; updateBar(); }
+	}
+
+	private static boolean matchesBox(StorageIndex.Box b, String q) {
+		if (q.isEmpty()) return true;
+		String[] s = StorageIndex.summary(b);
+		String sub = (s[0] + " " + s[1] + " " + b.plainLabel()).toLowerCase(Locale.ROOT);
+		return b.label().toLowerCase(Locale.ROOT).contains(q) || sub.contains(q) || holds(b, q);
 	}
 
 	private static int waitingHere() {
@@ -138,11 +217,17 @@ public class StorageScreen extends UiScreen {
 		String q = keepSearch.trim().toLowerCase(Locale.ROOT);
 		if (byContainer) {
 			for (StorageIndex.Box b : sortedBoxes()) {
+				if (!matchesBox(b, q)) continue;
 				String[] s = StorageIndex.summary(b);
-				String sub = s[0] + (s[1].isEmpty() ? "" : " · " + s[1]);
-				if (!q.isEmpty() && !b.label().toLowerCase(Locale.ROOT).contains(q) && !sub.toLowerCase(Locale.ROOT).contains(q) && !holds(b, q)) continue;
-				list.addItemEntry(ItemListWidget.forVanilla(b.label(), iconFor(b), sub, () -> minecraft.setScreenAndShow(new StorageBoxScreen(this, b))));
+				// a named one still says where it is
+				String sub = (b.named() ? b.where() + " · " : "") + s[0] + (s[1].isEmpty() ? "" : " · " + s[1]);
+				boolean on = selected.contains(b);
+				ItemListWidget.ItemEntry e = ItemListWidget.forVanilla(b.label(), iconFor(b), sub, () -> minecraft.setScreenAndShow(new StorageBoxScreen(this, b)));
+				e.withTag(on ? "☑" : "☐", on ? Theme.ACCENT : Theme.FAINT, on ? "Selected · click to unselect" : "Select it, to do something to several at once",
+						() -> { if (!selected.remove(b)) selected.add(b); refresh(); });
+				list.addItemEntry(e);
 			}
+			updateBar();
 			return;
 		}
 		List<StorageIndex.Total> items = new ArrayList<>();
@@ -234,6 +319,7 @@ public class StorageScreen extends UiScreen {
 	}
 
 	static String iconFor(StorageIndex.Box b) {
+		if (b.icon != null) return b.icon;
 		return switch (b.kind) {
 			case "barrel" -> "minecraft:barrel";
 			case "shulker" -> "minecraft:shulker_box";
@@ -251,6 +337,11 @@ public class StorageScreen extends UiScreen {
 		String head = all.size() + " container" + (all.size() == 1 ? "" : "s") + " · " + String.format(Locale.ROOT, "%,d", items) + " items"
 				+ (waiting > 0 ? " · " + waiting + " waiting for their first read (walk past them)" : "");
 		g.text(font, Draw.trim(font, head.toUpperCase(Locale.ROOT), contentW() - 4), contentX(), y, Theme.FAINT, false);
+		if (byContainer && selLight != null) {
+			int right = selAll.getX() - 8;
+			String t = selected.isEmpty() ? "Tick ☐ on a row to select several" : selected.size() + " selected";
+			g.text(font, Draw.trim(font, t, Math.max(0, right - contentX())), contentX(), barY + 6, selected.isEmpty() ? Theme.FAINT : Theme.TEXT, false);
+		}
 	}
 
 	@Override
@@ -261,7 +352,7 @@ public class StorageScreen extends UiScreen {
 			Draw.emptyState(g, font, listX, listY, listW, listH, "Which world is this?", "Join Firefly or Honeybee (or use /setworld) to see your storage.", Theme.MUTED);
 		} else if (StorageIndex.all().isEmpty()) {
 			Draw.emptyState(g, font, listX, listY, listW, listH, "Nothing in My storage yet",
-					"Look at a chest, barrel or shulker box and press X+M. Press X+M looking at nothing to add everything within 16 blocks.", Theme.MUTED);
+					"Look at a chest, barrel or shulker box and press " + com.snailtools.shoplogger.ModKeys.text("storage") + ". Press it looking at nothing to add everything within 16 blocks.", Theme.MUTED);
 		} else if (list != null && list.size() == 0) {
 			Draw.emptyState(g, font, listX, listY, listW, listH, "Nothing matches that",
 					byContainer ? "Try an item name or coordinates." : "Try another search, or set Show and Group back to All and Any.", Theme.MUTED);

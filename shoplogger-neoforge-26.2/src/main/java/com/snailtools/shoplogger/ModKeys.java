@@ -84,6 +84,63 @@ public final class ModKeys {
 		return k.isUnbound() ? "Not set" : k.getTranslatedKeyMessage().getString();
 	}
 
+	/** One of the mod's keys by its short name ("open_library", "storage"...), or null. */
+	public static KeyMapping byId(String id) {
+		for (KeyMapping k : KEYS) if (k.getName().equals("key.shoplogger." + id)) return k;
+		return null;
+	}
+
+	/** Pressed while holding the menu key (X+I, X+M) rather than on its own. */
+	public static boolean isChord(KeyMapping k) {
+		return k.getName().equals("key.shoplogger.open_held_item") || k.getName().equals("key.shoplogger.storage");
+	}
+
+	/**
+	 * How chat and screens should name a key right now, after any rebinding:
+	 * "X" for the menu key, "X+M" for one held with it. Falls back to the
+	 * default when the key isn't there (yet).
+	 */
+	public static String text(String id) {
+		KeyMapping k = byId(id);
+		if (k == null) return switch (id) { case "open_held_item" -> "X+I"; case "storage" -> "X+M"; case "notepad" -> "N"; default -> "X"; };
+		return text(k);
+	}
+
+	public static String text(KeyMapping k) {
+		if (!isChord(k)) return keyText(k);
+		KeyMapping menu = byId("open_library");
+		return (menu == null ? "X" : keyText(menu)) + "+" + keyText(k);
+	}
+
+	/** The menu key (also stops highlights and beams): "X" unless it was changed. */
+	public static String menu() { return text("open_library"); }
+
+	/**
+	 * Another of the mod's keys already on this key, or null. Keys held with the
+	 * menu key only clash with each other (M for "add to My storage" and M on its
+	 * own are different presses); the rest clash with the rest.
+	 */
+	public static KeyMapping clash(KeyMapping k, InputConstants.Key key) {
+		if (key == null || key.equals(InputConstants.UNKNOWN)) return null;
+		for (KeyMapping o : KEYS) {
+			if (o == k || isChord(o) != isChord(k)) continue;
+			if (o.saveString().equals(key.getName())) return o;
+		}
+		return null;
+	}
+
+	/** A Minecraft key (not one of ours) on this key, for a warning; null when there's none or for a held-with-X key. */
+	public static KeyMapping vanillaClash(KeyMapping k, InputConstants.Key key) {
+		if (key == null || key.equals(InputConstants.UNKNOWN) || isChord(k)) return null;
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		if (mc.options == null) return null;
+		for (KeyMapping o : mc.options.keyMappings) {
+			if (KEYS.contains(o)) continue;
+			if (o.saveString().equals(key.getName())) return o;
+		}
+		return null;
+	}
+
 	private static String configKey(KeyMapping k) { return "keys/" + k.getName(); }
 
 	private static List<String> optionsTxt() {

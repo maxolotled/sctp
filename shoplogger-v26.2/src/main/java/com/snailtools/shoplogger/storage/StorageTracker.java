@@ -78,7 +78,18 @@ public final class StorageTracker {
 		if (!fits(menu, pendingRows)) return; // not the container you clicked (or a locked one's own window)
 		openBox = box;
 		openMenu = menu;
+		rememberTitle(box, mc);
 		StorageIndex.record(openBox, StorageIndex.read(menu));
+	}
+
+	/** An anvil name shows as the window's title: kept for the "Container name" holograms. A plain "Chest" or "Large Chest" isn't one. */
+	private static void rememberTitle(StorageIndex.Box box, Minecraft mc) {
+		if (box.isEnder() || !(mc.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> s)) return;
+		net.minecraft.network.chat.Component t = s.getTitle();
+		boolean plain = t.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc && tc.getKey().startsWith("container.");
+		String title = plain ? null : t.getString().trim();
+		if (title != null && title.isEmpty()) title = null;
+		if (!java.util.Objects.equals(title, box.title)) { box.title = title; StorageIndex.touch(); }
 	}
 
 	private static int rowsOf(StorageIndex.Box box) {

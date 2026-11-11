@@ -51,6 +51,8 @@ public class QolHookManager {
     }
 
     public static boolean onMouseEvent(long window, MouseButtonInfo mouseButtonInfo, int action){
+        // with chat open, a click on the notepad card on screen (TP for that line)
+        if(action == 1 && legacyButton(mouseButtonInfo) == 0 && com.snailtools.shoplogger.notepad.Notepad.onChatClick(net.minecraft.client.Minecraft.getInstance())) return true;
         if(storageSwitcher != null && storageSwitcher.onMouseEvent(window, mouseButtonInfo, action)) return true;
         if(butterflyGarden != null) butterflyGarden.onMouseEvent(window, mouseButtonInfo, action);
         if(questHelper != null) questHelper.onMouseEvent(window, mouseButtonInfo, action);

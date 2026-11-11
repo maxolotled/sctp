@@ -16,4 +16,10 @@ public class MouseHandlerMixin {
     private void onMousePress(long window, MouseButtonInfo mouseButtonInfo, int action, CallbackInfo ci) {
         if (QolHookManager.onMouseEvent(window, mouseButtonInfo, action)) ci.cancel();
     }
+
+    /** With chat open, the wheel over the notepad card scrolls the card, not the chat. */
+    @Inject(method = "onScroll", at = @At("HEAD"), cancellable = true)
+    private void onMouseScroll(long window, double xOffset, double yOffset, CallbackInfo ci) {
+        if (com.snailtools.shoplogger.notepad.Notepad.onChatScroll(net.minecraft.client.Minecraft.getInstance(), yOffset)) ci.cancel();
+    }
 }

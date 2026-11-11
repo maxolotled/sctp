@@ -113,7 +113,7 @@ public final class EmptyHandItems {
 	/** While capturing, keep reminding the player what to do (action bar). */
 	public static void tick(Minecraft client) {
 		if (capturing && client.player != null && client.gui.screen() == null) {
-			client.player.sendOverlayMessage(Component.literal("Hold the item to register, then press X"));
+			client.player.sendOverlayMessage(Component.literal("Hold the item to register, then press " + com.snailtools.shoplogger.ModKeys.menu()));
 		}
 	}
 

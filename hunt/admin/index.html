@@ -287,8 +287,8 @@
 		if(!data.players.length){ $("pTable").innerHTML = '<tr><td class="muted">Nobody has signed up yet.</td></tr>'; return; }
 		$("pTable").innerHTML = "<thead><tr><th>Ledger</th><th>Player</th><th>Signed up</th><th class=num>Solved</th><th>Progress</th><th></th></tr></thead><tbody>" +
 			data.players.map(function(p){
-				return '<tr class="' + (p.removed ? "removed" : "") + '"><td class="ledger">L-' + String(p.ledgerNo).padStart(4, "0") + "</td><td>" + esc(p.mcUsername) + (p.anonymous ? ' <span class="pill">anonymous</span>' : "") + (p.via === "spiral" ? ' <span class="pill on">spiral</span>' : "") +
-					'<div class="muted small">set ' + (p.setNo || "&ndash;") + (p.finishPlace ? " &middot; <b>finished #" + p.finishPlace + "</b>" : "") + "</div></td><td>" + H.when(p.signedUpAt) + '</td><td class="num">' + p.solved + '</td><td class="refs">' + esc((p.refs || "").split(",").sort().join(" ")) +
+				return '<tr class="' + (p.removed ? "removed" : "") + '"><td class="ledger">' + (p.setNo ? "L-" + String(p.setNo).padStart(4, "0") : "&ndash;") + "</td><td>" + esc(p.mcUsername) + (p.anonymous ? ' <span class="pill">anonymous</span>' : "") + (p.via === "spiral" ? ' <span class="pill on">spiral</span>' : "") +
+					'<div class="muted small">signed up #' + p.ledgerNo + (p.finishPlace ? " &middot; <b>finished #" + p.finishPlace + "</b>" : "") + "</div></td><td>" + H.when(p.signedUpAt) + '</td><td class="num">' + p.solved + '</td><td class="refs">' + esc((p.refs || "").split(",").sort().join(" ")) +
 					'</td><td><div class="acts">' +
 					(p.removed ? '<button type="button" class="btn-ghost" data-act="restore" data-id="' + esc(p.accountId) + '">Restore</button>' : '<button type="button" class="btn-danger" data-act="remove" data-id="' + esc(p.accountId) + '">Remove</button>') +
 					'<button type="button" class="btn-ghost" data-act="solve" data-id="' + esc(p.accountId) + '">Mark solved</button>' +

@@ -5,6 +5,7 @@ import com.snailtools.shoplogger.gui.data.VanillaItem;
 import com.snailtools.shoplogger.gui.data.WebDataClient;
 import com.snailtools.shoplogger.gui.ui.Draw;
 import com.snailtools.shoplogger.gui.ui.Theme;
+import com.snailtools.shoplogger.gui.ui.UiButton;
 import com.snailtools.shoplogger.gui.ui.UiField;
 import com.snailtools.shoplogger.gui.ui.UiScreen;
 import com.snailtools.shoplogger.gui.widget.ItemListWidget;
@@ -39,20 +40,29 @@ public class NotepadAddScreen extends UiScreen {
 	@Override
 	protected void initContent() {
 		int x = contentX(), y = contentY(), w = contentW();
-		int aw = 90;
-		search = new UiField(font, x, y, w - aw - 6, 20, "Search an item or rare to add…", true);
-		search.box.setResponder(s -> fill());
-		addRenderableOnly(search.frame());
-		addRenderableWidget(search.box);
-		amount = new UiField(font, x + w - aw, y, aw, 20, "How many", false);
+		// first how many (on its own row, so it isn't missed), then what
+		int lx = x + font.width("How many:") + 8;
+		amount = new UiField(font, lx, y, 64, 20, "64", false);
 		amount.box.setValue(keepAmount);
 		amount.box.setResponder(s -> keepAmount = s);
 		addRenderableOnly(amount.frame());
 		addRenderableWidget(amount.box);
+		int bx = lx + 70;
+		for (int[] q : new int[][] { {1}, {16}, {64}, {1728} }) {
+			String label = q[0] == 1728 ? "Shulker (1,728)" : String.valueOf(q[0]);
+			int bw = font.width(label) + 12;
+			if (bx + bw > x + w - 90) break;
+			addRenderableWidget(new UiButton(bx, y, bw, 20, label, UiButton.Style.SECONDARY, () -> { amount.box.setValue(String.valueOf(q[0])); }));
+			bx += bw + 4;
+		}
+		search = new UiField(font, x, y + 26, w, 20, "Search an item or rare to add…", true);
+		search.box.setResponder(s -> fill());
+		addRenderableOnly(search.frame());
+		addRenderableWidget(search.box);
 		setInitialFocus(search.box);
 
 		listX = x - 6;
-		listY = y + 40;
+		listY = y + 66;
 		listW = w + 12;
 		listH = contentBottom() - listY;
 		list = new ItemListWidget(minecraft, listX, listY, listW, listH);
@@ -98,8 +108,14 @@ public class NotepadAddScreen extends UiScreen {
 
 	@Override
 	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-		String line = added != null ? added : "Set how many on the right, then click an item to put it on your shopping list.";
-		g.text(font, Draw.trim(font, line, contentW()), contentX(), contentY() + 27, added != null ? Theme.ACCENT : Theme.MUTED, false);
+		int x = contentX(), y = contentY();
+		g.text(font, "How many:", x, y + 6, Theme.TEXT, false);
+		// how long your list is already
+		int open = 0;
+		for (Notepad.Need n : Notepad.shopping()) if (!n.complete()) open++;
+		Draw.right(g, font, open + " on your list", x + contentW(), y + 6, open > 0 ? Theme.ACCENT : Theme.FAINT);
+		String line = added != null ? added : "Search below, then click an item to put that many on your shopping list.";
+		g.text(font, Draw.trim(font, line, contentW()), x, y + 52, added != null ? Theme.ACCENT : Theme.MUTED, false);
 	}
 
 	@Override

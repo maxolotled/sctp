@@ -115,7 +115,7 @@ public final class StorageKeys {
 			StorageIndex.add(dim, p, StorageContainers.kind(level.getBlockEntity(p)));
 			added++;
 		}
-		if (found.isEmpty()) ChatFormat.send(mc, ChatFormat.INFO, "No storage containers within 16 blocks. Look at one and press X+M to add just that one.");
+		if (found.isEmpty()) ChatFormat.send(mc, ChatFormat.INFO, "No storage containers within 16 blocks. Look at one and press " + com.snailtools.shoplogger.ModKeys.text("storage") + " to add just that one.");
 		else if (added == 0) ChatFormat.send(mc, ChatFormat.INFO, "All " + already + " containers within 16 blocks are in My storage already.");
 		else ChatFormat.send(mc, ChatFormat.SUCCESS, "Added " + added + " container" + (added == 1 ? "" : "s") + " within 16 blocks to My storage"
 				+ (already > 0 ? " (" + already + " already in)" : "") + ". Walk past them and they're read one by one.");

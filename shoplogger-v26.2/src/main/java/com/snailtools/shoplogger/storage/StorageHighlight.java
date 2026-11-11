@@ -36,6 +36,11 @@ public final class StorageHighlight {
 	private static String itemBase, itemName;
 	/** Set once every lit container has been opened: the outlines stay until that container is closed. */
 	private static boolean allFound;
+	/** When allFound was set, and whether its container's window has shown up since (it arrives a moment after the click). */
+	private static long allFoundAt;
+	private static boolean sawWindow;
+	/** Lighting up containers still waiting for their first read: each one goes dark once it's read, however that happens. */
+	private static boolean waitingMode;
 	private static int tickCount;
 
 	public static boolean isActive() { return !targets.isEmpty(); }
@@ -62,6 +67,7 @@ public final class StorageHighlight {
 		if (waiting.isEmpty()) { ChatFormat.send(mc, ChatFormat.INFO, "No containers here are waiting for their first read."); return; }
 		waiting.sort(Comparator.comparingDouble((StorageIndex.Box b) -> Vec3.atCenterOf(b.pos()).distanceTo(eye)));
 		show("Waiting to be read", waiting.subList(0, Math.min(howMany, waiting.size())));
+		waitingMode = !targets.isEmpty();
 	}
 
 	public static void show(String what, List<StorageIndex.Box> boxes) {
@@ -94,6 +100,8 @@ public final class StorageHighlight {
 		label = null;
 		itemBase = itemName = null;
 		allFound = false;
+		sawWindow = false;
+		waitingMode = false;
 	}
 
 	/** You opened a container: if it's one of the lit-up ones, it (or all of them) stops. */
@@ -104,12 +112,30 @@ public final class StorageHighlight {
 		if (targets.isEmpty()) {
 			label = null;
 			allFound = true; // the slot outlines stay while this container is open
+			allFoundAt = System.currentTimeMillis();
+			sawWindow = false;
 		}
 	}
 
 	/** Every client tick: keeps the line above the hotbar up to date. */
 	public static void tick(Minecraft mc) {
-		if (allFound && !(mc.gui.screen() instanceof AbstractContainerScreen<?>)) clear();
+		if (allFound) {
+			// keep the outlines until the window that was opened is closed again (it comes a moment after the click)
+			if (mc.gui.screen() instanceof AbstractContainerScreen<?>) sawWindow = true;
+			else if (sawWindow || System.currentTimeMillis() - allFoundAt > 4000L) clear();
+		}
+		if (!targets.isEmpty()) {
+			// gone from My storage since (broken, taken out), or, when looking for unread ones, read by now
+			java.util.List<StorageIndex.Box> known = StorageIndex.boxes();
+			boolean before = !targets.isEmpty();
+			targets.removeIf(b -> !known.contains(b) || (waitingMode && !b.waiting()));
+			if (before && targets.isEmpty()) {
+				if (waitingMode) ChatFormat.send(mc, ChatFormat.SUCCESS, "Those containers are all read now.");
+				boolean outlines = itemName != null && mc.gui.screen() instanceof AbstractContainerScreen<?>;
+				if (outlines) { label = null; allFound = true; allFoundAt = System.currentTimeMillis(); sawWindow = true; }
+				else clear();
+			}
+		}
 		if (targets.isEmpty() || mc.player == null || mc.level == null) return;
 		if (!StorageSettings.isEnabled() || !targets.get(0).dim.equals(StorageIndex.dimension())) { clear(); return; }
 		if (tickCount++ % 10 != 0) return;
@@ -118,7 +144,7 @@ public final class StorageHighlight {
 		for (StorageIndex.Box b : targets) if (Vec3.atCenterOf(b.pos()).distanceTo(eye) < Vec3.atCenterOf(near.pos()).distanceTo(eye)) near = b;
 		int dist = (int) Math.round(Vec3.atCenterOf(near.pos()).distanceTo(eye));
 		String more = targets.size() > 1 ? " (+" + (targets.size() - 1) + " more)" : "";
-		mc.player.sendOverlayMessage(Component.literal(label + ": " + near.where() + " · " + dist + " blocks" + more + " · X to stop"));
+		mc.player.sendOverlayMessage(Component.literal(label + ": " + near.where() + " · " + dist + " blocks" + more + " · " + com.snailtools.shoplogger.ModKeys.menu() + " to stop"));
 	}
 
 	/** Inside a container screen: outlines the slots holding the item you're looking for (ScreenMixin). */

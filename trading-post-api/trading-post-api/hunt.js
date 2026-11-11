@@ -127,6 +127,7 @@ export function makeHunt(d) {
 	/** The vault key as digits, one per frame: "2573" and "2 5 7 3" both give "2,5,7,3". */
 	const keyDigits = (v) => (String(v == null ? "" : v).match(/\d/g) || []).join(",");
 	const whorlSize = (k) => HUNT_WORLD_SIZE / Math.pow(4, k); // whorl 1 -> 16,384
+	// The "ledger number" hunters see is their puzzle set's number (the admin's answer sheets go by it); ledgerNo itself is only the sign-up order.
 	const ledger = (n) => "L-" + String(n).padStart(4, "0");
 	const mcKey = (n) => String(n || "").toLowerCase().replace(/^\.+/, "");
 	const nowIso = () => new Date().toISOString();
@@ -317,7 +318,7 @@ export function makeHunt(d) {
 		}
 		return {
 			enabled: true,
-			player: { ledger: ledger(player.ledgerNo), ledgerNo: player.ledgerNo, mcUsername: player.mcUsername, signedUpAt: player.signedUpAt, anonymous: !!player.anonymous, via: player.via, verified: player.verified !== 0 },
+			player: { ledger: ledger(player.setNo), ledgerNo: player.setNo, mcUsername: player.mcUsername, signedUpAt: player.signedUpAt, anonymous: !!player.anonymous, via: player.via, verified: player.verified !== 0 },
 			whorls, apex, finish,
 			shell: publicShell(settings),
 			hunters: shares.total,
@@ -377,7 +378,7 @@ export function makeHunt(d) {
 		if (p.token) {
 			const player = await playerOf(env, p.accountId);
 			await env.DB.prepare("DELETE FROM huntPairings WHERE pollKey = ?").bind(key).run();
-			return json({ status: "done", token: p.token, ledger: player ? ledger(player.ledgerNo) : null });
+			return json({ status: "done", token: p.token, ledger: player ? ledger(player.setNo) : null });
 		}
 		if (Date.parse(p.expiresAt) < Date.now()) return json({ status: "expired" });
 		return json({ status: "waiting" });
@@ -585,7 +586,7 @@ export function makeHunt(d) {
 		// finished: where the mod marks the prize in gold (and the password), for this hunter's place
 		const f = solves.has("w4") ? finishFor(s, player.finishPlace) : null;
 		const finish = f ? { place: player.finishPlace, x: f.x, y: f.y, z: f.z, password: f.password } : null;
-		return json({ notes, ledger: ledger(player.ledgerNo), finish });
+		return json({ notes, ledger: ledger(player.setNo), finish });
 	}
 
 	/** GET /hunt/door?slug= — a hidden page on sctp.nl (404.html asks before its short-link lookup). */
@@ -673,7 +674,7 @@ export function makeHunt(d) {
 		const s = await getSettings(env);
 		{ const deny = await gate(request, env, s); if (deny) return deny; }
 		const [{ results: players }, { results: solves }, content] = await Promise.all([
-			env.DB.prepare("SELECT accountId, mcUsername, ledgerNo, signedUpAt, anonymous FROM huntPlayers WHERE removed = 0").all(),
+			env.DB.prepare("SELECT accountId, mcUsername, ledgerNo, setNo, signedUpAt, anonymous FROM huntPlayers WHERE removed = 0").all(),
 			env.DB.prepare("SELECT accountId, ref, solvedAt FROM huntSolves").all(),
 			loadContent(env),
 		]);
@@ -699,7 +700,7 @@ export function makeHunt(d) {
 			return { whorl: k, top: rows.sort((a, b) => a.ms - b.ms).slice(0, 10) };
 		});
 		const order = (ref) => solves.filter((r) => r.ref === ref && byId.has(r.accountId)).sort((a, b) => a.solvedAt.localeCompare(b.solvedAt))
-			.map((r) => ({ name: name(byId.get(r.accountId)), ledger: ledger(byId.get(r.accountId).ledgerNo), at: r.solvedAt }));
+			.map((r) => ({ name: name(byId.get(r.accountId)), ledger: ledger(byId.get(r.accountId).setNo), at: r.solvedAt }));
 		const count = (ref) => solves.filter((r) => r.ref === ref && byId.has(r.accountId)).length;
 		return json({
 			hunters: players.length,

@@ -114,7 +114,7 @@ public final class TeleportHighlight {
 
 		tickCounter++;
 		visibleTarget = targetPos;
-		client.player.sendOverlayMessage(Component.literal("Press X to cancel beam"));
+		client.player.sendOverlayMessage(Component.literal("Press " + com.snailtools.shoplogger.ModKeys.menu() + " to cancel beam"));
 
 		switch (getStyle()) {
 			case DESTINATION_ONLY, CHEST_GLOW -> {} // drawn every frame by WorldHighlights

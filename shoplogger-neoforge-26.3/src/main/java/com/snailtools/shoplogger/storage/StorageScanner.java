@@ -49,8 +49,8 @@ public final class StorageScanner implements SilentScreenCoordinator.Listener {
 
 	/** Containers nearer than this are checked for still being there (their chunk is surely loaded). */
 	private static final double GONE_CHECK_RANGE = 24.0;
-	/** How long a spot must stay without its container before it counts as broken (not a hiccup while blocks load). */
-	private static final long GONE_AFTER_MS = 3000L;
+	/** How long a spot must stay without its container before it counts as broken: long enough to put back one you broke by accident. */
+	private static final long GONE_AFTER_MS = 10_000L;
 
 	/**
 	 * A container in My storage that was broken, or swapped for another kind,
@@ -64,12 +64,17 @@ public final class StorageScanner implements SilentScreenCoordinator.Listener {
 			if (!b.dim.equals(dim) || Vec3.atCenterOf(b.pos()).distanceTo(eye) > GONE_CHECK_RANGE || !mc.level.hasChunkAt(b.pos())) { b.missingSince = 0; continue; }
 			net.minecraft.world.level.block.entity.BlockEntity be = mc.level.getBlockEntity(b.pos());
 			boolean there = StorageContainers.isContainer(be) && StorageContainers.kind(be).equals(b.kind);
-			if (there) { b.missingSince = 0; continue; }
+			if (there) {
+				// broken and put back in time: it stays, but what's in it may have spilled out, so it's read again
+				if (b.missingSince != 0 && now - b.missingSince > 1000L) { b.scannedAt = 0; b.failures = 0; StorageIndex.touch(); }
+				b.missingSince = 0;
+				continue;
+			}
 			if (b.missingSince == 0) { b.missingSince = now; continue; }
 			if (now - b.missingSince < GONE_AFTER_MS) continue;
 			StorageIndex.forget(b);
 			com.snailtools.shoplogger.ChatFormat.send(mc, com.snailtools.shoplogger.ChatFormat.INFO,
-					b.label() + " is gone, so it's out of My storage. Put one back? Add it with X+M.");
+					b.label() + " is gone, so it's out of My storage. Put one back? Add it with " + com.snailtools.shoplogger.ModKeys.text("storage") + ".");
 		}
 	}
 

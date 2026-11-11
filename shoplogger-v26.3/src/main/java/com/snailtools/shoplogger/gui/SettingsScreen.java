@@ -194,21 +194,20 @@ public class SettingsScreen extends UiScreen {
 		List<SettingRow> out = new ArrayList<>();
 		out.add(SettingRow.toggle("My storage", "Track your own chests, barrels, shulker boxes and ender chest (kept on this computer only)",
 				com.snailtools.shoplogger.storage.StorageSettings::isEnabled, v -> { com.snailtools.shoplogger.storage.StorageSettings.setEnabled(v); rebuild(); }));
-		out.add(SettingRow.toggle("Storage holograms", "What's inside, on every open side of the containers in My storage",
-				com.snailtools.shoplogger.storage.StorageSettings::hologramsOn, com.snailtools.shoplogger.storage.StorageSettings::setHolograms));
+		out.add(SettingRow.choice("Storage holograms", "What the text on the side of your containers shows",
+				List.of(com.snailtools.shoplogger.storage.StorageSettings.HologramMode.values()), com.snailtools.shoplogger.storage.StorageSettings::hologramMode,
+				com.snailtools.shoplogger.storage.StorageSettings::setHologramMode, s -> s.label));
 		out.add(SettingRow.choice("Highlight style", "How a container lights up when you find an item",
 				List.of(com.snailtools.shoplogger.storage.StorageSettings.HighlightStyle.values()), com.snailtools.shoplogger.storage.StorageSettings::highlightStyle,
 				com.snailtools.shoplogger.storage.StorageSettings::setHighlightStyle, s -> s.label));
 		out.add(SettingRow.choice("Opening a lit-up container", "Whether opening one turns off just that container's light, or all of them",
 				List.of(com.snailtools.shoplogger.storage.StorageSettings.OpenStops.values()), com.snailtools.shoplogger.storage.StorageSettings::openStops,
 				com.snailtools.shoplogger.storage.StorageSettings::setOpenStops, s -> s.label));
-		out.add(SettingRow.action("Open My storage", "Everything in your containers, searchable", "Open",
+		// the containers themselves are listed (and renamed, removed...) in My storage › Containers
+		int n = com.snailtools.shoplogger.storage.StorageIndex.all().size();
+		out.add(SettingRow.action("Open My storage", n == 0 ? "Everything in your containers, searchable"
+				: n + " container" + (n == 1 ? "" : "s") + ": see, rename or remove them under Containers", "Open",
 				() -> minecraft.setScreenAndShow(new StorageScreen(this))));
-		for (com.snailtools.shoplogger.storage.StorageIndex.Box b : com.snailtools.shoplogger.storage.StorageIndex.all()) {
-			String[] s = com.snailtools.shoplogger.storage.StorageIndex.summary(b);
-			out.add(SettingRow.action(b.label(), s[0] + (s[1].isEmpty() ? "" : " · " + s[1]) + (b.isEnder() ? "" : " · " + b.dim.replace("minecraft:", "")),
-					"Remove", () -> { com.snailtools.shoplogger.storage.StorageIndex.remove(b); rebuild(); }));
-		}
 		return out;
 	}
 
@@ -218,9 +217,10 @@ public class SettingsScreen extends UiScreen {
 	private List<SettingRow> keyRows() {
 		List<SettingRow> out = new ArrayList<>();
 		for (net.minecraft.client.KeyMapping k : ModKeys.all()) {
-			String hint = ModKeys.hint(k);
-			out.add(SettingRow.key(ModKeys.label(k), hint.isEmpty() ? "Click, then press the new key (Esc cancels, Backspace clears)" : hint,
-					() -> ModKeys.keyText(k), () -> listening == k, () -> listening = listening == k ? null : k));
+			// held with the menu key: shown as "X+M", and you only press the second key to change it
+			String hint = ModKeys.isChord(k) ? "Pressed while holding " + ModKeys.menu() + ": click, then press the new second key"
+					: "Click, then press the new key (Esc cancels, Backspace clears)";
+			out.add(SettingRow.key(ModKeys.label(k), hint, () -> ModKeys.text(k), () -> listening == k, () -> { listening = listening == k ? null : k; keyNote = null; }));
 		}
 		out.add(SettingRow.action("Reset all keys", "Back to X, X+I, X+M and the rest", "Reset", () -> { listening = null; ModKeys.resetAll(); }));
 		return out;
@@ -232,17 +232,36 @@ public class SettingsScreen extends UiScreen {
 		int key = event.key();
 		if (key != com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE) {
 			boolean clear = key == com.mojang.blaze3d.platform.InputConstants.KEY_BACKSPACE || key == com.mojang.blaze3d.platform.InputConstants.KEY_DELETE;
-			ModKeys.set(listening, clear ? com.mojang.blaze3d.platform.InputConstants.UNKNOWN : com.mojang.blaze3d.platform.InputConstants.getKey(event));
+			com.mojang.blaze3d.platform.InputConstants.Key k = clear ? com.mojang.blaze3d.platform.InputConstants.UNKNOWN : com.mojang.blaze3d.platform.InputConstants.getKey(event);
+			net.minecraft.client.KeyMapping taken = ModKeys.clash(listening, k);
+			if (taken != null) {
+				// one key, one job: the other one has to move first
+				String shown = (ModKeys.isChord(listening) ? ModKeys.menu() + "+" : "") + k.getDisplayName().getString();
+				keyNote = shown + " is already used for \"" + ModKeys.label(taken) + "\". Change that one first, or pick another key.";
+				keyNoteBad = true;
+			} else {
+				net.minecraft.client.KeyMapping vanilla = ModKeys.vanillaClash(listening, k);
+				ModKeys.set(listening, k);
+				keyNote = vanilla == null ? null : "Set, but Minecraft uses " + k.getDisplayName().getString() + " for "
+						+ net.minecraft.network.chat.Component.translatable(vanilla.getName()).getString() + " too.";
+				keyNoteBad = false;
+			}
+			keyNoteAt = System.currentTimeMillis();
 		}
 		listening = null;
 		return true;
 	}
 
+	/** A line under the Keys heading after a change: a clash that was refused, or a warning. */
+	private String keyNote;
+	private boolean keyNoteBad;
+	private long keyNoteAt;
+
 	private List<SettingRow> emptyHandRows() {
 		List<SettingRow> out = new ArrayList<>();
 		out.add(SettingRow.toggle("Empty hand on block clicks", "Use an empty slot instead of the items below",
 				EmptyHandItems::isEnabled, EmptyHandItems::setEnabled));
-		out.add(SettingRow.action("Add an item", "Press Add, hold the item, then press X",
+		out.add(SettingRow.action("Add an item", "Press Add, hold the item, then press " + ModKeys.menu(),
 				"Add", () -> { EmptyHandItems.startCapture(); minecraft.setScreenAndShow(null); }));
 		for (EmptyHandItems.Entry e : EmptyHandItems.items()) {
 			String named = e.name == null || e.name.isEmpty() ? "" : " (named)";
@@ -252,13 +271,19 @@ public class SettingsScreen extends UiScreen {
 		return out;
 	}
 
+	/** Room at the bottom for the ▼ that says there's more, when there is. */
+	private static final int MORE_H = 12;
+
+	private int rowsTotal() { return rows.size() * (SettingRow.HEIGHT + ROW_GAP) - ROW_GAP; }
+
+	private boolean scrollable() { return rowsTotal() > contentBottom() - rowsTop; }
+
 	private int rowsViewBottom() {
-		return contentBottom();
+		return contentBottom() - (scrollable() ? MORE_H : 0);
 	}
 
 	private int maxScroll() {
-		int total = rows.size() * (SettingRow.HEIGHT + ROW_GAP) - ROW_GAP;
-		return Math.max(0, total - (rowsViewBottom() - rowsTop));
+		return Math.max(0, rowsTotal() - (rowsViewBottom() - rowsTop));
 	}
 
 	private void layoutRows() {
@@ -300,7 +325,15 @@ public class SettingsScreen extends UiScreen {
 	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
 		int hy = rowsTop - 24;
 		Draw.textShadow(g, font, category.label, rowsX, hy, Theme.TEXT);
-		g.text(font, Draw.trim(font, category.description, rowsW), rowsX, hy + 11, Theme.MUTED, false);
+		String desc = category == Category.STORAGE ? "Your own chests: " + ModKeys.text("storage") + " adds one (or everything within 16 blocks)" : category.description;
+		int descColor = Theme.MUTED;
+		if (category == Category.KEYS && keyNote != null && System.currentTimeMillis() - keyNoteAt < 8000L) {
+			desc = keyNote;
+			descColor = keyNoteBad ? Theme.BAD : Theme.WARN;
+		}
+		// leave room for "Scroll for more" on the right
+		int room = rowsW - (scroll < maxScroll() ? font.width("Scroll for more ↓") + 8 : 0);
+		g.text(font, Draw.trim(font, desc, room), rowsX, hy + 11, descColor, false);
 		if (sideNav) {
 			// thin divider between the category list and the rows
 			g.fill(rowsX - 6, contentY(), rowsX - 5, contentBottom(), Theme.LINE_SOFT);
@@ -309,6 +342,14 @@ public class SettingsScreen extends UiScreen {
 
 	@Override
 	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-		if (scroll < maxScroll()) Draw.right(g, font, "Scroll for more ↓", rowsX + rowsW, rowsTop - 13, Theme.FAINT);
+		if (scroll < maxScroll()) {
+			Draw.right(g, font, "Scroll for more ↓", rowsX + rowsW, rowsTop - 13, Theme.FAINT);
+			// and at the bottom, right where the list is cut off: a fade and an arrow (bobbing a little)
+			int by = rowsViewBottom();
+			Draw.gradient(g, rowsX, by - 14, rowsW, 14, 0x00000000, Theme.alpha(Theme.BG, 0xCC));
+			int bob = (int) ((System.currentTimeMillis() / 300L) % 2);
+			Draw.centered(g, font, "▼  more below  ▼", rowsX + rowsW / 2, by + 2 + bob, Theme.MUTED);
+		}
+		if (scroll > 0) Draw.centered(g, font, "▲", rowsX + rowsW / 2, rowsTop - 10, Theme.FAINT);
 	}
 }
