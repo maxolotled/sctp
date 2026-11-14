@@ -116,7 +116,7 @@
 		</section>
 
 		<section class="card">
-			<h2>The Golden Shell</h2>
+			<h2>First place</h2>
 			<div id="shell"></div>
 		</section>
 
@@ -303,12 +303,9 @@
 
 	function renderShell(){
 		var sh = data.settings.shell || {}, html = "";
-		if(sh.found) html += '<p><span class="pill good">Found</span> by <b>' + esc(sh.found.name) + "</b> on " + H.when(sh.found.at) + (sh.found.showName ? " (name shown publicly)" : " (name kept private)") + "</p>";
-		else html += '<p class="muted">Not found yet. When a hunter presses &ldquo;I took the shell&rdquo;, they show up here: check the vault is empty and they really have it, then confirm.</p>';
-		var claims = sh.claims || [];
-		if(claims.length) html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Claimed by</th><th>When</th><th>Name public?</th><th></th></tr></thead><tbody>' +
-			claims.map(function(c){ return "<tr><td>" + esc(c.name) + "</td><td>" + H.when(c.at) + "</td><td>" + (c.showName ? "yes" : "no") + '</td><td><button type="button" class="btn" data-confirm="' + esc(c.accountId) + '">Confirm the win</button></td></tr>'; }).join("") + "</tbody></table></div>";
-		html += '<p style="margin-top:10px;"><button type="button" class="btn-danger" id="shellReset">Reset the shell (claims and win)</button></p>';
+		if(sh.found) html += '<p><span class="pill good">Taken</span> by <b>' + esc(sh.found.name) + "</b> on " + H.when(sh.found.at) + (sh.found.showName ? " (name shown publicly)" : " (anonymous hunter: name kept private)") + "</p>";
+		else html += '<p class="muted">Not taken yet. When the hunter in 1st place opens the chest at their prize, it\'s marked here by itself and announced to every hunter.</p>';
+		html += '<p style="margin-top:10px;"><button type="button" class="btn-danger" id="shellReset">Reset first place</button></p>';
 		$("shell").innerHTML = html;
 	}
 
@@ -402,7 +399,7 @@
 	$("shell").addEventListener("click", function(e){
 		var c = e.target.closest("button[data-confirm]");
 		if(c){ if(confirm("Confirm this hunter took the Golden Shell? It's announced to everyone.")) post("/admin/hunt/shell", { action: "confirm", accountId: c.dataset.confirm }).then(function(){ toast("Confirmed"); }).catch(function(err){ toast(err.message); }); return; }
-		if(e.target.id === "shellReset" && confirm("Reset the shell? Claims and the confirmed win are cleared.")) post("/admin/hunt/shell", { action: "reset" }).then(function(){ toast("Reset"); });
+		if(e.target.id === "shellReset" && confirm("Reset first place? It's marked not taken again.")) post("/admin/hunt/shell", { action: "reset" }).then(function(){ toast("Reset"); });
 	});
 
 	$("uploadSets").onclick = async function(){

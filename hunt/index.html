@@ -124,7 +124,7 @@
 		var seen = null;
 		try { seen = localStorage.getItem("huntBroadcastSeen"); } catch(e){}
 		if(status.broadcast && status.broadcast.id !== seen) html += '<div class="banner" id="bcBanner"><b>The Shellkeeper:</b> ' + esc(status.broadcast.text) + ' <button type="button" class="btn-ghost" id="bcClose" style="margin-left:8px;padding:4px 10px;">Got it</button></div>';
-		if(state.shell.found) html += '<div class="banner"><b>The Golden Shell has been found' + (state.shell.by ? " by " + esc(state.shell.by) : "") + ".</b> The ledger stays open: finish the hunt for your place in the Hall of Fame.</div>";
+		if(state.shell.found) html += '<div class="banner"><b>' + (state.shell.by ? "First place in the hunt went to " + esc(state.shell.by) : "First place in the hunt has been taken") + ".</b> The ledger stays open: finish the hunt for your place in the Hall of Fame.</div>";
 		html += '<div class="tabs" role="tablist">' + [["hunt", "Your hunt"], ["fame", "Hall of Fame"], ["rules", "Rules"]].map(function(t){
 			return '<button type="button" class="tab' + (tab === t[0] ? " active" : "") + '" data-tab="' + t[0] + '" role="tab" aria-selected="' + (tab === t[0]) + '">' + t[1] + "</button>";
 		}).join("") + "</div>";
@@ -223,10 +223,6 @@
 			}
 			if(state.finish && state.finish.place === 1){
 				html += a.vaultSolved ? '<p class="note">You found the word on the sign.</p>' : '<h3 style="margin-top:12px;">The word on the sign</h3>' + answerBox("vault", "The word in the house");
-				if(!state.shell.found){
-					html += a.claimed ? '<p class="muted small">You told the ledger you took the shell. The Shellkeeper will confirm it.</p>'
-						: '<h3 style="margin-top:12px;">Took the shell?</h3><label class="small" style="display:flex;gap:6px;align-items:center;margin:0 0 8px;"><input type="checkbox" id="showName" checked> Announce my name</label><button type="button" class="btn" id="claimBtn">I took the Golden Shell</button>';
-				}
 			}
 			html += "</section>";
 		}
@@ -242,7 +238,7 @@
 			var f = lb.funnel;
 			var html = '<section class="card"><div class="stats">' + [["Hunters", lb.hunters], ["Whorl I", f.w1], ["Whorl II", f.w2], ["Whorl III", f.w3], ["Apex", f.apex], ["Finished", f.w4], ["In the house", f.vault]]
 				.map(function(x){ return '<div class="stat"><div class="n">' + x[1] + '</div><div class="l">' + x[0] + "</div></div>"; }).join("") + "</div></section>";
-			if(lb.shell.found) html += '<div class="banner"><b>The Golden Shell</b> was found' + (lb.shell.by ? " by " + esc(lb.shell.by) : "") + " on " + H.when(lb.shell.at) + ".</div>";
+			if(lb.shell.found) html += '<div class="banner"><b>First place in the hunt</b> ' + (lb.shell.by ? "went to " + esc(lb.shell.by) : "was taken") + " on " + H.when(lb.shell.at) + ".</div>";
 			html += '<div class="lb-grid">';
 			html += '<section class="card"><h2>The Apex, in order</h2>' + (lb.apex.length ? '<ol>' + lb.apex.map(function(r){ return "<li>" + esc(r.name) + ' <span class="muted small">' + H.when(r.at) + "</span></li>"; }).join("") + "</ol>" : '<p class="muted">Nobody yet.</p>') + "</section>";
 			html += '<section class="card"><h2>First to solve</h2><div class="tbl-wrap"><table class="tbl"><tbody>' + lb.firsts.map(function(c){
@@ -292,10 +288,6 @@
 		}
 		var h = e.target.closest("[data-hint]");
 		if(h){ H.api("/hunt/hint", { json: { chapterId: h.dataset.hint, tier: Number(h.dataset.tier) } }).then(function(st){ state = st; render(); }).catch(function(err){ alert(err.message); }); return; }
-		if(e.target.id === "claimBtn"){
-			if(!confirm("Did you take the Golden Shell from the vault? The Shellkeeper will check.")) return;
-			H.api("/hunt/shell-claim", { json: { showName: $("showName").checked } }).then(function(st){ state = st; render(); }).catch(function(err){ alert(err.message); });
-		}
 	});
 	document.addEventListener("change", function(e){
 		if(e.target.id === "anon") H.api("/hunt/prefs", { json: { anonymous: e.target.checked } }).then(function(st){ state = st; });

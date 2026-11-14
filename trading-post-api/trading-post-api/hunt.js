@@ -342,6 +342,7 @@ export function makeHunt(d) {
 			if (share >= 0.25) milestones.push({ id: c.id + "-25", text: "A quarter of all hunters solved “" + c.title + "”." });
 			if (share >= 0.5) milestones.push({ id: c.id + "-50", text: "Half of all hunters solved “" + c.title + "”." });
 		}
+		if (s.shell.found) milestones.push({ id: "first-place-" + s.shell.found.at, text: s.shell.found.showName ? s.shell.found.name + " took first place in the hunt!" : "First place in the hunt has been taken!" });
 		return json({
 			enabled: true, testing: !s.enabled, signupOpen: !!s.signupOpen, hunters: shares.total,
 			funnel: { w1: shares.count.get("w1") || 0, w2: shares.count.get("w2") || 0, w3: shares.count.get("w3") || 0, w4: shares.count.get("w4") || 0, apex: shares.count.get("apex") || 0 },
@@ -602,6 +603,11 @@ export function makeHunt(d) {
 		const solves = await solvesOf(env, player.accountId);
 		if (!solves.has("w4") || !finishFor(s, player.finishPlace)) return json({ error: "Not yet." }, 403);
 		await env.DB.prepare("UPDATE huntPlayers SET collectedAt = COALESCE(collectedAt, ?) WHERE accountId = ?").bind(nowIso(), player.accountId).run();
+		// the hunter in 1st place opened their chest: the hunt has its winner (announced to everyone, by name unless they're anonymous)
+		if (player.finishPlace === 1 && !s.shell.found) {
+			s.shell.found = { accountId: player.accountId, name: player.mcUsername, showName: !player.anonymous, at: nowIso() };
+			await saveSettings(env, s);
+		}
 		return json({ ok: true, collected: true });
 	}
 
@@ -1008,10 +1014,12 @@ export function makeHunt(d) {
 					env.DB.prepare("UPDATE huntSets SET accountId = ?, assignedAt = ? WHERE setNo = ?").bind(p.accountId, now, set.setNo),
 					env.DB.prepare("UPDATE huntPlayers SET setNo = ?, signedUpAt = ?, finishPlace = NULL, collectedAt = NULL WHERE accountId = ?").bind(set.setNo, now, p.accountId),
 				]);
-				// a shell claim of theirs goes too
+				// a claim of theirs goes too, and first place if it was theirs
 				const st = await getSettings(env);
-				if ((st.shell.claims || []).some((c) => c.accountId === p.accountId)) {
-					st.shell.claims = st.shell.claims.filter((c) => c.accountId !== p.accountId);
+				const wasWinner = st.shell.found && st.shell.found.accountId === p.accountId;
+				if (wasWinner || (st.shell.claims || []).some((c) => c.accountId === p.accountId)) {
+					st.shell.claims = (st.shell.claims || []).filter((c) => c.accountId !== p.accountId);
+					if (wasWinner) st.shell.found = null;
 					await saveSettings(env, st);
 				}
 				break;
@@ -1114,7 +1122,6 @@ export function makeHunt(d) {
 			["GET", "/hunt/notes", handleNotes],
 			["GET", "/hunt/door", handleDoor],
 			["GET", "/hunt/image", handleImage],
-			["POST", "/hunt/shell-claim", handleShellClaim],
 			["POST", "/hunt/collected", handleCollected],
 			["POST", "/hunt/prefs", handlePrefs],
 			["GET", "/hunt/leaderboard", handleLeaderboard],

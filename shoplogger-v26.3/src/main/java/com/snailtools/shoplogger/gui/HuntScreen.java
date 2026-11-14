@@ -236,7 +236,7 @@ public class HuntScreen extends UiScreen {
 			if (state.apex.vaultSolved) add("You found the word on the sign.", Theme.ACCENT);
 			else add("Found the word on the sign in the house? Type it below.", Theme.MUTED);
 		}
-		if (state.shell != null && state.shell.found) add("The Golden Shell has been found" + (state.shell.by != null ? " by " + state.shell.by : "") + ".", HuntClient.GOLD);
+		if (state.shell != null && state.shell.found) add(state.shell.by != null ? "First place in the hunt went to " + state.shell.by + "." : "First place in the hunt has been taken.", HuntClient.GOLD);
 	}
 
 	private int maxDetailScroll() {
@@ -279,8 +279,6 @@ public class HuntScreen extends UiScreen {
 		} else if (o instanceof HuntClient.Apex) {
 			out.add(new Action("The map ↗", () -> UiLinks.open("https://sctp.nl/world/?hunt=1")));
 		}
-		if (o instanceof HuntClient.Whorl w && w.inMod && w.solved && firstPlace() && state.apex != null && !state.apex.claimed
-				&& (state.shell == null || !state.shell.found)) out.add(new Action("I took the shell ↗", () -> UiLinks.open(SITE)));
 		return out;
 	}
 
