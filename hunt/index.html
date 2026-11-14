@@ -69,6 +69,9 @@
 	var ROMAN = ["", "I", "II", "III", "IV"];
 	var status = null, state = null, tab = "hunt", board = null, drafts = {};
 	var via = /[?&]via=spiral\b/.test(location.search) ? "spiral" : null;
+	// hunt admins: ?preview=<set number> shows that set with everything open, nothing saved
+	var preview = (location.search.match(/[?&]preview=(\d*)/) || [null, null])[1];
+	function goPreview(n){ var u = new URL(location.href); if(n == null) u.searchParams.delete("preview"); else u.searchParams.set("preview", n); location.href = u.toString(); }
 
 	function main(html){ $("main").innerHTML = html; }
 
@@ -84,7 +87,7 @@
 			if(!s.enabled) return notFound();
 			$("siteHeader").hidden = false;
 			if(!H.session()) return renderGate();
-			return H.api("/hunt/state").then(function(st){ state = st; render(); }).catch(function(e){
+			return H.api("/hunt/state" + (preview != null ? "?preview=" + encodeURIComponent(preview) : "")).then(function(st){ state = st; render(); }).catch(function(e){
 				if(e.status === 401) return renderGate();
 				main('<div class="card"><p class="err">' + esc(e.message) + '</p></div>');
 			});
@@ -104,8 +107,10 @@
 			html += '<p class="muted">Bring the code the Shellkeeper gave you.</p><input type="text" class="code-in" id="codeIn" maxlength="7" placeholder="ABC-123" autocomplete="off" spellcheck="false" aria-label="Code">' +
 				'<button type="button" class="btn" id="codeBtn">Sign the ledger</button><p class="err" id="codeErr"></p>';
 		}
+		if(state && state.canPreview) html += '<p class="muted small" style="margin-top:16px;">You keep the hunt: look at any puzzle set without signing up.</p><button type="button" class="btn-ghost" id="previewBtn">Preview the hunt</button>' + (state.error ? '<p class="err">' + esc(state.error) + "</p>" : "");
 		html += "</div>";
 		main(html);
+		if($("previewBtn")) $("previewBtn").onclick = function(){ goPreview(""); };
 		if($("loginBtn")) $("loginBtn").onclick = function(){ window.sctpAccount && window.sctpAccount.openLogin(); };
 		if($("codeBtn")){
 			var go = function(){
@@ -121,11 +126,19 @@
 	// ---- signed up ----
 	function render(){
 		if(!state.player) return renderGate();
-		$("tagline").innerHTML = 'Ledger <span class="ledger">' + esc(state.player.ledger) + "</span> &middot; " + esc(state.player.mcUsername);
+		$("tagline").innerHTML = state.preview ? 'Preview &middot; set <span class="ledger">' + state.preview.setNo + "</span>" : 'Ledger <span class="ledger">' + esc(state.player.ledger) + "</span> &middot; " + esc(state.player.mcUsername);
 		var html = "";
 		var seen = null;
 		try { seen = localStorage.getItem("huntBroadcastSeen"); } catch(e){}
 		if(status.broadcast && status.broadcast.id !== seen) html += '<div class="banner" id="bcBanner"><b>The Shellkeeper:</b> ' + esc(status.broadcast.text) + ' <button type="button" class="btn-ghost" id="bcClose" style="margin-left:8px;padding:4px 10px;">Got it</button></div>';
+		if(state.preview){
+			var ps = state.preview.sets, at = ps.indexOf(state.preview.setNo);
+			html += '<div class="banner" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;"><span style="flex:1;min-width:220px;"><b>Admin preview of set ' + state.preview.setNo + ".</b> Everything is open as its hunter would see it; nothing is checked or saved.</span>" +
+				'<button type="button" class="btn-ghost" data-pv="' + (ps[at - 1] || "") + '"' + (at > 0 ? "" : " disabled") + '>&larr; Set ' + (ps[at - 1] || "") + "</button>" +
+				'<select id="pvPick" aria-label="Puzzle set" style="width:auto;">' + ps.map(function(n){ return '<option value="' + n + '"' + (n === state.preview.setNo ? " selected" : "") + ">Set " + n + "</option>"; }).join("") + "</select>" +
+				'<button type="button" class="btn-ghost" data-pv="' + (ps[at + 1] || "") + '"' + (at < ps.length - 1 ? "" : " disabled") + ">Set " + (ps[at + 1] || "") + " &rarr;</button>" +
+				'<button type="button" class="btn-ghost" data-pv-leave="1">Leave preview</button></div>';
+		}
 		if(justSigned) html += '<div class="note small" id="fairPlay" style="display:flex;gap:10px;align-items:center;margin:0 0 12px;"><span style="flex:1;">Please don&rsquo;t discuss the answers to the hunts in public chats, though playing in a small group is encouraged; we can reset your progress if you share answers!</span><button type="button" class="btn-ghost" id="fairPlayOk" style="padding:4px 10px;">Got it</button></div>';
 		if(state.shell.found) html += '<div class="banner"><b>' + (state.shell.by ? "First place in the hunt went to " + esc(state.shell.by) : "First place in the hunt has been taken") + ".</b> The ledger stays open: finish the hunt for your place in the Hall of Fame.</div>";
 		html += '<div class="tabs" role="tablist">' + [["hunt", "Your hunt"], ["fame", "Hall of Fame"], ["rules", "Rules"]].map(function(t){
@@ -169,6 +182,7 @@
 	}
 
 	function answerBox(ref, placeholder){
+		if(state && state.preview) return '<p class="muted small">Preview: the answer goes here (' + esc(placeholder || "your answer") + "). Answers aren't checked in a preview.</p>";
 		return '<div class="answer"><input type="text" data-answer="' + esc(ref) + '" placeholder="' + esc(placeholder || "Your answer") + '" value="' + esc(drafts[ref] || "") + '" autocomplete="off" spellcheck="false" aria-label="Answer">' +
 			'<button type="button" class="btn" data-submit="' + esc(ref) + '">Check</button></div><p class="err" data-err="' + esc(ref) + '"></p>';
 	}
@@ -231,7 +245,7 @@
 			html += "</section>";
 		}
 
-		html += '<section class="card"><label class="small" style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="anon"' + (state.player.anonymous ? " checked" : "") + "> Show me as “Anonymous hunter” in the Hall of Fame</label></section>";
+		if(!state.preview) html += '<section class="card"><label class="small" style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="anon"' + (state.player.anonymous ? " checked" : "") + "> Show me as “Anonymous hunter” in the Hall of Fame</label></section>";
 		$("tabBody").innerHTML = html;
 		loadImages();
 	}
@@ -290,10 +304,14 @@
 				.catch(function(err){ s.disabled = false; var el = document.querySelector('[data-err="' + ref + '"]'); if(el) el.textContent = err.message + (err.data && err.data.retryAt ? " (" + H.until(err.data.retryAt) + ")" : ""); });
 			return;
 		}
+		var pvb = e.target.closest("[data-pv]");
+		if(pvb && pvb.dataset.pv){ goPreview(pvb.dataset.pv); return; }
+		if(e.target.closest("[data-pv-leave]")){ goPreview(null); return; }
 		var h = e.target.closest("[data-hint]");
 		if(h){ H.api("/hunt/hint", { json: { chapterId: h.dataset.hint, tier: Number(h.dataset.tier) } }).then(function(st){ state = st; render(); }).catch(function(err){ alert(err.message); }); return; }
 	});
 	document.addEventListener("change", function(e){
+		if(e.target.id === "pvPick"){ goPreview(e.target.value); return; }
 		if(e.target.id === "anon") H.api("/hunt/prefs", { json: { anonymous: e.target.checked } }).then(function(st){ state = st; });
 	});
 

@@ -102,6 +102,7 @@ export function makeHunt(d) {
 
 	async function canSee(request, env, s) {
 		if (s.enabled) return true;
+		if ((await requireAdminAuth(request, env, "hunt")).ok) return true;
 		if (!(s.testers || []).length) return false;
 		return isTester(s, await requesterName(request, env));
 	}
@@ -246,7 +247,9 @@ export function makeHunt(d) {
 		]);
 		const personal = new Map(setRows.results.map((r) => [r.chapterId, r]));
 		const revealed = new Set(hintRows.results.map((r) => r.chapterId + ":" + r.tier));
-		const unlocks = unlockTimes(player, solves);
+		// a hunt admin's preview (previewState): every whorl, puzzle, hint and the Apex open, nothing solved
+		const pv = !!player.preview;
+		const unlocks = pv ? { 1: player.signedUpAt, 2: player.signedUpAt, 3: player.signedUpAt, 4: player.signedUpAt } : unlockTimes(player, solves);
 		const now = Date.now();
 
 		const whorls = content.whorls.map((w) => {
@@ -268,8 +271,8 @@ export function makeHunt(d) {
 					fragment: solves.has(c.id) ? c.fragment : null,
 					hints: unlocked ? hints.map((text, tier) => {
 						// not out until released; a taken-back hint hides again even if it was opened
-						const out = hintReleased(settings, c.id, tier);
-						const isRevealed = out && revealed.has(c.id + ":" + tier);
+						const out = pv || hintReleased(settings, c.id, tier);
+						const isRevealed = pv || (out && revealed.has(c.id + ":" + tier));
 						return { tier, label: ["Nudge", "Push", "Shove"][tier] || "Hint", availableAt: out ? unlockedAt : null, available: out, revealed: isRevealed, text: isRevealed ? text : null };
 					}) : [],
 				};
@@ -280,14 +283,14 @@ export function makeHunt(d) {
 				unlocked, unlockedAt, solved: solves.has("w" + k), solvedAt: solves.get("w" + k) || null,
 				answerKind: k <= 3 ? "square" : "key",
 				// whorl IV's arrows come last: after the Apex, and only in the mod
-				puzzleOpen: unlocked && allSolved && (k < 4 || solves.has("apex")),
-				puzzle: unlocked && allSolved && (k < 4 || solves.has("apex")) ? w.puzzle : null,
+				puzzleOpen: pv || (unlocked && allSolved && (k < 4 || solves.has("apex"))),
+				puzzle: pv || (unlocked && allSolved && (k < 4 || solves.has("apex"))) ? w.puzzle : null,
 				inMod: k === 4,
 				chapters,
 			};
 			if (unlocked && w.nudge) {
-				const nudgeOut = hintReleased(settings, "w" + k, 0);
-				const isRevealed = nudgeOut && revealed.has("w" + k + ":3");
+				const nudgeOut = pv || hintReleased(settings, "w" + k, 0);
+				const isRevealed = pv || (nudgeOut && revealed.has("w" + k + ":3"));
 				out.nudge = { availableAt: nudgeOut ? unlockedAt : null, available: nudgeOut, revealed: isRevealed, text: isRevealed ? w.nudge : null };
 			}
 			if (k <= 3 && settings.vault) {
@@ -300,7 +303,7 @@ export function makeHunt(d) {
 		});
 
 		let apex = null;
-		if (apexOpen(content, solves)) {
+		if (pv || apexOpen(content, solves)) {
 			apex = {
 				title: settings.apex.title, riddle: settings.apex.riddle, marks: settings.apex.marks || [],
 				solved: solves.has("apex"), solvedAt: solves.get("apex") || null,
@@ -449,15 +452,33 @@ export function makeHunt(d) {
 		{ const deny = await gate(request, env, s); if (deny) return deny; }
 		const auth = await huntAuth(request, env);
 		if (auth.response) return auth.response;
+		const huntAdmin = auth.via === "site" ? await requireAdminAuth(request, env, "hunt") : { ok: false };
+		const wanted = new URL(request.url).searchParams.get("preview");
+		if (wanted != null && huntAdmin.ok) return json(await previewState(env, s, huntAdmin.admin, wanted));
 		const player = await playerOf(env, auth.accountId);
-		if (!player) return json({ enabled: true, player: null, signupOpen: !!s.signupOpen });
+		if (!player) return json({ enabled: true, player: null, signupOpen: !!s.signupOpen, canPreview: huntAdmin.ok });
 		return json(await statePayload(env, s, player, auth.via));
+	}
+
+	/**
+	 * A hunt admin looks at any puzzle set the way its hunter sees it, everything open,
+	 * without signing up: no set is taken, nothing is saved, no place in the ledger.
+	 */
+	async function previewState(env, s, admin, wanted) {
+		const sets = (await env.DB.prepare("SELECT setNo FROM huntSets ORDER BY setNo").all()).results.map((r) => r.setNo);
+		if (!sets.length) return { enabled: true, player: null, signupOpen: !!s.signupOpen, canPreview: true, error: "There are no puzzle sets to preview yet." };
+		const setNo = sets.includes(Number(wanted)) ? Number(wanted) : sets[0];
+		const player = { accountId: "preview:" + admin.id, setNo, signedUpAt: nowIso(), mcUsername: admin.mcUsername || admin.username, anonymous: 0, via: "site", verified: 1, finishPlace: null, preview: true };
+		const out = await statePayload(env, s, player, "site");
+		out.preview = { setNo, sets };
+		return out;
 	}
 
 	/** POST /hunt/answer {ref, answer} — ref: a chapter id, 'w1'..'w4', 'apex' or 'vault'. Squares: answer {x, z, size}. */
 	async function handleAnswer(request, env) {
 		const s = await getSettings(env);
 		{ const deny = await gate(request, env, s); if (deny) return deny; }
+		if (new URL(request.url).searchParams.has("preview")) return json({ error: "This is a preview: answers aren't checked or saved." }, 400);
 		const auth = await huntAuth(request, env);
 		if (auth.response) return auth.response;
 		const player = await playerOf(env, auth.accountId);
@@ -652,9 +673,13 @@ export function makeHunt(d) {
 		if (auth.response) return auth.response;
 		const player = await playerOf(env, auth.accountId);
 		const key = String(new URL(request.url).searchParams.get("key") || "");
-		if (!player || !IMAGE_KEY.test(key)) return hidden();
-		const mine = await env.DB.prepare("SELECT 1 AS x FROM huntSetChapters WHERE setNo = ? AND instr(content, ?) > 0 LIMIT 1").bind(player.setNo, JSON.stringify(key)).first();
-		if (!mine) return hidden();
+		if (!IMAGE_KEY.test(key)) return hidden();
+		const huntAdmin = auth.via === "site" && (await requireAdminAuth(request, env, "hunt")).ok; // previews show any set's pictures
+		if (!huntAdmin) {
+			if (!player) return hidden();
+			const mine = await env.DB.prepare("SELECT 1 AS x FROM huntSetChapters WHERE setNo = ? AND instr(content, ?) > 0 LIMIT 1").bind(player.setNo, JSON.stringify(key)).first();
+			if (!mine) return hidden();
+		}
 		const obj = await env.SNAPSHOTS.get("hunt/" + key);
 		if (!obj) return hidden();
 		return new Response(obj.body, { headers: { "Content-Type": obj.httpMetadata?.contentType || "image/webp", "Cache-Control": "private, max-age=3600", "Access-Control-Allow-Origin": "*" } });
