@@ -98,7 +98,7 @@ public final class WorldHighlights {
 	 * The Golden Shell: the block where this hunter's prize is hidden, once they've finished.
 	 * Only on Firefly's own world (not the shop world, not the Nether or End).
 	 */
-	private static BlockPos huntTarget(Minecraft mc) {
+	public static BlockPos huntTarget(Minecraft mc) {
 		com.snailtools.shoplogger.hunt.HuntClient.Finish f = com.snailtools.shoplogger.hunt.HuntClient.finish();
 		if (f == null || !f.located() || mc.level == null) return null;
 		if (WorldSelection.get() != ShopWorld.FIREFLY || ShopDimension.isActive(mc) || mc.level.dimension() != Level.OVERWORLD) return null;

@@ -73,7 +73,7 @@ public final class StorageIndex {
 		/** Silent opens that got no answer, and when to try again (StorageScanner; not saved). */
 		public transient int failures;
 		public transient long retryAt;
-		/** Since when its spot has held no container of its kind (StorageScanner; not saved), 0 = it's there. */
+		/** Since when the server says its spot holds no container of its kind (StorageScanner.onBlockChanged; not saved), 0 = it's there. */
 		public transient long missingSince;
 		/** Your own name for it and the item shown as its icon (My storage › Containers), null = none. */
 		public String name, icon;

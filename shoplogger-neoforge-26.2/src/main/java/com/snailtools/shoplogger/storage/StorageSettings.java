@@ -22,7 +22,8 @@ public final class StorageSettings {
 	/** What the holograms on your containers say. */
 	public enum HologramMode {
 		SUPPLY("Main item"),        // what's mostly in it and how many
-		NAME("Container name"),     // the name you gave it (or its anvil name), else the main item
+		NAME("Name + main item"),   // the name you gave it (or its anvil name) with the main item under it; unnamed: the main item
+		NAME_ONLY("Name + item count"), // the name with how many items it holds under it; unnamed containers show nothing
 		INDEXED("In My storage?"),  // on every container around: whether it's in My storage yet
 		OFF("Off");
 

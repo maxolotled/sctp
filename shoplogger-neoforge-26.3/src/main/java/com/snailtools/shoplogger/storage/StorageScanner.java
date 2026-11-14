@@ -47,34 +47,54 @@ public final class StorageScanner implements SilentScreenCoordinator.Listener {
 	private long lastAttempt, holdOffUntil;
 	private int ticks;
 
-	/** Containers nearer than this are checked for still being there (their chunk is surely loaded). */
-	private static final double GONE_CHECK_RANGE = 24.0;
-	/** How long a spot must stay without its container before it counts as broken: long enough to put back one you broke by accident. */
+	/** How long a container must stay broken before it's taken out: long enough to put back one you broke by accident. */
 	private static final long GONE_AFTER_MS = 10_000L;
 
 	/**
 	 * A container in My storage that was broken, or swapped for another kind,
 	 * is taken out of it: whatever's there now isn't what was read. The chat
-	 * says so, so a container that's put back can be added again with X+M.
+	 * says so, so a container that's put back can be added again.
+	 *
+	 * What counts is only the server saying that block changed (onBlockChanged),
+	 * never what the world happens to show: a chunk that's loading in, or a
+	 * server that hides blocks until you're close (anti-xray), can show a
+	 * container's spot as empty or stone for a while without anything having
+	 * happened to it, and must never cost you that container or its read.
 	 */
-	private void forgetBroken(Minecraft mc, long now) {
+	public static void onBlockChanged(BlockPos pos, net.minecraft.world.level.block.state.BlockState state) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null || !StorageSettings.isEnabled() || !StorageIndex.ready()) return;
 		String dim = StorageIndex.dimension();
-		Vec3 eye = mc.player.getEyePosition();
+		for (StorageIndex.Box b : StorageIndex.boxes()) {
+			if (b.x != pos.getX() || b.y != pos.getY() || b.z != pos.getZ() || !b.dim.equals(dim)) continue;
+			boolean container = b.kind.equals(StorageContainers.kindOfBlock(state));
+			if (!container) {
+				// broken (or replaced by something else): out of My storage in a few seconds unless it comes back
+				if (b.missingSince == 0) b.missingSince = System.currentTimeMillis();
+			} else if (b.missingSince != 0) {
+				// put back in time: it stays, but what was in it may have spilled out, so it's read again
+				b.missingSince = 0;
+				b.scannedAt = 0;
+				b.failures = 0;
+				StorageIndex.touch();
+			}
+			return;
+		}
+	}
+
+	/** Once a second: the containers that were broken a while ago and didn't come back leave My storage. */
+	private void forgetBroken(Minecraft mc, long now) {
 		for (StorageIndex.Box b : new java.util.ArrayList<>(StorageIndex.boxes())) {
-			if (!b.dim.equals(dim) || Vec3.atCenterOf(b.pos()).distanceTo(eye) > GONE_CHECK_RANGE || !mc.level.hasChunkAt(b.pos())) { b.missingSince = 0; continue; }
-			net.minecraft.world.level.block.entity.BlockEntity be = mc.level.getBlockEntity(b.pos());
-			boolean there = StorageContainers.isContainer(be) && StorageContainers.kind(be).equals(b.kind);
-			if (there) {
-				// broken and put back in time: it stays, but what's in it may have spilled out, so it's read again
-				if (b.missingSince != 0 && now - b.missingSince > 1000L) { b.scannedAt = 0; b.failures = 0; StorageIndex.touch(); }
+			if (b.missingSince == 0 || now - b.missingSince < GONE_AFTER_MS) continue;
+			// back without us hearing about it (it's there again, block and all): nothing happened after all
+			if (b.dim.equals(StorageIndex.dimension()) && mc.level.hasChunkAt(b.pos())
+					&& b.kind.equals(StorageContainers.kindOfBlock(mc.level.getBlockState(b.pos()))) && StorageContainers.isContainer(mc.level.getBlockEntity(b.pos()))) {
 				b.missingSince = 0;
 				continue;
 			}
-			if (b.missingSince == 0) { b.missingSince = now; continue; }
-			if (now - b.missingSince < GONE_AFTER_MS) continue;
 			StorageIndex.forget(b);
 			com.snailtools.shoplogger.ChatFormat.send(mc, com.snailtools.shoplogger.ChatFormat.INFO,
-					b.label() + " is gone, so it's out of My storage. Put one back? Add it with " + com.snailtools.shoplogger.ModKeys.text("storage") + ".");
+					b.label() + " was broken, so it's out of My storage. Put one back? Add it with " + com.snailtools.shoplogger.ModKeys.text("storage") + ".");
 		}
 	}
 

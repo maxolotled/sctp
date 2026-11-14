@@ -209,7 +209,7 @@
 		$("ax1").value = ar.x1 != null ? ar.x1 : ""; $("az1").value = ar.z1 != null ? ar.z1 : ""; $("ax2").value = ar.x2 != null ? ar.x2 : ""; $("az2").value = ar.z2 != null ? ar.z2 : "";
 		$("finishes").value = (s.finishes || []).map(function(f){ return [f.from, f.to, f.x, f.y, f.z, f.password].join(" "); }).join("\n");
 		var done = data.players.filter(function(p){ return p.finishPlace; }).sort(function(a, b){ return a.finishPlace - b.finishPlace; });
-		$("finishWho").innerHTML = done.length ? "Finished so far: " + done.map(function(p){ return "#" + p.finishPlace + " " + esc(p.mcUsername); }).join(", ") : '<span class="muted">Nobody has finished yet.</span>';
+		$("finishWho").innerHTML = done.length ? "Finished so far: " + done.map(function(p){ return "#" + p.finishPlace + " " + esc(p.mcUsername) + (p.collectedAt ? " (took their prize)" : ""); }).join(", ") : '<span class="muted">Nobody has finished yet.</span>';
 		$("doorsJson").value = s.doors && s.doors.length ? JSON.stringify(s.doors, null, 2) : "";
 		$("contentJson").value = JSON.stringify({
 			chapters: data.chapters.map(function(c){ return { id: c.id, whorl: c.whorl, ord: c.ord, title: c.title, clue: c.clue, hints: JSON.parse(c.hints || "[]"), fragment: c.fragment }; }),
@@ -288,7 +288,7 @@
 		$("pTable").innerHTML = "<thead><tr><th>Ledger</th><th>Player</th><th>Signed up</th><th class=num>Solved</th><th>Progress</th><th></th></tr></thead><tbody>" +
 			data.players.map(function(p){
 				return '<tr class="' + (p.removed ? "removed" : "") + '"><td class="ledger">' + (p.setNo ? "L-" + String(p.setNo).padStart(4, "0") : "&ndash;") + "</td><td>" + esc(p.mcUsername) + (p.anonymous ? ' <span class="pill">anonymous</span>' : "") + (p.via === "spiral" ? ' <span class="pill on">spiral</span>' : "") +
-					'<div class="muted small">signed up #' + p.ledgerNo + (p.finishPlace ? " &middot; <b>finished #" + p.finishPlace + "</b>" : "") + "</div></td><td>" + H.when(p.signedUpAt) + '</td><td class="num">' + p.solved + '</td><td class="refs">' + esc((p.refs || "").split(",").sort().join(" ")) +
+					'<div class="muted small">signed up #' + p.ledgerNo + (p.finishPlace ? " &middot; <b>finished #" + p.finishPlace + "</b>" + (p.collectedAt ? ", took their prize " + H.when(p.collectedAt) : "") : "") + "</div></td><td>" + H.when(p.signedUpAt) + '</td><td class="num">' + p.solved + '</td><td class="refs">' + esc((p.refs || "").split(",").sort().join(" ")) +
 					'</td><td><div class="acts">' +
 					(p.removed ? '<button type="button" class="btn-ghost" data-act="restore" data-id="' + esc(p.accountId) + '">Restore</button>' : '<button type="button" class="btn-danger" data-act="remove" data-id="' + esc(p.accountId) + '">Remove</button>') +
 					'<button type="button" class="btn-ghost" data-act="solve" data-id="' + esc(p.accountId) + '">Mark solved</button>' +

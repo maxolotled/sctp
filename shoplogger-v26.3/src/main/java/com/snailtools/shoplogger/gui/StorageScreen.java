@@ -42,7 +42,8 @@ public class StorageScreen extends UiScreen {
 
 	// kept while the game runs, so coming back finds the list as you left it
 	private static boolean byContainer;
-	private static String keepSearch = "";
+	/** Only for this visit: kept across tabs and the screens opened from here, empty again the next time you open My storage. */
+	private String keepSearch = "";
 	private static String show = ALL, group = ANY, itemSort = ITEM_SORTS.get(0), boxSort = BOX_SORTS.get(0);
 
 	private UiField search;

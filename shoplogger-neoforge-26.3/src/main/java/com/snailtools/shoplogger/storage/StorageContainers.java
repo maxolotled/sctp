@@ -49,6 +49,19 @@ public final class StorageContainers {
 		return "chest";
 	}
 
+	/**
+	 * The kind of container the block itself is ("chest", "barrel", "shulker"), or
+	 * null for any other block. Unlike kind(BlockEntity) this needs no block entity,
+	 * which can show up a moment after the block when a chunk loads.
+	 */
+	public static String kindOfBlock(BlockState state) {
+		net.minecraft.world.level.block.Block b = state.getBlock();
+		if (b instanceof net.minecraft.world.level.block.ChestBlock) return "chest";
+		if (b instanceof net.minecraft.world.level.block.BarrelBlock) return "barrel";
+		if (b instanceof net.minecraft.world.level.block.ShulkerBoxBlock) return "shulker";
+		return null;
+	}
+
 	/** Rows its screen has: 6 for a double chest, else 3 (a shulker box opens its own screen). */
 	public static int rows(Level level, BlockPos pos) {
 		return ShopContainers.isDoubleChest(level.getBlockState(pos)) ? 6 : 3;

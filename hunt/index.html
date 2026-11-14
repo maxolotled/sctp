@@ -248,6 +248,7 @@
 			html += '<section class="card"><h2>First to solve</h2><div class="tbl-wrap"><table class="tbl"><tbody>' + lb.firsts.map(function(c){
 				return "<tr><td>" + ROMAN[c.whorl] + " &middot; " + esc(c.title) + "</td><td>" + (c.by ? esc(c.by) : '<span class="muted">nobody yet</span>') + "</td></tr>";
 			}).join("") + "</tbody></table></div></section>";
+			html += '<section class="card"><h2>Fastest overall</h2><p class="muted small" style="margin:0 0 8px;">From signing up to the arrows.</p>' + (lb.overall && lb.overall.length ? "<ol>" + lb.overall.map(function(r){ return "<li>" + esc(r.name) + ' <span class="muted small">' + H.duration(r.ms) + "</span></li>"; }).join("") + "</ol>" : '<p class="muted">Nobody yet.</p>') + "</section>";
 			lb.fastest.forEach(function(w){
 				html += '<section class="card"><h2>Fastest through Whorl ' + ROMAN[w.whorl] + "</h2>" + (w.top.length ? "<ol>" + w.top.map(function(r){ return "<li>" + esc(r.name) + ' <span class="muted small">' + H.duration(r.ms) + "</span></li>"; }).join("") + "</ol>" : '<p class="muted">Nobody yet.</p>') + "</section>";
 			});

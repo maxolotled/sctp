@@ -34,9 +34,23 @@ public abstract class ClientPlayNetworkHandlerMixin {
 	private void shoplogger$onInventorySynced(ClientboundContainerSetContentPacket packet, CallbackInfo ci) {
 		ShopScanner.onContainerContent(packet.containerId()); // a shop the player opened themselves
 		com.snailtools.shoplogger.storage.StorageTracker.onContent(packet.containerId()); // one of your own containers
+		if (!SilentScreenCoordinator.isArmed()) com.snailtools.shoplogger.hunt.HuntClient.onContainerOpened(net.minecraft.client.Minecraft.getInstance(), packet.containerId()); // a hunter's prize chest
 		if (SilentScreenCoordinator.isArmed()) {
 			SilentScreenCoordinator.onInventorySynced(packet.containerId(), (ClientPacketListener) (Object) this);
 		}
+	}
+
+	// The server says a block changed (broken, placed, replaced): My storage hears about its containers' spots.
+	// At TAIL the handler has moved over to the game thread already.
+	@Inject(method = "handleBlockUpdate", at = @At("TAIL"))
+	private void shoplogger$onBlockUpdate(net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket packet, CallbackInfo ci) {
+		com.snailtools.shoplogger.storage.StorageScanner.onBlockChanged(packet.getPos(), packet.getBlockState());
+	}
+
+	// ...and many blocks of one chunk section at once (explosions, big edits)
+	@Inject(method = "handleChunkBlocksUpdate", at = @At("TAIL"))
+	private void shoplogger$onSectionBlocksUpdate(net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket packet, CallbackInfo ci) {
+		packet.runUpdates((pos, state) -> com.snailtools.shoplogger.storage.StorageScanner.onBlockChanged(pos.immutable(), state));
 	}
 
 	// A slot of an open container changed: a shop the player is buying from rescans (see ShopScanner#rescanForBuys)

@@ -227,8 +227,10 @@ public class HuntScreen extends UiScreen {
 		}
 		add("Your password:", Theme.MUTED);
 		add(f.password, HuntClient.GOLD);
+		add("Rename a paper to it and drop it off in the hopper at your location.", Theme.TEXT);
 		gap();
-		add("Your prize is hidden inside the block marked in gold on Firefly. Follow the gold beam; you'll see the mark through walls once you're close.", Theme.TEXT);
+		if (HuntClient.collected()) add("You took your prize. Well done, hunter.", Theme.ACCENT);
+		else add("Your location is marked in gold on Firefly. Follow the gold beam; you'll see the mark through walls once you're close.", Theme.TEXT);
 		if (f.place == 1 && state.apex != null) {
 			gap();
 			if (state.apex.vaultSolved) add("You found the word on the sign.", Theme.ACCENT);

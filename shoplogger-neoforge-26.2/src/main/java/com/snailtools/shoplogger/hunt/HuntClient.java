@@ -47,6 +47,12 @@ public final class HuntClient {
 	private static final long POLL_EVERY_MS = 3_000L;
 	private static final String CONFIG_TOKENS = "hunt/tokens/";
 	private static final String CONFIG_SEEN = "hunt/seen";
+	/** Where this game saw you take your prize ("x,y,z"), kept until the server has heard it. */
+	private static final String CONFIG_COLLECTED = "hunt/collected/";
+	/** A chest this close to the gold beam (across, and from 5 below its block up) is your prize's. */
+	private static final double COLLECT_WITHIN = 5.0;
+	/** How soon after your click the chest's window must open. */
+	private static final long COLLECT_OPEN_MS = 3_000L;
 
 	public static final int GOLD = 0xFFE8B93A;
 
@@ -58,6 +64,8 @@ public final class HuntClient {
 	private static volatile Pairing pairing;
 	/** Where the prize is hidden for this hunter's finishing place (null until they finish). */
 	private static volatile Finish finish;
+	private static volatile long collectClickAt;
+	private static volatile boolean busyCollect;
 
 	// ---- response shapes (fields match the Worker's JSON) ----
 
@@ -89,7 +97,10 @@ public final class HuntClient {
 		public Integer x, y, z;
 		public String password;
 		public boolean ready;
+		/** Took their prize: a chest by the gold beam was opened. */
+		public boolean collected;
 		public boolean located() { return x != null && y != null && z != null; }
+		String key() { return x + "," + y + "," + z; }
 	}
 	public static final class Player { public String ledger, mcUsername; }
 	public static final class Whorl {
@@ -144,17 +155,59 @@ public final class HuntClient {
 
 	public static String ledger() { return ledger; }
 
-	/** The gold block to mark (see WorldHighlights), or null. */
-	public static Finish finish() { return paired() ? finish : null; }
+	/** The gold block to mark (see WorldHighlights), or null; gone once you took your prize. */
+	public static Finish finish() { return paired() && !collected() ? finish : null; }
+
+	/** You took your prize: the server knows, or this game saw it and is still telling the server. */
+	public static boolean collected() {
+		Finish f = finish;
+		if (f == null || !f.located()) return false;
+		return f.collected || f.key().equals(Config.get(CONFIG_COLLECTED + me(), String.class));
+	}
 
 	/** A fresh state from the hunt screen: picks up the finish right away. */
 	public static void remember(State s) {
 		if (s != null && s.finish != null && s.finish.located()) finish = s.finish;
 	}
 
-	/** This player's note for a screen, or null. */
+	/** This player's note for a screen, or null. None any more once you took your prize. */
 	public static String note(String context) {
-		return paired() ? notes.get(context) : null;
+		return paired() && !collected() ? notes.get(context) : null;
+	}
+
+	// ---- taking your prize: opening a chest by the gold beam ----
+
+	/** You clicked a block (InteractionMixin): a chest by your gold beam counts once its window opens. */
+	public static void onUse(Minecraft mc, net.minecraft.core.BlockPos pos) {
+		net.minecraft.core.BlockPos target = com.snailtools.shoplogger.WorldHighlights.huntTarget(mc);
+		if (target == null || mc.level == null) return;
+		if (com.snailtools.shoplogger.storage.StorageContainers.kindOfBlock(mc.level.getBlockState(pos)) == null) return;
+		double dx = pos.getX() - target.getX(), dz = pos.getZ() - target.getZ();
+		if (Math.sqrt(dx * dx + dz * dz) > COLLECT_WITHIN || pos.getY() < target.getY() - COLLECT_WITHIN) return;
+		collectClickAt = System.currentTimeMillis();
+	}
+
+	/** A container window opened (ClientPlayNetworkHandlerMixin): right after that click, it's your prize. */
+	public static void onContainerOpened(Minecraft mc, int containerId) {
+		if (containerId == 0 || mc.player == null || mc.player.containerMenu.containerId != containerId) return;
+		if (collectClickAt == 0 || System.currentTimeMillis() - collectClickAt > COLLECT_OPEN_MS) return;
+		collectClickAt = 0;
+		Finish f = finish;
+		if (f == null || !f.located() || collected()) return;
+		Config.update(CONFIG_COLLECTED + me(), f.key());
+		ChatFormat.send(mc, ChatFormat.INFO, "The Shellkeeper: you found it. The prize is yours, and the gold beam goes out. Your ledger stays open on the spiral.");
+		sendCollected();
+	}
+
+	private static void sendCollected() {
+		if (busyCollect || token() == null) return;
+		busyCollect = true;
+		send(post("/hunt/collected", new JsonObject(), true)).whenComplete((res, ex) -> {
+			busyCollect = false;
+			Finish f = finish;
+			if (ex == null && res.statusCode() == 200 && f != null) f.collected = true;
+			// otherwise the next notes refresh tries again
+		});
 	}
 
 	public static Pairing pairing() { return pairing; }
@@ -236,6 +289,12 @@ public final class HuntClient {
 				if (o.has("ledger") && !o.get("ledger").isJsonNull()) ledger = o.get("ledger").getAsString();
 				Finish f = o.has("finish") && o.get("finish").isJsonObject() ? GSON.fromJson(o.get("finish"), Finish.class) : null;
 				finish = f != null && f.located() ? f : null;
+				String seen = Config.get(CONFIG_COLLECTED + me(), String.class);
+				if (seen != null) {
+					if (finish == null || !finish.key().equals(seen)) Config.remove(CONFIG_COLLECTED + me()); // started over, or moved: not taken
+					else if (finish.collected) Config.remove(CONFIG_COLLECTED + me()); // the server has it now
+					else sendCollected(); // it didn't get through last time
+				}
 			} catch (Exception ignored) {
 				// keep the old notes
 			}

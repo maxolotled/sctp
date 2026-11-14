@@ -315,6 +315,7 @@ export function makeHunt(d) {
 			const f = finishFor(settings, player.finishPlace);
 			if (via === "mod" && f) Object.assign(finish, { x: f.x, y: f.y, z: f.z, password: f.password });
 			else finish.ready = !!f;
+			finish.collected = !!player.collectedAt;
 		}
 		return {
 			enabled: true,
@@ -578,15 +579,30 @@ export function makeHunt(d) {
 		const unlocks = unlockTimes(player, solves);
 		const whorlOf = new Map(chapters.results.map((c) => [c.id, c.whorl]));
 		const notes = {};
-		for (const r of rows.results) {
+		// took their prize: the notes are done, the ledger itself stays
+		if (!player.collectedAt) for (const r of rows.results) {
 			if (!MOD_NOTE_PREFIXES.some((p) => r.context.startsWith(p))) continue;
 			if (!unlocks[whorlOf.get(r.chapterId)]) continue;
 			notes[r.context] = r.text;
 		}
 		// finished: where the mod marks the prize in gold (and the password), for this hunter's place
 		const f = solves.has("w4") ? finishFor(s, player.finishPlace) : null;
-		const finish = f ? { place: player.finishPlace, x: f.x, y: f.y, z: f.z, password: f.password } : null;
+		const finish = f ? { place: player.finishPlace, x: f.x, y: f.y, z: f.z, password: f.password, collected: !!player.collectedAt } : null;
 		return json({ notes, ledger: ledger(player.setNo), finish });
+	}
+
+	/** POST /hunt/collected (mod only): the mod saw this finisher open a chest at their prize. Once; the first time counts. */
+	async function handleCollected(request, env) {
+		const s = await getSettings(env);
+		{ const deny = await gate(request, env, s); if (deny) return deny; }
+		const auth = await huntAuth(request, env, { modOnly: true });
+		if (auth.response) return auth.response;
+		const player = await playerOf(env, auth.accountId);
+		if (!player) return json({ error: "Sign up for the hunt first." }, 403);
+		const solves = await solvesOf(env, player.accountId);
+		if (!solves.has("w4") || !finishFor(s, player.finishPlace)) return json({ error: "Not yet." }, 403);
+		await env.DB.prepare("UPDATE huntPlayers SET collectedAt = COALESCE(collectedAt, ?) WHERE accountId = ?").bind(nowIso(), player.accountId).run();
+		return json({ ok: true, collected: true });
 	}
 
 	/** GET /hunt/door?slug= — a hidden page on sctp.nl (404.html asks before its short-link lookup). */
@@ -699,13 +715,20 @@ export function makeHunt(d) {
 			}
 			return { whorl: k, top: rows.sort((a, b) => a.ms - b.ms).slice(0, 10) };
 		});
+		// the whole hunt: signing up to the arrows
+		const overall = [];
+		for (const [id, m] of per) {
+			const p = byId.get(id), done = m.get("w4");
+			if (p.signedUpAt && done) overall.push({ name: name(p), ms: Date.parse(done) - Date.parse(p.signedUpAt) });
+		}
+		overall.sort((a, b) => a.ms - b.ms);
 		const order = (ref) => solves.filter((r) => r.ref === ref && byId.has(r.accountId)).sort((a, b) => a.solvedAt.localeCompare(b.solvedAt))
 			.map((r) => ({ name: name(byId.get(r.accountId)), ledger: ledger(byId.get(r.accountId).setNo), at: r.solvedAt }));
 		const count = (ref) => solves.filter((r) => r.ref === ref && byId.has(r.accountId)).length;
 		return json({
 			hunters: players.length,
 			funnel: { w1: count("w1"), w2: count("w2"), w3: count("w3"), w4: count("w4"), apex: count("apex"), vault: count("vault") },
-			firsts, fastest, apex: order("apex"), vault: order("vault"), shell: publicShell(s),
+			firsts, fastest, overall: overall.slice(0, 10), apex: order("apex"), vault: order("vault"), shell: publicShell(s),
 		});
 	}
 
@@ -808,7 +831,7 @@ export function makeHunt(d) {
 		const [content, sets, players, solveCounts, wrongCounts, hintCounts] = await Promise.all([
 			loadContent(env),
 			env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN accountId IS NULL THEN 0 ELSE 1 END) AS assigned FROM huntSets").first(),
-			env.DB.prepare("SELECT p.accountId, p.mcUsername, p.ledgerNo, p.setNo, p.signedUpAt, p.via, p.anonymous, p.removed, p.verified, p.finishPlace, (SELECT COUNT(*) FROM huntSolves s WHERE s.accountId = p.accountId) AS solved, (SELECT GROUP_CONCAT(ref) FROM huntSolves s WHERE s.accountId = p.accountId) AS refs FROM huntPlayers p ORDER BY p.ledgerNo").all(),
+			env.DB.prepare("SELECT p.accountId, p.mcUsername, p.ledgerNo, p.setNo, p.signedUpAt, p.via, p.anonymous, p.removed, p.verified, p.finishPlace, p.collectedAt, (SELECT COUNT(*) FROM huntSolves s WHERE s.accountId = p.accountId) AS solved, (SELECT GROUP_CONCAT(ref) FROM huntSolves s WHERE s.accountId = p.accountId) AS refs FROM huntPlayers p ORDER BY p.ledgerNo").all(),
 			env.DB.prepare("SELECT ref, COUNT(*) AS c FROM huntSolves GROUP BY ref").all(),
 			env.DB.prepare("SELECT ref, COUNT(*) AS c FROM huntGuesses WHERE correct = 0 GROUP BY ref").all(),
 			env.DB.prepare("SELECT chapterId, tier, COUNT(*) AS c FROM huntHints GROUP BY chapterId, tier").all(),
@@ -953,7 +976,7 @@ export function makeHunt(d) {
 				break;
 			case "unsolve":
 				await env.DB.prepare("DELETE FROM huntSolves WHERE accountId = ? AND ref = ?").bind(p.accountId, String(b.ref)).run();
-				if (String(b.ref) === "w4") await env.DB.prepare("UPDATE huntPlayers SET finishPlace = NULL WHERE accountId = ?").bind(p.accountId).run();
+				if (String(b.ref) === "w4") await env.DB.prepare("UPDATE huntPlayers SET finishPlace = NULL, collectedAt = NULL WHERE accountId = ?").bind(p.accountId).run();
 				break;
 			case "reassign": {
 				const set = await env.DB.prepare("SELECT setNo FROM huntSets WHERE accountId IS NULL ORDER BY setNo LIMIT 1").first();
@@ -983,7 +1006,7 @@ export function makeHunt(d) {
 					env.DB.prepare("DELETE FROM huntSetNotes WHERE setNo IN (SELECT setNo FROM huntSets WHERE accountId = ?)").bind(p.accountId),
 					env.DB.prepare("DELETE FROM huntSets WHERE accountId = ?").bind(p.accountId),
 					env.DB.prepare("UPDATE huntSets SET accountId = ?, assignedAt = ? WHERE setNo = ?").bind(p.accountId, now, set.setNo),
-					env.DB.prepare("UPDATE huntPlayers SET setNo = ?, signedUpAt = ?, finishPlace = NULL WHERE accountId = ?").bind(set.setNo, now, p.accountId),
+					env.DB.prepare("UPDATE huntPlayers SET setNo = ?, signedUpAt = ?, finishPlace = NULL, collectedAt = NULL WHERE accountId = ?").bind(set.setNo, now, p.accountId),
 				]);
 				// a shell claim of theirs goes too
 				const st = await getSettings(env);
@@ -1092,6 +1115,7 @@ export function makeHunt(d) {
 			["GET", "/hunt/door", handleDoor],
 			["GET", "/hunt/image", handleImage],
 			["POST", "/hunt/shell-claim", handleShellClaim],
+			["POST", "/hunt/collected", handleCollected],
 			["POST", "/hunt/prefs", handlePrefs],
 			["GET", "/hunt/leaderboard", handleLeaderboard],
 			["POST", "/mod/hunt/pair/start", handlePairStart],

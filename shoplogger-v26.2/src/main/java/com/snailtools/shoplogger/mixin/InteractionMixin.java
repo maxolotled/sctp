@@ -39,7 +39,11 @@ public abstract class InteractionMixin {
 		var level = player.level();
 		var pos = hit.getBlockPos();
 		// My storage: an indexed container (or your ender chest) you opened yourself
-		if (!ShopAutoScanner.getInstance().isSelfInteracting()) com.snailtools.shoplogger.storage.StorageTracker.onUse(pos);
+		if (!ShopAutoScanner.getInstance().isSelfInteracting()) {
+			com.snailtools.shoplogger.storage.StorageTracker.onUse(pos);
+			// the Golden Shell: a chest by your gold beam
+			com.snailtools.shoplogger.hunt.HuntClient.onUse(net.minecraft.client.Minecraft.getInstance(), pos);
+		}
 		// A block entity covers chests, barrels, shulkers, furnaces, hoppers and
 		// signs (plugin shop/menu GUIs); a menu provider covers crafting tables,
 		// anvils, looms etc., which have no block entity.

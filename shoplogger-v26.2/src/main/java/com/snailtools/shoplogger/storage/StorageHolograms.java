@@ -91,6 +91,12 @@ public final class StorageHolograms {
 			if (mode == StorageSettings.HologramMode.NAME) {
 				String name = nameOf(box, be);
 				if (name != null) lines = new String[] { name, lines[0].equals("Indexed") || lines[0].equals("Locked") ? "" : lines[0] };
+			} else if (mode == StorageSettings.HologramMode.NAME_ONLY) {
+				String name = nameOf(box, be);
+				if (name == null) continue; // nothing to say about an unnamed one
+				// under the name: how many items it holds (nothing yet while it waits for its first read)
+				int total = box.total();
+				lines = new String[] { name, box.waiting() ? "" : String.format(java.util.Locale.ROOT, "%,d item%s", total, total == 1 ? "" : "s") };
 			}
 			draw(pose, collector, camera, mc.level, mc.font, pos, lines, MAIN);
 		}
