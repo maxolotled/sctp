@@ -65,6 +65,12 @@
 	.banner.auction .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text);}
 	.banner .meta{color:var(--muted);font-size:12.5px;}
 	.banner .meta code{font-family:var(--font-mono);color:#FFC44D;font-size:12px;}
+	/* the 3.0 release: what is new, two features, a link to /v3 */
+	.banner.release{border-color:rgba(var(--accent-rgb),.5);background:linear-gradient(100deg,rgba(var(--accent-rgb),.16),rgba(var(--accent-rgb),.03) 65%),var(--panel);padding:12px 14px;}
+	.banner.release .ico{font-size:20px;}
+	.banner.release .btn{background:var(--accent);color:var(--accent-ink);}
+	.banner.release .feats{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:4px;color:var(--muted);font-size:13px;}
+	.banner.release .feats b{color:var(--text);font-weight:600;}
 	@media (max-width:700px){.banner{flex-wrap:wrap;}.banner .act{width:100%;}}
 
 	/* the two big actions */
@@ -188,6 +194,13 @@
 </header>
 
 <main class="wrap">
+	<div class="banner release" id="v3" hidden>
+		<span class="ico">&#10024;</span>
+		<div class="txt"><b>Shop Logger 3.0 is out</b>
+			<div class="feats"><span><b>My storage</b> keeps track of what&rsquo;s in your own chests</span><span><b>Notepad</b> is a shopping list that ticks itself off</span></div>
+		</div>
+		<div class="act"><a class="btn" href="/v3">See what&rsquo;s new</a><button type="button" class="x" aria-label="Hide this">&times;</button></div>
+	</div>
 	<div class="banner" id="notice" hidden></div>
 	<div class="banner auction" id="auction" hidden></div>
 
@@ -307,6 +320,14 @@
 		b[1].textContent = ff ? num(ff.sellers) : "–";
 		b[2].textContent = hb ? num(hb.sellers) : "–";
 	});
+
+	// ---- the 3.0 release banner (closable, stays closed in this browser) ----
+	(function(){
+		var el = $("v3"), key = "sctp_hide_v3";
+		try { if(localStorage.getItem(key)) return; } catch(e){}
+		el.querySelector(".x").onclick = function(){ el.hidden = true; try { localStorage.setItem(key, "1"); } catch(e){} };
+		el.hidden = false;
+	})();
 
 	// ---- notice from the admin portal (closable; a new notice shows again) ----
 	getJson("/site-notice").then(function(n){
