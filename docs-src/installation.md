@@ -28,7 +28,7 @@ Run the new profile created by the launcher first, so it can make the mods folde
 ![2](./i2.png)
 ## Downloading the Fabric API
 Next up, we will download the Fabric API - it's a mod that is required for the SCTP mod to function.
-Start by going to the page on [curseforge](https://www.curseforge.com/minecraft/mc-mods/fabric-api).
+Start by going to the page on [Modrinth](https://modrinth.com/mod/fabric-api).
 ![alt text](i3.png)
 ::: tip I: Select the same game version you picked during the installation process, in this case 26.2 or 26.3.
 :::
