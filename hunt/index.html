@@ -91,6 +91,8 @@
 		}).catch(function(){ main('<div class="card"><p class="err">Couldn\'t reach sctp.nl. Try again in a minute.</p></div>'); });
 	}
 
+	var justSigned = false; // shows the fair-play notice right after signing up, until it is closed
+
 	// ---- not signed up yet: the ledger asks for the code the mod showed ----
 	function renderGate(){
 		var s = H.session();
@@ -108,7 +110,7 @@
 		if($("codeBtn")){
 			var go = function(){
 				$("codeErr").textContent = "";
-				H.api("/hunt/signup", { json: { code: $("codeIn").value, via: via } }).then(function(st){ state = st; render(); })
+				H.api("/hunt/signup", { json: { code: $("codeIn").value, via: via } }).then(function(st){ state = st; justSigned = true; render(); })
 					.catch(function(e){ $("codeErr").textContent = e.message; });
 			};
 			$("codeBtn").onclick = go;
@@ -124,12 +126,14 @@
 		var seen = null;
 		try { seen = localStorage.getItem("huntBroadcastSeen"); } catch(e){}
 		if(status.broadcast && status.broadcast.id !== seen) html += '<div class="banner" id="bcBanner"><b>The Shellkeeper:</b> ' + esc(status.broadcast.text) + ' <button type="button" class="btn-ghost" id="bcClose" style="margin-left:8px;padding:4px 10px;">Got it</button></div>';
+		if(justSigned) html += '<div class="note small" id="fairPlay" style="display:flex;gap:10px;align-items:center;margin:0 0 12px;"><span style="flex:1;">Please don&rsquo;t discuss the answers to the hunts in public chats, though playing in a small group is encouraged; we can reset your progress if you share answers!</span><button type="button" class="btn-ghost" id="fairPlayOk" style="padding:4px 10px;">Got it</button></div>';
 		if(state.shell.found) html += '<div class="banner"><b>' + (state.shell.by ? "First place in the hunt went to " + esc(state.shell.by) : "First place in the hunt has been taken") + ".</b> The ledger stays open: finish the hunt for your place in the Hall of Fame.</div>";
 		html += '<div class="tabs" role="tablist">' + [["hunt", "Your hunt"], ["fame", "Hall of Fame"], ["rules", "Rules"]].map(function(t){
 			return '<button type="button" class="tab' + (tab === t[0] ? " active" : "") + '" data-tab="' + t[0] + '" role="tab" aria-selected="' + (tab === t[0]) + '">' + t[1] + "</button>";
 		}).join("") + "</div>";
 		html += '<div id="tabBody"></div>';
 		main(html);
+		if($("fairPlayOk")) $("fairPlayOk").onclick = function(){ justSigned = false; $("fairPlay").remove(); };
 		if($("bcClose")) $("bcClose").onclick = function(){ try { localStorage.setItem("huntBroadcastSeen", status.broadcast.id); } catch(e){} $("bcBanner").remove(); };
 		if(tab === "hunt") renderHunt();
 		else if(tab === "fame") renderFame();

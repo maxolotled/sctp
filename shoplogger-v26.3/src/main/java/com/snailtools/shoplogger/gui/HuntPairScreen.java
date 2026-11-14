@@ -77,7 +77,10 @@ public class HuntPairScreen extends UiScreen {
 			Draw.centered(g, font, "Your name is in the ledger.", cx, y + 30, Theme.TEXT);
 			String l = HuntClient.ledger();
 			if (l != null) Draw.scaled(g, font, l, cx - (int) (font.width(l) * 1.5f) / 2, y + 48, HuntClient.GOLD, 1.5f, true);
-			Draw.centered(g, font, "Every shell ends at its tip. Good luck.", cx, y + 76, Theme.MUTED);
+			Draw.centered(g, font, "Every shell ends at its tip. Good luck.", cx, y + 72, Theme.MUTED);
+			// fair play, right after signing up
+			var rules = com.snailtools.shoplogger.hunt.HuntNotes.wrap(font, "Please don't discuss the answers to the hunts in public chats, though playing in a small group is encouraged; we can reset your progress if you share answers!", w - 20);
+			for (int j = 0; j < rules.size(); j++) Draw.centered(g, font, rules.get(j), cx, y + 90 + j * 10, Theme.MUTED);
 			return;
 		}
 		if (loading) {
