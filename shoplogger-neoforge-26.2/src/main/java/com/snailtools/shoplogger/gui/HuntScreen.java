@@ -194,7 +194,7 @@ public class HuntScreen extends UiScreen {
 				gap();
 				if (w.chapters != null) for (HuntClient.Chapter c : w.chapters) add("• " + c.fragment, HuntClient.GOLD);
 				gap();
-				add("square".equals(w.answerKind) ? "Pick your square on the world map on sctp.nl. Three wrong picks a day at most." : "Three wrong tries a day at most.", Theme.MUTED);
+				add("square".equals(w.answerKind) ? "Pick your square on the world map on sctp.nl. Three wrong picks every 6 hours at most." : "Three wrong tries every 6 hours at most.", Theme.MUTED);
 				if (w.nudge != null) {
 					if (w.nudge.revealed) add("Nudge: " + w.nudge.text, HuntClient.GOLD);
 					else if (!w.nudge.available) add("Nudge: unreleased.", Theme.FAINT);

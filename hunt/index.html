@@ -219,9 +219,9 @@
 			} else {
 				if(w.puzzle) html += '<div class="clue">' + esc(w.puzzle) + "</div>";
 				html += '<ol class="small">' + w.chapters.map(function(c){ return '<li class="fragment">' + esc(c.fragment) + "</li>"; }).join("") + "</ol>";
-				if(w.answerKind === "square") html += '<p><a class="btn" href="/world/?hunt=1">Pick your ' + H.fmt(w.target ? w.target.size : 0) + '-block square on the map</a></p><p class="muted small">Three wrong picks a day at most.</p>';
-				else if(w.inMod) html += '<p class="note">The arrows go in the mod, not here: open the mod (X) and click the spiral on its home screen 5 times, then enter them there. Three wrong tries a day at most.</p>';
-				else html += answerBox("w" + w.whorl, "The key's numbers") + '<p class="muted small" style="margin:0;">Three wrong tries a day at most.</p>';
+				if(w.answerKind === "square") html += '<p><a class="btn" href="/world/?hunt=1">Pick your ' + H.fmt(w.target ? w.target.size : 0) + '-block square on the map</a></p><p class="muted small">Three wrong picks every 6 hours at most.</p>';
+				else if(w.inMod) html += '<p class="note">The arrows go in the mod, not here: open the mod (X) and click the spiral on its home screen 5 times, then enter them there. Three wrong tries every 6 hours at most.</p>';
+				else html += answerBox("w" + w.whorl, "The key's numbers") + '<p class="muted small" style="margin:0;">Three wrong tries every 6 hours at most.</p>';
 				if(w.nudge) html += hintRows("w" + w.whorl, [{ tier: 3, label: "Nudge", available: w.nudge.available, availableAt: w.nudge.availableAt, revealed: w.nudge.revealed, text: w.nudge.text }]);
 			}
 			html += "</div></section>";

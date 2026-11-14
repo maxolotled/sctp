@@ -28,7 +28,7 @@ const PAIR_TTL_MS = 15 * 60 * 1000;
 const HOUR = 3600 * 1000;
 // Hints (nudge, push, shove; the whorl puzzles have one nudge) only come out when an
 // admin releases them: settings.hintRelease = { c1: 2 (nudge + push), w3: 1 (its nudge), ... }
-const LIMITS = { chapter: [10, HOUR], whorl: [3, 24 * HOUR], apex: [10, HOUR], vault: [10, HOUR] };
+const LIMITS = { chapter: [10, HOUR], whorl: [3, 6 * HOUR], apex: [10, HOUR], vault: [10, HOUR] };
 const RAREDLE_RESET_MS = HOUR;
 // Notes the mod may see (everything else, like door and Rare-dle answers, stays on the server).
 const MOD_NOTE_PREFIXES = ["item:", "chest:", "butterfly", "watch:", "search:", "home:"];
@@ -514,7 +514,7 @@ export function makeHunt(d) {
 			if (k === 4 && !solves.has("apex")) return json({ error: "Solve the Apex first." }, 403);
 			if (k === 4 && auth.via !== "mod") return json({ error: "The arrows go in the mod: open it (X), then click the spiral on its home screen 5 times.", code: "mod" }, 403);
 			const wait = await tooManyWrong(env, player.accountId, ref, kind);
-			if (wait) return json({ error: "That's three wrong tries today. Try again later.", retryAt: wait }, 429);
+			if (wait) return json({ error: "That's three wrong tries in 6 hours. Try again later.", retryAt: wait }, 429);
 			if (k <= 3) {
 				const size = whorlSize(k);
 				const gx = Number(answer && answer.x), gz = Number(answer && answer.z), gs = Number(answer && answer.size);

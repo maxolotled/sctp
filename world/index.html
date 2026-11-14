@@ -458,7 +458,7 @@
 			var tried = hunt.wrong.some(function(q){ return q.x === square.x && q.z === square.z && q.size === square.size; });
 			if(square.size === t.size && tried) html = "<span><b>Whorl " + roman[t.whorl] + ":</b> you already tried this square: it isn't the one.</span>";
 			else if(square.size === t.size) html = "<span><b>Whorl " + roman[t.whorl] + ":</b> is this your square?</span><button type=\"button\" class=\"hb-btn\" id=\"hbLock\">Lock it in</button>";
-			else if(square.size > t.size) html = "<span><b>Whorl " + roman[t.whorl] + ":</b> zoom in to the " + fmt(t.size) + "-block square you think it is, then lock it in. Three wrong picks a day at most.</span>";
+			else if(square.size > t.size) html = "<span><b>Whorl " + roman[t.whorl] + ":</b> zoom in to the " + fmt(t.size) + "-block square you think it is, then lock it in. Three wrong picks every 6 hours at most.</span>";
 			else html = "<span><b>Whorl " + roman[t.whorl] + ":</b> zoom out to a " + fmt(t.size) + "-block square to pick it.</span>";
 		} else if(hunt.marks.length) html = "<span><b>The Apex:</b> the Shellkeeper's marks are drawn in gold.</span>";
 		else if(hunt.squares.length) html = "<span><b>The Golden Shell:</b> your squares are outlined in gold.</span>";
