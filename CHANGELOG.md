@@ -28,6 +28,7 @@
 - **Adding to the notepad:** how many goes on its own row at the top (with 1, 16, 64 and a shulker's worth to pick), and it shows how many lines are on your list already.
 - **Fixed: slot outlines:** opening the one container that holds what you're looking for outlines its slots again (they used to disappear before the window opened).
 - **Settings scroll:** a ▼ at the bottom shows when there's more below.
+- **See-through quest panel:** the quest scroll panel has an Opacity slider under its size slider (in the quest menu), from solid down to 10%. Only the background fades; the text stays readable.
 - **Fixed: the sold glow:** a new sale on a shop chest whose earlier payment you hadn't collected yet lights the chest up again. Scans never turn it off; only opening the chest yourself does.
 - **Fixed: yearly items mixed up on the watchlist.** Watching last year's "Creativity Crate Key" no longer alerts you about the "Creativity 2026 Crate Key" (or the other way round): numbers in a name now count.
 

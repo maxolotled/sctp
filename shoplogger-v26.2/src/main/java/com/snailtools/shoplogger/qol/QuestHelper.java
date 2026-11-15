@@ -34,6 +34,10 @@ public class QuestHelper {
     private static final String CONFIG_OFFSET_Y_PATH = "Quest/offset-y";
     private static final String CONFIG_PINNED_PATH = "Quest/pinned";
     private static final String CONFIG_COMPACT_PATH = "Quest/compact";
+    private static final String CONFIG_OPACITY_PATH = "Quest/opacity";
+    /** How see-through the panel's background is (the text always stays readable): 0.1 to 1. */
+    private static float PANEL_OPACITY;
+    private static final float MIN_OPACITY = 0.1f;
     private static float HUD_SCALE;
     private static boolean questHelperVisible;
     private static float panelOffsetX;
@@ -82,6 +86,7 @@ public class QuestHelper {
     private int scaleSliderX = 0;
     private int scaleSliderY = 0;
     private boolean scaleSliderDragging = false;
+    private boolean opacitySliderDragging = false;
     private int dragHandleX = 0;
     private int dragHandleY = 0;
     private int dragHandleSize = 0;
@@ -96,11 +101,13 @@ public class QuestHelper {
         panelOffsetY = Config.getOrDefault(CONFIG_OFFSET_Y_PATH,  Float.class,0.0F);
         panelPinned = Config.getOrDefault(CONFIG_PINNED_PATH,  Boolean.class,true);
         questCompact = Config.getOrDefault(CONFIG_COMPACT_PATH,  Boolean.class,false);
+        PANEL_OPACITY = clamp(Config.getOrDefault(CONFIG_OPACITY_PATH, Float.class, 1.0F), MIN_OPACITY, 1.0F);
     }
 
     public void onScreenRender(Screen screen, GuiGraphicsExtractor gui, int mouseX, int mouseY, float delta) {
         if (!isQuestScreen(screen)) {
             scaleSliderDragging = false;
+            opacitySliderDragging = false;
             panelDragging = false;
             return;
         }
@@ -120,6 +127,11 @@ public class QuestHelper {
         } else if (!questHelperVisible) {
             scaleSliderDragging = false;
         }
+        if (questHelperVisible && opacitySliderDragging) {
+            updateOpacityFromMouse(mouseX);
+        } else if (!questHelperVisible) {
+            opacitySliderDragging = false;
+        }
 
         renderQuestControls(gui, minecraft, mouseX, mouseY);
     }
@@ -137,6 +149,7 @@ public class QuestHelper {
                 savePanelOffset();
             }
             scaleSliderDragging = false;
+            opacitySliderDragging = false;
             return;
         }
 
@@ -181,6 +194,12 @@ public class QuestHelper {
         if (questHelperVisible && isInside(mouseX, mouseY, scaleSliderX, scaleSliderY, SCALE_SLIDER_WIDTH, SCALE_SLIDER_HEIGHT)) {
             scaleSliderDragging = true;
             updateHudScaleFromMouse(mouseX);
+            return;
+        }
+
+        if (questHelperVisible && isInside(mouseX, mouseY, scaleSliderX, opacitySliderY(), SCALE_SLIDER_WIDTH, SCALE_SLIDER_HEIGHT)) {
+            opacitySliderDragging = true;
+            updateOpacityFromMouse(mouseX);
             return;
         }
 
@@ -314,10 +333,10 @@ public class QuestHelper {
         graphics.pose().pushMatrix();
         graphics.pose().scale(HUD_SCALE, HUD_SCALE);
 
-        graphics.fill(panelX + 2, panelY + 2, panelX + panelWidth + 2, panelY + panelHeight + 2, SHADOW_COLOR);
-        graphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, BORDER_COLOR);
-        graphics.fill(panelX + 1, panelY + 1, panelX + panelWidth - 1, panelY + panelHeight - 1, PANEL_COLOR);
-        graphics.fill(panelX + 1, panelY + 1, panelX + panelWidth - 1, panelY + HEADER_HEIGHT, HEADER_COLOR);
+        graphics.fill(panelX + 2, panelY + 2, panelX + panelWidth + 2, panelY + panelHeight + 2, fade(SHADOW_COLOR));
+        graphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, fade(BORDER_COLOR));
+        graphics.fill(panelX + 1, panelY + 1, panelX + panelWidth - 1, panelY + panelHeight - 1, fade(PANEL_COLOR));
+        graphics.fill(panelX + 1, panelY + 1, panelX + panelWidth - 1, panelY + HEADER_HEIGHT, fade(HEADER_COLOR));
 
         int titleX = panelX + PANEL_PADDING;
         int titleY = panelY + (HEADER_HEIGHT - minecraft.font.lineHeight) / 2;
@@ -335,7 +354,7 @@ public class QuestHelper {
         int rowY = panelY + HEADER_HEIGHT + PANEL_PADDING;
         for (int i = 0; i < lines.size(); i++) {
             if (i % 2 == 1) {
-                graphics.fill(panelX + 2, rowY, panelX + panelWidth - 2, rowY + ROW_HEIGHT, ROW_ALT_COLOR);
+                graphics.fill(panelX + 2, rowY, panelX + panelWidth - 2, rowY + ROW_HEIGHT, fade(ROW_ALT_COLOR));
             }
 
             int textY = rowY + (ROW_HEIGHT - minecraft.font.lineHeight) / 2 + 1;
@@ -433,21 +452,47 @@ public class QuestHelper {
     private void renderQuestControls(GuiGraphicsExtractor gui, Minecraft minecraft, int mouseX, int mouseY) {
         if (!questHelperVisible) return;
 
-        boolean hovered = isInside(mouseX, mouseY, scaleSliderX, scaleSliderY, SCALE_SLIDER_WIDTH, SCALE_SLIDER_HEIGHT);
-        int borderColor = hovered || scaleSliderDragging ? 0xFFFFFFFF : CONTROL_BORDER_COLOR;
-        int fillColor = scaleSliderDragging ? CONTROL_ACTIVE_COLOR : hovered ? CONTROL_HOVER_COLOR : CONTROL_FILL_COLOR;
-        int trackX = scaleSliderX + 7;
-        int trackY = scaleSliderY + SCALE_SLIDER_HEIGHT - 5;
-        int trackWidth = SCALE_SLIDER_WIDTH - 14;
-        int knobX = trackX + Math.round((HUD_SCALE - MIN_HUD_SCALE) / (MAX_HUD_SCALE - MIN_HUD_SCALE) * trackWidth) - SCALE_KNOB_WIDTH / 2;
-        String label = String.format(Locale.ROOT, "%.1fx", HUD_SCALE);
+        renderSlider(gui, minecraft, mouseX, mouseY, scaleSliderY, scaleSliderDragging,
+                (HUD_SCALE - MIN_HUD_SCALE) / (MAX_HUD_SCALE - MIN_HUD_SCALE), String.format(Locale.ROOT, "%.1fx", HUD_SCALE));
+        renderSlider(gui, minecraft, mouseX, mouseY, opacitySliderY(), opacitySliderDragging,
+                (PANEL_OPACITY - MIN_OPACITY) / (1.0f - MIN_OPACITY), "Opacity " + Math.round(PANEL_OPACITY * 100) + "%");
+    }
 
-        gui.fill(scaleSliderX, scaleSliderY, scaleSliderX + SCALE_SLIDER_WIDTH, scaleSliderY + SCALE_SLIDER_HEIGHT, borderColor);
-        gui.fill(scaleSliderX + 1, scaleSliderY + 1, scaleSliderX + SCALE_SLIDER_WIDTH - 1, scaleSliderY + SCALE_SLIDER_HEIGHT - 1, fillColor);
-        gui.centeredText(minecraft.font, label, scaleSliderX + SCALE_SLIDER_WIDTH / 2, scaleSliderY + 3, TEXT_COLOR);
+    private void renderSlider(GuiGraphicsExtractor gui, Minecraft minecraft, int mouseX, int mouseY, int y, boolean dragging, float value, String label) {
+        int x = scaleSliderX;
+        boolean hovered = isInside(mouseX, mouseY, x, y, SCALE_SLIDER_WIDTH, SCALE_SLIDER_HEIGHT);
+        int borderColor = hovered || dragging ? 0xFFFFFFFF : CONTROL_BORDER_COLOR;
+        int fillColor = dragging ? CONTROL_ACTIVE_COLOR : hovered ? CONTROL_HOVER_COLOR : CONTROL_FILL_COLOR;
+        int trackX = x + 7;
+        int trackY = y + SCALE_SLIDER_HEIGHT - 5;
+        int trackWidth = SCALE_SLIDER_WIDTH - 14;
+        int knobX = trackX + Math.round(clamp(value, 0.0f, 1.0f) * trackWidth) - SCALE_KNOB_WIDTH / 2;
+
+        gui.fill(x, y, x + SCALE_SLIDER_WIDTH, y + SCALE_SLIDER_HEIGHT, borderColor);
+        gui.fill(x + 1, y + 1, x + SCALE_SLIDER_WIDTH - 1, y + SCALE_SLIDER_HEIGHT - 1, fillColor);
+        gui.centeredText(minecraft.font, label, x + SCALE_SLIDER_WIDTH / 2, y + 3, TEXT_COLOR);
         gui.fill(trackX, trackY, trackX + trackWidth, trackY + SCALE_TRACK_HEIGHT, CONTROL_TRACK_COLOR);
         gui.fill(trackX, trackY, knobX + SCALE_KNOB_WIDTH / 2, trackY + SCALE_TRACK_HEIGHT, MUTED_TEXT_COLOR);
         gui.fill(knobX, trackY - 2, knobX + SCALE_KNOB_WIDTH, trackY + SCALE_TRACK_HEIGHT + 2, 0xFFFFFFFF);
+    }
+
+    /** The opacity slider sits right under the size slider. */
+    private int opacitySliderY() {
+        return scaleSliderY + SCALE_SLIDER_HEIGHT + 3;
+    }
+
+    private void updateOpacityFromMouse(double mouseX) {
+        int trackX = scaleSliderX + 7;
+        int trackWidth = SCALE_SLIDER_WIDTH - 14;
+        float percent = clamp((float) ((mouseX - trackX) / trackWidth), 0.0f, 1.0f);
+        PANEL_OPACITY = Math.round((MIN_OPACITY + percent * (1.0f - MIN_OPACITY)) * 20) / 20.0f; // steps of 5%
+        Config.update(CONFIG_OPACITY_PATH, PANEL_OPACITY);
+    }
+
+    /** A background colour with the panel's opacity applied (text isn't faded). */
+    private static int fade(int argb) {
+        int alpha = Math.round((argb >>> 24) * PANEL_OPACITY);
+        return (alpha << 24) | (argb & 0x00FFFFFF);
     }
 
     private void updateHudScaleFromMouse(double mouseX) {
