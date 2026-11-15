@@ -32,6 +32,7 @@
 - **Fixed: yearly items mixed up on the watchlist.** Watching last year's "Creativity Crate Key" no longer alerts you about the "Creativity 2026 Crate Key" (or the other way round): numbers in a name now count.
 
 ### Website
+- **63 rubber ducks and 3 plushies:** the rubber duck collection (Mario, Luigi, Thor, Stitch, the Snail Duck, the Firefly and Honeybee Ducks, Reinduck, Snowduck and the rest) plus the Plushie of Adrenblast, the Village Plushie and the Wandering Trader Plushie, from the latest Snailcraft Items sheet.
 - **Build list: cheaper to craft:** when buying the ingredients and crafting (crafting table or stonecutter) costs at least half less than buying the block, or nobody sells the block, the list buys the ingredients instead. "Buy the block instead" switches any of them back.
 - **Build list to the notepad:** "Copy for the notepad" under your list gives a code the mod's notepad pastes as a shopping list, crafting swaps included.
 - **Build list checkmarks:** tick off each line as you buy it; it gets crossed out, a shop dims once you're done there, and your ticks stay when you reload. "Clear checkmarks" starts over.
@@ -85,14 +86,14 @@
 - **Ender chest ⇄ backpack:** the two arrows are now one icon button on the left that opens whichever one you're not in (a bundle for your backpack, an ender chest for /ec).
 - **Stock holograms** (off by default, Settings › Look & tools): a small line on the front of each scanned shop chest, under its sign: "64 in stock · 3m ago" or "Empty". It sits flat on the chest like sign text (it doesn't turn to follow you), only shows within 8 blocks, and only when you're in front of the chest.
 - **Real sales:** every scan now also reports how much payment is sitting in the shop, so the website can tell real sales apart from sellers taking stock out (see Website).
-- **Popups instead of chat messages:** the welcome message for new players and "Shop Logger updated" now show as a small popup on your screen with a button (walkthrough or what's new) and an X, instead of a chat line that scrolls away. They wait until you're in the world with no menu open. "Update available" notices stay in chat.
+- **Popups instead of chat messages:** the welcome message for new players and "SCTP mod updated" now show as a small popup on your screen with a button (walkthrough or what's new) and an X, instead of a chat line that scrolls away. They wait until you're in the world with no menu open. "Update available" notices stay in chat.
 - **Hide display listings:** a "Display: Shown / Hidden" chip on the Listings screen and a Settings › Look & tools option leave out [DISPLAY] shops everywhere: listings, item pages, seller profiles and chat `/search`.
 - **Fix: opening a shop yourself read it as empty.** The scan ran before the server had sent the chest's contents, so a shop you opened by hand got logged as empty (its listings dropped off the site until the next auto-scan), its stock hologram said "Empty", and your own shops could later report a sale that didn't happen. It now waits for the contents.
 
 ### Website
 - **Rare auctions (/auction):** enter rares for the next auction in a quick table: search a rare and it's added straight away, with SCTP's value and suggested prices filled in. Supports Dutch clock auctions (the price keeps dropping until someone claims it) and regular auctions. You can tick "Let the host pick" instead of setting a price. You get your shulker name ("Registered <name>") and the drop-off location for that auction. **My Auctions** shows your results and payouts, and the homepage shows the next auction (date, host, drop-off, spots left) with a button to enter.
 - **Wishlist:** star (☆) the rares and mapart you want on My Collection, per world. Owning an item takes its star away. A wishlist card with a "Copy wishlist link" button shares it (`/collection/<name>#wishlist` opens straight on it), the Have / Need filter has a Wishlist option, and "Share what I still need" can make a wishlist picture.
-- **Shop Logger on Modrinth:** the download buttons point to Modrinth, with the direct download still available.
+- **The mod on Modrinth:** the download buttons point to Modrinth, with the direct download still available.
 - **Real sales in every statistic:** "sold" used to be any stock that disappeared, so restocking, moving items or delisting all counted as sales. Now an item only counts as sold when a shop's stock went down **and** its payment showed up in that chest between two scans (by anyone with mod 2.4). Item pages, the Statistics page (best-selling), My Shop Statistics and the restock hints all use this, counted from 7 October 2026. A sale where the seller collects the payment before the next scan can be missed, so the numbers can only be a little low, never inflated.
 - **Other languages:** item names uploaded from a game set to another language (German, French…) are turned back into the English names, so they match everyone else's.
 - **20 new rares** from the item sheet (The Grimoire, the organ collectibles, the Star (Reversed), new plushies…), with updated details for existing ones.
@@ -110,7 +111,7 @@
 ## 2.3 (mod 2.3)
 
 ### Mod
-- **All-new menus.** Every Shop Logger screen was redesigned to match the website: dark green cards, lime accents, proper switches, rounded buttons and filter chips, framed search boxes, and styled lists with a slim scrollbar. Every feature from before is still there.
+- **All-new menus.** Every SCTP screen was redesigned to match the website: dark green cards, lime accents, proper switches, rounded buttons and filter chips, framed search boxes, and styled lists with a slim scrollbar. Every feature from before is still there.
 - **Easier to get around:** a top bar on every screen with Back, a "Trading Post › page" breadcrumb, and icon tabs to jump straight to Listings, Items, Rares, Watchlist, Marketplace, Mapart or Settings.
 - **Home is now a dashboard:** status at a glance (world, scanner, shops nearby, watchlist), a search box that goes straight to the listings (press Enter), and a tile per section with live badges.
 - **One Settings screen:** Settings and Advanced settings are merged into categories (Scanning, Alerts, Look & tools, Data, Advanced). Every option has a one-line explanation. The rescan cooldown is now a − / + stepper, and Export / Upload confirm with "Done ✓".
@@ -119,7 +120,7 @@
 - **Watchlist:** "Watching" and "+ Add" badges, a clearer options card with the price shown in diamonds too, and your search and scroll position are kept.
 - **Marketplace:** "Selling" / "Looking for" badges and a button to post on sctp.nl. **Seller profiles** show the item name on each listing and link to the profile on sctp.nl.
 - **Mapart scanner:** proper on/off switch, stats at a glance, cards with coloured upload status. It's now **off by default for everyone** (uploads are paused server-side), including players who had it on, and the screen shows "Enabling this feature will capture all maps in item frames visible to you."
-- **Colour themes:** pick one of 10 themes for every Shop Logger screen in Settings › Look & tools: Snail (the default, matching the website), Ocean, Amethyst, Sakura, Honey, Pumpkin, Crimson, Frost, Firefly and Graphite. The ‹ › arrows preview them live; clicking the name opens the full list. Status colours (warnings, errors) and world colours stay the same in every theme.
+- **Colour themes:** pick one of 10 themes for every SCTP screen in Settings › Look & tools: Snail (the default, matching the website), Ocean, Amethyst, Sakura, Honey, Pumpkin, Crimson, Frost, Firefly and Graphite. The ‹ › arrows preview them live; clicking the name opens the full list. Status colours (warnings, errors) and world colours stay the same in every theme.
 - **Filters open a pick list:** clicking any filter chip (Listings, Items, Rares, Item pages, Marketplace) opens a popup with every option, the current one highlighted, and a search box for long lists. Shift+click still steps to the next option.
 - **Watchlist from item pages:** every item page has "+ Add to watchlist" (adds it and opens its options) or "Watchlist settings" next to its tabs.
 - **Items / Rares keep your place:** going back from an item page returns the list to where you were scrolled.

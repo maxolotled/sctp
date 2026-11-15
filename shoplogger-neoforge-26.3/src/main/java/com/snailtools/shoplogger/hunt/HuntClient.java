@@ -47,6 +47,8 @@ public final class HuntClient {
 	private static final long POLL_EVERY_MS = 3_000L;
 	private static final String CONFIG_TOKENS = "hunt/tokens/";
 	private static final String CONFIG_SEEN = "hunt/seen";
+	/** The hunter's switch on the hunt screen: broadcasts and milestones in chat (on by default). */
+	private static final String CONFIG_CHAT = "hunt/chatMessages";
 	/** Where this game saw you take your prize ("x,y,z"), kept until the server has heard it. */
 	private static final String CONFIG_COLLECTED = "hunt/collected/";
 	/** A chest this close to the gold beam (across, and from 5 below its block up) is your prize's. */
@@ -239,7 +241,8 @@ public final class HuntClient {
 		busyStatus = true;
 		statusAt = System.currentTimeMillis();
 		// the name lets a tester see the hunt while it's off for everyone else
-		send(get("/hunt/status?mc=" + URLEncoder.encode(me(), StandardCharsets.UTF_8), false)).whenComplete((res, ex) -> {
+		// with the hunt token (when paired): broadcasts and milestones only come back for someone in the ledger
+		send(get("/hunt/status?mc=" + URLEncoder.encode(me(), StandardCharsets.UTF_8), true)).whenComplete((res, ex) -> {
 			busyStatus = false;
 			if (ex != null || res.statusCode() != 200) return;
 			Status s;
@@ -252,7 +255,10 @@ public final class HuntClient {
 		});
 	}
 
-	/** Broadcasts and community milestones: once each, in chat. */
+	public static boolean chatMessages() { return Config.getOrCreate(CONFIG_CHAT, Boolean.class, true); }
+	public static void setChatMessages(boolean on) { Config.update(CONFIG_CHAT, on); }
+
+	/** Broadcasts and community milestones: once each, in chat (unless switched off on the hunt screen). */
 	private static void announce(Status s) {
 		List<String> seen = new ArrayList<>(Arrays.asList(Config.getOrDefault(CONFIG_SEEN, String[].class, new String[0])));
 		List<String> lines = new ArrayList<>();
@@ -266,7 +272,9 @@ public final class HuntClient {
 			lines.add(m.text);
 		}
 		if (lines.isEmpty()) return;
+		// counted as seen either way, so switching them back on doesn't bring a pile of old ones
 		Config.update(CONFIG_SEEN, seen.subList(Math.max(0, seen.size() - 200), seen.size()).toArray(new String[0]));
+		if (!chatMessages()) return;
 		Minecraft mc = Minecraft.getInstance();
 		mc.execute(() -> { for (String l : lines) ChatFormat.send(mc, ChatFormat.INFO, "The Shellkeeper: " + l); });
 	}

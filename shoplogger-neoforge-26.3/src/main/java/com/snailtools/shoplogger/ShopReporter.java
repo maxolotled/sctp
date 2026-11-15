@@ -142,7 +142,7 @@ public final class ShopReporter {
 		body.put("listing", listing);
 		body.put("reason", "other");
 		String who = client.getUser() != null ? client.getUser().getName() : "unknown";
-		body.put("details", "[In-game report] sent from the Shop Logger mod by " + who);
+		body.put("details", "[In-game report] sent from the SCTP mod by " + who);
 		body.put("reporter", who); // if you can deal with reports, the Worker accepts it straight away
 
 		HttpRequest request = HttpRequest.newBuilder()

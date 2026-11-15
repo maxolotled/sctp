@@ -43,9 +43,9 @@ public final class OnboardingLinkCheck {
 		String lastSeen = Config.get(CONFIG_KEY, String.class);
 
 		if (lastSeen == null && !Config.existedBeforeLoad()) {
-			NoticePopups.show("Welcome to Shop Logger!", "New here? The walkthrough shows what the mod does and how to get the most out of it. Press " + com.snailtools.shoplogger.ModKeys.menu() + " in-game any time to open the menu.", "See how it works", "https://sctp.nl/onboarding/mod");
+			NoticePopups.show("Welcome to the SCTP mod!", "New here? The walkthrough shows what the mod does and how to get the most out of it. Press " + com.snailtools.shoplogger.ModKeys.menu() + " in-game any time to open the menu.", "See how it works", "https://sctp.nl/onboarding/mod");
 		} else if (lastSeen == null || !lastSeen.equals(current)) {
-			NoticePopups.show("Shop Logger updated to " + current, "There's new stuff in this version. Take a quick look at what changed.", "See what's new", "https://sctp.nl/v3");
+			NoticePopups.show("SCTP mod updated to " + current, "There's new stuff in this version. Take a quick look at what changed.", "See what's new", "https://sctp.nl/v3");
 		}
 
 		if (lastSeen == null || !lastSeen.equals(current)) {

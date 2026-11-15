@@ -7,7 +7,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 /**
- * Base for every Shop Logger screen: the site-style background, and a top
+ * Base for every SCTP screen: the site-style background, and a top
  * bar with Back, the logo, a "Trading Post › Section" breadcrumb and icon
  * tabs to jump straight to any other section. Subclasses build their
  * content in initContent() inside the content box (contentX/Y/W/H).

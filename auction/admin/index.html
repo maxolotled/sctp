@@ -217,7 +217,7 @@
 			'<div class="full"><label class="lbl" for="fNotes">Note shown on the page (optional)</label><input type="text" id="fNotes" maxlength="500" value="' + esc(a && a.notes ? a.notes : "") + '" placeholder="e.g. Held at the Spawn amphitheatre"></div>' +
 			'</div><div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button type="button" class="btn" id="fSave">' + (a ? "Save changes" : "Create auction") + '</button><span id="fMsg"></span>' +
 			(a ? '<button type="button" class="btn-bad" id="fDelete" style="margin-left:auto;" title="Takes it out of this menu and sets it to finished. Entries and results are kept.">Delete auction</button>' : '') + '</div>' +
-			(a && a.accessCode ? '<div class="ingame-code"><div><b>Run it in-game with Shop Logger</b><span>The host (' + (a.hostName ? esc(a.hostName) : 'set one above') + ') has access by their Minecraft name. Anyone else adds it on the Auctions screen with this code:</span></div>' +
+			(a && a.accessCode ? '<div class="ingame-code"><div><b>Run it in-game with the SCTP mod</b><span>The host (' + (a.hostName ? esc(a.hostName) : 'set one above') + ') has access by their Minecraft name. Anyone else adds it on the Auctions screen with this code:</span></div>' +
 				'<code id="fCode">' + esc(a.accessCode) + '</code><button type="button" class="btn-ghost" id="fCodeCopy">Copy</button></div>' : '') +
 			'</section>';
 	}
@@ -230,7 +230,7 @@
 				.catch(function(){ window.prompt("Copy this code:", a.accessCode); });
 		};
 		if($("fDelete")) $("fDelete").onclick = function(){
-			if(!confirm("Delete \"" + a.title + "\"?\n\nIt disappears from this menu and from Shop Logger, and is set to finished. Its entries, results and statistics are kept.")) return;
+			if(!confirm("Delete \"" + a.title + "\"?\n\nIt disappears from this menu and from the SCTP mod, and is set to finished. Its entries, results and statistics are kept.")) return;
 			api("/admin/auctions/delete", { method: "POST", body: { id: a.id } }).then(function(res){
 				if(!res.ok){ $("fMsg").innerHTML = '<span class="err">' + esc(res.d.error || "Couldn't delete") + '</span>'; return; }
 				selectedId = null;

@@ -1107,7 +1107,7 @@
 		{ id: "mod", label: "Mod release / download", fields: [
 			{ k: "version", label: "Version", def: "2.0" }, { k: "note", label: "Subline", def: "Now with a built-in mapart scanner, better watchlist and in-game reporting.", wide: true },
 			{ k: "builds", label: "Builds (one per line)", type: "area", def: "Fabric 26.2\nFabric 26.3\nNeoForge 26.2\nNeoForge 26.3", wide: true } ],
-		  build: function(v){ return Promise.resolve({ type: "announce", eyebrow: "Now available", title: "Shop Logger " + v.version, subtitle: v.note, chips: mkLines(v.builds), footerUrl: "sctp.nl \u2014 Download mod", filename: "mod-" + v.version }); } },
+		  build: function(v){ return Promise.resolve({ type: "announce", eyebrow: "Now available", title: "SCTP mod " + v.version, subtitle: v.note, chips: mkLines(v.builds), footerUrl: "sctp.nl \u2014 Download mod", filename: "mod-" + v.version }); } },
 		{ id: "raredle", label: "Rare-dle promo", fields: [
 			{ k: "eyebrow", label: "Small line above", def: "Live now" }, { k: "headline", label: "Headline", def: "Rare-dle" },
 			{ k: "subline", label: "Subline", def: "Guess the secret Snailcraft rare in 8 tries. New puzzle every day.", wide: true } ],

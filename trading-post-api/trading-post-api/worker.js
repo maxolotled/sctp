@@ -1371,7 +1371,7 @@ async function handleUploadListings(request, env) {
 
 	const modVersion = typeof body.modVersion === "string" ? body.modVersion : null;
 	if (!isVersionAtLeast(modVersion, MIN_UPLOAD_VERSION)) {
-		return json({ error: `Shop Logger ${modVersion || "(unknown version)"} is no longer supported — please update to ${MIN_UPLOAD_VERSION} or later.` }, 426);
+		return json({ error: `SCTP mod ${modVersion || "(unknown version)"} is no longer supported — please update to ${MIN_UPLOAD_VERSION} or later.` }, 426);
 	}
 
 	// modVersion is now guaranteed >= MIN_UPLOAD_VERSION (2.2.1), which is
@@ -7816,7 +7816,7 @@ async function handleWorldTileUpload(request, env) {
 	return json({ ok: true, stored: n });
 }
 
-// ---------------- in-game auction hosting (Shop Logger) ----------------
+// ---------------- in-game auction hosting (SCTP mod) ----------------
 //
 // The mod signs in with the player's Minecraft name (POST /mod/auction-login,
 // trusted like /mod/login, no sctp.nl account needed). A player can run an

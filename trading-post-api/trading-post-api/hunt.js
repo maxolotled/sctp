@@ -338,9 +338,10 @@ export function makeHunt(d) {
 	async function handleStatus(request, env, ctx) {
 		const s = await getSettings(env);
 		if (!(await canSee(request, env, s))) return json({ enabled: false });
-		const [shares, content] = await Promise.all([communityShares(env), loadContent(env)]);
+		const [shares, content, hunter] = await Promise.all([communityShares(env), loadContent(env), isHunter(request, env)]);
 		const milestones = [];
-		for (const c of content.chapters) {
+		// community milestones only once there are enough hunters for "a quarter" to mean something
+		if (shares.total >= 10) for (const c of content.chapters) {
 			const share = shares.share.get(c.id) || 0;
 			if (share >= 0.25) milestones.push({ id: c.id + "-25", text: "A quarter of all hunters solved “" + c.title + "”." });
 			if (share >= 0.5) milestones.push({ id: c.id + "-50", text: "Half of all hunters solved “" + c.title + "”." });
@@ -349,8 +350,20 @@ export function makeHunt(d) {
 		return json({
 			enabled: true, testing: !s.enabled, signupOpen: !!s.signupOpen, hunters: shares.total,
 			funnel: { w1: shares.count.get("w1") || 0, w2: shares.count.get("w2") || 0, w3: shares.count.get("w3") || 0, w4: shares.count.get("w4") || 0, apex: shares.count.get("apex") || 0 },
-			broadcast: s.broadcast, milestones, shell: publicShell(s),
+			// broadcasts and milestones are for hunters only (the mod puts them in chat): a mod that
+			// isn't paired, or still holds the pairing of a hunter who was removed or wiped, gets none
+			broadcast: hunter ? s.broadcast : null, milestones: hunter ? milestones : [], shell: publicShell(s),
 		});
+	}
+
+	/** The request comes from someone in the ledger: a paired mod or a logged-in sctp.nl account with a hunt sign-up. */
+	async function isHunter(request, env) {
+		const auth = request.headers.get("Authorization") || "";
+		const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+		if (!token) return false;
+		const t = await env.DB.prepare("SELECT accountId FROM huntTokens WHERE token = ?").bind(token).first()
+			|| await env.DB.prepare("SELECT adminId AS accountId FROM adminSessions WHERE token = ? AND expiresAt > ?").bind(token, nowIso()).first();
+		return !!(t && await playerOf(env, t.accountId));
 	}
 
 	// ---- trailhead: pairing the mod ----

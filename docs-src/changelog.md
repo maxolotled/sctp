@@ -31,12 +31,12 @@ Thank you for using the SCTP! Download the newest mod files via the website. New
 ::: details Website: auctions and wishlists
 - Rare auctions at sctp.nl/auction: enter your rares in a quick table, set your prices or let the host pick, and see where to drop off your shulker. The homepage shows the next auction.
 - Star the rares and mapart you want on My Collection to make a wishlist, and share it with a link.
-- Shop Logger is on Modrinth now!
+- The SCTP mod is on Modrinth now!
 :::
 
 ## 2.3: all-new mod menus
 ::: details A brand new look
-- Every Shop Logger screen was redesigned to match the website: dark green cards, lime accents, real on/off switches and cleaner lists.
+- Every SCTP screen was redesigned to match the website: dark green cards, lime accents, real on/off switches and cleaner lists.
 - All the old features are still there, just easier to find and read!
 :::
 ::: details Easier to get around

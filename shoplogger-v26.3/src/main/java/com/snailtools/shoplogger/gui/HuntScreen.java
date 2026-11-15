@@ -83,6 +83,11 @@ public class HuntScreen extends UiScreen {
 		answer = null;
 		addRenderableWidget(new UiButton(contentX() + contentW() - 104, contentY() - 2, 104, 14, "Open on sctp.nl ↗", UiButton.Style.GHOST, () -> UiLinks.open(SITE)));
 		if (state == null || state.player == null) return;
+		// the Shellkeeper's broadcasts and milestones in chat: on or off
+		String chat = HuntClient.chatMessages() ? "Hunt chat: On" : "Hunt chat: Off";
+		addRenderableWidget(new UiButton(contentX() + contentW() - 104 - 6 - 92, contentY() - 2, 92, 14, chat, UiButton.Style.GHOST,
+				() -> { HuntClient.setChatMessages(!HuntClient.chatMessages()); rebuild(); })
+				.tooltip("The Shellkeeper's announcements and community milestones in chat"));
 		buildRows();
 		buildLines();
 

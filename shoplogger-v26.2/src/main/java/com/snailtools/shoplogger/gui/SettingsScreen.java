@@ -154,7 +154,7 @@ public class SettingsScreen extends UiScreen {
 					SettingRow.stepper("Confirm from", "Shop price that needs a second click",
 							BuyConfirm.THRESHOLD_STEPS_DB, BuyConfirm::thresholdDb, BuyConfirm::setThresholdDb, "DB"));
 			case DISPLAY -> List.of(
-					SettingRow.choice("Colour theme", "The colours of every Shop Logger screen",
+					SettingRow.choice("Colour theme", "The colours of every SCTP screen",
 							Arrays.asList(Theme.Palette.values()), Theme::get, Theme::set, v -> v.label),
 					SettingRow.toggle("Rare rental highlights", "Highlight rentable rares in shops",
 							RareRentalHighlighter::isEnabled, RareRentalHighlighter::setEnabled),

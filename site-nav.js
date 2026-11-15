@@ -100,7 +100,7 @@
 					"</div>" +
 				"</nav>" +
 				'<div class="bbar-right">' +
-					'<a class="bbar-dl" href="/#download" title="Download the Shop Logger mod">&#11015;<span class="t"> Download</span></a>' +
+					'<a class="bbar-dl" href="/#download" title="Download the SCTP mod">&#11015;<span class="t"> Download</span></a>' +
 					'<div id="accountWidgetMount"></div>' +
 					'<button type="button" class="bbar-burger" aria-label="Menu" aria-expanded="false">&#9776;</button>' +
 				"</div>" +
@@ -202,7 +202,7 @@
 			'<div class="gs-kick">A treasure hunt on Snailcraft</div>' +
 			'<h2 id="gsTitle">The Golden Shell hunt has begun</h2>' +
 			"<p>Puzzles across the server and the site, four whorls deep, with a shell at the very end. The first 25 hunters to finish win a special prize, and everyone who finishes gets a reward.</p>" +
-			'<div class="gs-step">Use the <b>Shop Logger</b> mod? Update to <b>3.0</b>, press <b>X</b> in-game and click the <b>shell</b> on its home screen <b>five times</b> to begin.</div>' +
+			'<div class="gs-step">Use the <b>SCTP</b> mod? Update to <b>3.0</b>, press <b>X</b> in-game and click the <b>shell</b> on its home screen <b>five times</b> to begin.</div>' +
 			'<div class="gs-acts"><a class="gs-go" href="/hunt/">See the hunt</a><button type="button" class="gs-later">Maybe later</button></div>' +
 			'<p class="gs-small">Hunt alone or in a small group, and keep the answers out of public chats.</p>' +
 			"</div>";

@@ -1,7 +1,7 @@
 # SCTP account verification server
 
 Proves ownership of a Minecraft account for self-service SCTP registration,
-without needing the Shop Logger mod or any cooperation from the real
+without needing the SCTP mod or any cooperation from the real
 Snailcraft server. Two independent pieces:
 
 - **`java_server.py`** — a from-scratch, minimal Java Edition server that

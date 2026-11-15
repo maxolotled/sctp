@@ -1,4 +1,4 @@
-# Shop Logger (Fabric client mod)
+# SCTP mod (Fabric client mod)
 
 Logs Snailcraft-style chest/barrel shop signs to CSV and Excel, either as you
 shop normally or automatically as you walk near known shops.
@@ -50,7 +50,7 @@ Rate limits (edit constants at the top of `ShopAutoScanner.java`):
 - `INTERACT_RANGE` — 4.5 blocks (normal reach distance)
 
 Toggle it in-game with the **Toggle automatic proximity scanning** keybind
-(unbound by default — set it under Controls > Shop Logger). It confirms
+(unbound by default — set it under Controls > SCTP). It confirms
 in chat with how many shops it currently knows about.
 
 Double chests are handled: if the sign isn't on the half you're nearest to,
@@ -58,7 +58,7 @@ the mod also checks the paired half's front face.
 
 ## Exporting
 
-Press **Export shop log** (also set under Controls > Shop Logger) to write:
+Press **Export shop log** (also set under Controls > SCTP) to write:
 
 - `run/shoplogger/shops.csv`
 - `run/shoplogger/shops.xlsx`
