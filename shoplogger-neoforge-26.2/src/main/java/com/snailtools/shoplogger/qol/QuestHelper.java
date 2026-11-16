@@ -13,6 +13,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
@@ -370,19 +371,19 @@ public class QuestHelper {
         String text = line.getString();
         int colonIndex = text.indexOf(':');
         if (colonIndex < 0 || colonIndex == text.length() - 1) {
-            graphics.text(minecraft.font, withFallbackColor(line, fallbackColor), leftX, y, fallbackColor, false);
+            graphics.text(minecraft.font, sliceStyled(line, 0, text.length(), fallbackColor), leftX, y, fallbackColor, false);
             return;
         }
 
-        String labelText = text.substring(0, colonIndex + 1);
-        String valueText = text.substring(colonIndex + 1).trim();
-        if (valueText.isEmpty()) {
-            graphics.text(minecraft.font, withFallbackColor(line, fallbackColor), leftX, y, fallbackColor, false);
+        int valueStart = questValueStart(text, colonIndex);
+        int valueEnd = questValueEnd(text, valueStart);
+        if (valueStart == valueEnd) {
+            graphics.text(minecraft.font, sliceStyled(line, 0, text.length(), fallbackColor), leftX, y, fallbackColor, false);
             return;
         }
 
-        Component label = withFallbackColor(styledText(line, labelText), fallbackColor);
-        Component value = withFallbackColor(styledText(line, valueText), fallbackColor);
+        Component label = sliceStyled(line, 0, colonIndex + 1, fallbackColor);
+        Component value = sliceStyled(line, valueStart, valueEnd, fallbackColor);
         int valueWidth = minecraft.font.width(value);
         graphics.text(minecraft.font, label, leftX, y, fallbackColor, false);
         graphics.text(minecraft.font, value, rightX - valueWidth, y, fallbackColor, false);
@@ -395,13 +396,30 @@ public class QuestHelper {
             return minecraft.font.width(line);
         }
 
-        String labelText = text.substring(0, colonIndex + 1);
-        String valueText = text.substring(colonIndex + 1).trim();
-        if (valueText.isEmpty()) {
+        int valueStart = questValueStart(text, colonIndex);
+        int valueEnd = questValueEnd(text, valueStart);
+        if (valueStart == valueEnd) {
             return minecraft.font.width(line);
         }
 
-        return minecraft.font.width(styledText(line, labelText)) + 8 + minecraft.font.width(styledText(line, valueText));
+        return minecraft.font.width(sliceStyled(line, 0, colonIndex + 1, MUTED_TEXT_COLOR))
+                + 8 + minecraft.font.width(sliceStyled(line, valueStart, valueEnd, MUTED_TEXT_COLOR));
+    }
+
+    private int questValueStart(String text, int colonIndex) {
+        int start = colonIndex + 1;
+        while (start < text.length() && text.charAt(start) <= ' ') {
+            start++;
+        }
+        return start;
+    }
+
+    private int questValueEnd(String text, int start) {
+        int end = text.length();
+        while (end > start && text.charAt(end - 1) <= ' ') {
+            end--;
+        }
+        return end;
     }
 
     private void renderCollapsedToggle(GuiGraphicsExtractor graphics, Minecraft minecraft, QuestDisplay questDisplay) {
@@ -666,15 +684,29 @@ public class QuestHelper {
         }
     }
 
-    private Component styledText(Component source, String text) {
-        return Component.literal(text).withStyle(source.getStyle());
-    }
+    private Component sliceStyled(Component source, int start, int end, int fallbackColor) {
+        var result = Component.empty();
+        int[] offset = {0};
 
-    private Component withFallbackColor(Component component, int fallbackColor) {
-        if (component.getStyle().getColor() != null) {
-            return component;
-        }
-        return component.copy().withStyle(style -> style.withColor(fallbackColor));
+        source.visit((style, segment) -> {
+            int segmentStart = offset[0];
+            int segmentEnd = segmentStart + segment.length();
+            offset[0] = segmentEnd;
+
+            int from = Math.max(start, segmentStart);
+            int to = Math.min(end, segmentEnd);
+            if (from < to) {
+                Style effectiveStyle = style.getColor() == null
+                        ? style.withColor(fallbackColor)
+                        : style;
+                result.append(Component.literal(
+                        segment.substring(from - segmentStart, to - segmentStart)
+                ).withStyle(effectiveStyle));
+            }
+            return java.util.Optional.<Void>empty();
+        }, Style.EMPTY);
+
+        return result;
     }
 
 
@@ -685,4 +717,3 @@ public class QuestHelper {
         private static final QuestDisplay EMPTY = new QuestDisplay(Component.literal("Quest"), List.of());
     }
 }
-
