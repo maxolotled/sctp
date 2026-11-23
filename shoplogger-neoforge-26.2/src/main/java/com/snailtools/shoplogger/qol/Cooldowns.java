@@ -45,45 +45,52 @@ public class Cooldowns {
     //adds cooldowns for rare items that contain the cooldown within the item not player based cooldowns
     public static void addAvailableRareCooldowns(ItemStack stack, List<Component> lines){
         if(!stack.isEmpty()){
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (tag.contains("PublicBukkitValues")) {
-            CompoundTag publicBukkitValues = tag.getCompound("PublicBukkitValues").get();
-            if (publicBukkitValues.contains("epicitems:cooldown-end") || publicBukkitValues.contains("epicitems:default")) {
-                long initial = (publicBukkitValues.contains("epicitems:cooldown-end") ? publicBukkitValues.getLong("epicitems:cooldown-end").get() : publicBukkitValues.getLong("epicitems:default").get());
-                long coolDown = initial - System.currentTimeMillis();
-                if (coolDown > 0) {
-                    // Calculate time components
-                    long days = coolDown / (1000 * 60 * 60 * 24);
-                    long hours = (coolDown % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60);
-                    long minutes = (coolDown % (1000 * 60 * 60)) / (1000 * 60);
-                    long seconds = (coolDown % (1000 * 60)) / 1000;
-
-                    StringBuilder timeFormat = new StringBuilder();
-
-                    if (days > 0) {
-                        timeFormat.append(String.format("%dd ", days));
+            CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+            if (tag.contains("PublicBukkitValues")) {
+                CompoundTag publicBukkitValues = tag.getCompound("PublicBukkitValues").get();
+                String cooldownKey = null;
+                for (String key : List.of("epicitems:cooldown-end", "epicitems:default", "epicitems:trickortreater")) {
+                    if (publicBukkitValues.contains(key)) {
+                        cooldownKey = key;
+                        break;
                     }
-                    if (hours > 0 || days > 0) {
-                        timeFormat.append(String.format("%02dh ", hours));
-                    }
-                    if (minutes > 0 || hours > 0 || days > 0) {
-                        timeFormat.append(String.format("%02dm ", minutes));
-                    }
-                    if (!timeFormat.isEmpty() || seconds > 0) {
-                        timeFormat.append(String.format("%02ds", seconds));
-                    }
+                }
+                if (cooldownKey != null) {
+                    long initial = publicBukkitValues.getLong(cooldownKey).get();
+                    long coolDown = initial - System.currentTimeMillis();
+                    if (coolDown > 0) {
+                        // Calculate time components
+                        long days = coolDown / (1000 * 60 * 60 * 24);
+                        long hours = (coolDown % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60);
+                        long minutes = (coolDown % (1000 * 60 * 60)) / (1000 * 60);
+                        long seconds = (coolDown % (1000 * 60)) / 1000;
+
+                        StringBuilder timeFormat = new StringBuilder();
+
+                        if (days > 0) {
+                            timeFormat.append(String.format("%dd ", days));
+                        }
+                        if (hours > 0 || days > 0) {
+                            timeFormat.append(String.format("%02dh ", hours));
+                        }
+                        if (minutes > 0 || hours > 0 || days > 0) {
+                            timeFormat.append(String.format("%02dm ", minutes));
+                        }
+                        if (!timeFormat.isEmpty() || seconds > 0) {
+                            timeFormat.append(String.format("%02ds", seconds));
+                        }
 
 
-                    if (timeFormat.isEmpty()) {
-                        timeFormat.append("0s");
-                    }
+                        if (timeFormat.isEmpty()) {
+                            timeFormat.append("0s");
+                        }
 
-                    MutableComponent component = Component.literal("Ready In: " + timeFormat.toString().trim());
-                    component.setStyle(component.getStyle().withColor(ChatFormatting.GRAY));
-                    lines.add(1, component);
+                        MutableComponent component = Component.literal("Ready In: " + timeFormat.toString().trim());
+                        component.setStyle(component.getStyle().withColor(ChatFormatting.GRAY));
+                        lines.add(1, component);
+                    }
                 }
             }
-        }
         }
     }
 
