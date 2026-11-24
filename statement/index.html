@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A statement from SCTP</title>
+<link rel="icon" href="/sctp-logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Why live prices, the watchlist's join notifications and the marketplace were removed from Snailcraft Trading Post and the SCTP mod.">
+<meta property="og:title" content="A statement from SCTP">
+<meta property="og:description" content="Why live prices, the watchlist's join notifications and the marketplace were removed from Snailcraft Trading Post and the SCTP mod.">
+<meta property="og:image" content="https://sctp.nl/sctp-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+	:root{
+		--bg:#101B14; --bg-rgb:16,27,20; --panel:#1B2A20; --panel-alt:#22332A; --line:#33453A;
+		--muted:#8FA593; --text:#EAEFE7; --shell:#D9C89A;
+		--accent:#B7E23D; --accent-rgb:183,226,61; --accent-dim:#87AE29; --accent-ink:#16210F;
+		--warn:#E2A33D; --bad:#E2643D;
+		--font-display:'Fraunces',serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+	}
+	*{box-sizing:border-box;}
+	body{margin:0;background:radial-gradient(1200px 500px at 15% -10%, rgba(var(--accent-rgb),0.07), transparent 60%), var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.65;}
+	a{color:var(--accent);}
+	a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px;}
+	.wrap{max-width:780px;margin:0 auto;padding:0 24px;}
+	header.site{border-bottom:1px solid var(--line);padding:24px 0;}
+	.header-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
+	.brand-row{display:flex;align-items:center;gap:12px;min-width:0;}
+	.brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:17px;}
+	header.site h1{font-family:var(--font-display);font-weight:600;font-size:23px;margin:0;}
+	main{padding:32px 0 60px;}
+
+	article{max-width:68ch;}
+	.kicker{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;}
+	article h2{font-family:var(--font-display);font-weight:700;font-size:clamp(26px,4.5vw,34px);line-height:1.15;margin:0 0 22px;text-wrap:balance;}
+	article p{margin:0 0 16px;font-size:16px;}
+	article strong{color:#fff;font-weight:700;}
+	.lead{font-size:17px;}
+	.not-us{border-left:3px solid var(--bad);background:var(--panel);border-radius:0 10px 10px 0;padding:12px 16px;margin:0 0 20px;font-size:17px;}
+	.not-us strong{color:var(--text);}
+	ul.points{margin:4px 0 20px;padding:0;list-style:none;display:grid;gap:8px;}
+	ul.points li{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px 10px 38px;position:relative;}
+	ul.points li::before{content:"";position:absolute;left:15px;top:19px;width:10px;height:2px;border-radius:2px;background:var(--bad);}
+	.removed{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 22px;padding:0;list-style:none;}
+	.removed li{font-size:13px;font-weight:600;color:var(--text);background:var(--panel-alt);border:1px solid var(--line);border-radius:999px;padding:4px 11px;text-decoration:line-through;text-decoration-color:rgba(226,100,61,.7);text-decoration-thickness:2px;}
+	.sign{margin-top:28px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;}
+	.sign b{color:var(--text);font-family:var(--font-display);font-size:17px;font-weight:600;display:block;margin-bottom:2px;}
+	footer.site{border-top:1px solid var(--line);color:var(--muted);font-size:13px;padding:20px 0;text-align:center;}
+	@media (max-width:640px){ .wrap{padding:0 16px;} article p{font-size:15.5px;} }
+</style>
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js" defer></script>
+<link rel="stylesheet" href="/site.css">
+<script src="/site-nav.js" defer></script>
+<script src="/account-widget.js" defer></script>
+</head>
+<body>
+
+<header class="site">
+	<div class="wrap header-row">
+		<div class="brand-row">
+			<div class="brand-mark" aria-hidden="true">&#128226;</div>
+			<h1>Statement</h1>
+		</div>
+		<nav id="siteNavMount"></nav>
+	</div>
+</header>
+
+<main class="wrap">
+	<article>
+		<p class="kicker">Snailcraft Trading Post &amp; the SCTP mod</p>
+		<h2>A statement from SCTP</h2>
+
+		<ul class="removed" aria-label="Removed features">
+			<li>Accurate, live pricing</li>
+			<li>Watchlist notifications</li>
+			<li>Marketplace</li>
+		</ul>
+
+		<p class="lead">As you know, some features (accurate, live pricing - watchlist notifications - marketplace) were removed from the website and the most recent mod version, meaning they can no longer be used.</p>
+
+		<p class="not-us"><strong>This decision wasn't made by us.</strong></p>
+
+		<p>The admins say they have received complaints about the mod, website and it's functions and decided it would be best for the server to have these features removed; they also claim the features make reselling too efficient and promote the use of 3rd party websites instead of the Discord trade channels.</p>
+
+		<p>The SCTP team has not seen any decline in usage of the trade channels (everyone uploading to the marketplace is still posting to trade chats), and the website was designed <strong>around preventing reselling/overcharging</strong>. We have provided these arguments as well as live usage statistics (3k+ website users, 250+ mod users) to the admin team. The Snailcraft admins/owner have required us to remove these features as soon as possible, and we were left with no choice but to comply;</p>
+
+		<ul class="points">
+			<li>No community feedback was considered, and all feedback from mod/site users was rejected;</li>
+			<li>These features were approved by the admin team before being added, and are now being reconsidered, seemingly out of nowhere;</li>
+			<li>We were not allowed to discuss these changes in chats prior to them being made or gather feedback ourselves.</li>
+		</ul>
+
+		<p>We hope you will continue to use the website and mod, even though these serious changes in the functions of it; thank you for your support! If you have any questions or would like to know more, you can reach out to us via Discord. However, we direct you to the SC admins/owner for any complaints.</p>
+
+		<div class="sign"><b>The SCTP team</b>Snailcraft Trading Post</div>
+	</article>
+</main>
+
+<footer class="site"><div class="wrap">Community-maintained · not affiliated with Snailcraft or its staff</div></footer>
+</body>
+</html>
