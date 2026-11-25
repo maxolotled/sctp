@@ -124,6 +124,11 @@ public final class Theme {
 		return 0xFF000000 | (rgb & 0xFFFFFF);
 	}
 
+	/** Blends two colours (t = 0 gives a, t = 1 gives b) and gives the result this alpha (0-255). */
+	public static int blend(int a, int b, float t, int alpha) {
+		return alpha(mix(a, b, t), alpha);
+	}
+
 	/** Blends two RGB colours: t = 0 gives a, t = 1 gives b. */
 	private static int mix(int a, int b, float t) {
 		int r = Math.round(((a >> 16) & 0xFF) * (1 - t) + ((b >> 16) & 0xFF) * t);

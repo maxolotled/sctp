@@ -386,6 +386,29 @@
 		</details>
 		</section>
 
+		<section data-perm="siteNotice">
+		<details class="section-toggle">
+		<summary>Mod popup</summary>
+		<div class="card">
+			<div class="meta" style="margin-bottom:10px;">A popup in the SCTP mod (3.1 and newer), shown once to each player the next time they join Snailcraft. Saving it again shows it to everyone again. Older mod versions never see it.</div>
+			<label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+				<input type="checkbox" id="modPopupEnabled"> Show it
+			</label>
+			<label for="modPopupHeading" style="margin-top:10px;display:block;">Title</label>
+			<input type="text" id="modPopupHeading" maxlength="60" placeholder="A statement from SCTP" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;">
+			<label for="modPopupMessage">Message</label>
+			<textarea id="modPopupMessage" rows="4" maxlength="600" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;"></textarea>
+			<div style="display:flex;gap:10px;flex-wrap:wrap;">
+				<div style="flex:2;min-width:200px;"><label for="modPopupUrl">Button link (optional)</label><input type="text" id="modPopupUrl" placeholder="https://sctp.nl/statement" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;"></div>
+				<div style="flex:1;min-width:140px;"><label for="modPopupButton">Button text</label><input type="text" id="modPopupButton" maxlength="40" placeholder="Read more" style="width:100%;margin:6px 0;background:var(--panel-alt);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;"></div>
+			</div>
+			<div class="meta" id="modPopupMeta"></div>
+			<button id="modPopupSaveBtn" type="button" style="background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;margin-top:8px;">Save</button>
+			<div class="err" id="modPopupErr"></div>
+		</div>
+		</details>
+		</section>
+
 		<section data-perm="updateNotice">
 		<details class="section-toggle">
 		<summary>Update notice</summary>
@@ -599,6 +622,7 @@
 	var lastMarketplaceModSearch = "";
 	var updateNotice = null;
 	var siteNotice = null;
+	var modPopup = null;
 	var shortLinks = null, slEditing = null;
 	var suggestions = [];
 	var bugReports = [];
@@ -677,6 +701,7 @@
 		if(hasPerm("reports")) bannedListings = await api("/admin/listings/bans");
 		if(hasPerm("updateNotice")) updateNotice = await api("/admin/update-notice");
 		if(hasPerm("siteNotice")) siteNotice = await api("/admin/site-notice");
+		if(hasPerm("siteNotice")) modPopup = await api("/admin/mod-popup").catch(function(){ return null; });
 		if(hasPerm("shortLinks")) shortLinks = (await api("/admin/short-links")).links;
 		if(hasPerm("suggestions")) suggestions = await api("/admin/suggestions");
 		if(hasPerm("bugReports")) bugReports = await api("/admin/bug-reports");
@@ -697,6 +722,7 @@
 		renderMarketplaceMod();
 		renderUpdateNotice();
 		renderSiteNotice();
+		renderModPopup();
 		renderShortLinks();
 		renderSuggestions();
 		renderBugReports();
@@ -800,6 +826,47 @@
 		document.getElementById("siteNoticeMeta").textContent = siteNotice.updatedAt
 			? "Last saved " + new Date(siteNotice.updatedAt).toLocaleString() + (siteNotice.updatedBy ? " by " + siteNotice.updatedBy : "")
 			: "";
+	}
+
+	// ---------------- mod popup ----------------
+	// Never saved yet: the form starts out filled in with the statement popup.
+	var MOD_POPUP_DEFAULT = { enabled: true, heading: "A statement from SCTP", message: "Live prices, the watchlist's join notifications and the marketplace were removed from the website and this version of the mod. This decision wasn't made by us: the Snailcraft admins required it. Read our statement to find out more.", buttonLabel: "Read our statement", url: "https://sctp.nl/statement" };
+	function renderModPopup(){
+		if(!modPopup) return;
+		var p = modPopup.empty ? MOD_POPUP_DEFAULT : modPopup;
+		document.getElementById("modPopupEnabled").checked = !!p.enabled;
+		document.getElementById("modPopupHeading").value = p.heading || "";
+		document.getElementById("modPopupMessage").value = p.message || "";
+		document.getElementById("modPopupUrl").value = p.url || "";
+		document.getElementById("modPopupButton").value = p.buttonLabel || "";
+		document.getElementById("modPopupMeta").textContent = modPopup.empty
+			? "Not saved yet: this is a suggested popup. Nothing is shown until you save."
+			: modPopup.updatedAt ? "Last saved " + new Date(modPopup.updatedAt).toLocaleString() + (modPopup.updatedBy ? " by " + modPopup.updatedBy : "") : "";
+	}
+	async function saveModPopup(){
+		var errEl = document.getElementById("modPopupErr");
+		errEl.style.color = "var(--danger)";
+		errEl.textContent = "";
+		try {
+			await api("/admin/mod-popup/set", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					enabled: document.getElementById("modPopupEnabled").checked,
+					heading: document.getElementById("modPopupHeading").value.trim(),
+					message: document.getElementById("modPopupMessage").value.trim(),
+					url: document.getElementById("modPopupUrl").value.trim(),
+					buttonLabel: document.getElementById("modPopupButton").value.trim(),
+				}),
+			});
+			modPopup = await api("/admin/mod-popup");
+			renderModPopup();
+			errEl.style.color = "var(--accent)";
+			errEl.textContent = "Saved. Mod users see it the next time they join.";
+		} catch(err){
+			errEl.style.color = "var(--danger)";
+			errEl.textContent = "Failed: " + err.message;
+		}
 	}
 
 	async function saveSiteNotice(){
@@ -2250,6 +2317,7 @@
 
 	document.getElementById("updateNoticeSaveBtn").addEventListener("click", saveUpdateNotice);
 	document.getElementById("siteNoticeSaveBtn").addEventListener("click", saveSiteNotice);
+	document.getElementById("modPopupSaveBtn").addEventListener("click", saveModPopup);
 	document.getElementById("slSaveBtn").addEventListener("click", saveShortLink);
 	document.getElementById("slCancelBtn").addEventListener("click", slReset);
 	document.getElementById("slList").addEventListener("click", async function(e){

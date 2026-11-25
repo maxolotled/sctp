@@ -31,8 +31,28 @@ public final class WebDataClient {
 
 	private WebDataClient() {}
 
+	/**
+	 * Every current listing, minus marketplace posts (the marketplace was
+	 * removed; rares in an upcoming auction stay). Also refreshes
+	 * AveragePrices, which listing rows show instead of each shop's own price.
+	 */
 	public static CompletableFuture<List<Listing>> fetchListings() {
-		return getJson(API_BASE + "/listings", new TypeToken<List<Listing>>() {}.getType());
+		CompletableFuture<List<Listing>> f = getJson(API_BASE + "/listings", new TypeToken<List<Listing>>() {}.getType());
+		return f.thenApply(all -> {
+			List<Listing> out = new java.util.ArrayList<>(all.size());
+			for (Listing l : all) if (!l.marketplace || "auction".equals(l.marketplaceType)) out.add(l);
+			AveragePrices.update(out);
+			return out;
+		});
+	}
+
+	/**
+	 * The join ping (counts this player as a mod user, which the old watchlist
+	 * join check used to do) plus the popup an admin may have set for mod users.
+	 */
+	public static CompletableFuture<ModPopup> fetchModJoin(String mcUsername) {
+		String url = API_BASE + "/mod/join?mcUsername=" + URLEncoder.encode(mcUsername, StandardCharsets.UTF_8);
+		return getJson(url, ModPopup.class);
 	}
 
 	public static CompletableFuture<List<HistoryPoint>> fetchItemHistory(String itemKey) {

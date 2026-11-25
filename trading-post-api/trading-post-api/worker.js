@@ -160,6 +160,7 @@ import { makeHunt } from "./hunt.js";
 //   POST /admin/update-notice/set            body: {enabled, minVersion, message}
 // Permission bucket "siteNotice":
 //   GET  /admin/site-notice, POST /admin/site-notice/set {enabled, level, message, linkUrl?, linkLabel?} — the homepage banner (public: GET /site-notice)
+//   GET  /admin/mod-popup, POST /admin/mod-popup/set {enabled, heading, message, buttonLabel?, url?} — the 3.1+ mod's join popup (public: GET /mod/join)
 // Permission bucket "suggestions":
 //   GET  /admin/suggestions
 //   POST /admin/suggestions/delete           body: {id}
@@ -3166,6 +3167,56 @@ async function handleAdminSetSiteNotice(request, env) {
 	if (linkUrl && !/^(https:\/\/|\/)/.test(linkUrl)) return json({ error: "The link must start with https:// or /" }, 400);
 	await env.DB.prepare("UPDATE siteNotice SET enabled = ?, level = ?, message = ?, linkUrl = ?, linkLabel = ?, updatedAt = ?, updatedBy = ? WHERE id = 1")
 		.bind(enabled ? 1 : 0, level, message, linkUrl || null, linkUrl ? (linkLabel || "Read more") : null, new Date().toISOString(), auth.admin.username).run();
+	return json({ ok: true });
+}
+
+// ---------------- mod popup ----------------
+// A popup for SCTP mod users (3.1 and newer), shown once per saved popup: the
+// mod remembers the id it last showed. Only GET /mod/join reads it, and only
+// 3.1+ calls that (older versions never see it), so this is purely additive.
+//   GET  /mod/join?mcUsername=  (public) -> {enabled, id, heading, message, buttonLabel, url}
+//        Also the 3.1+ join ping for the mod-user counts (recordModUserPing),
+//        which older versions send through /marketplace/notifications/for-mc.
+// Permission bucket "siteNotice":
+//   GET  /admin/mod-popup       -> the full row
+//   POST /admin/mod-popup/set   {enabled, heading, message, buttonLabel?, url?}
+async function modPopupEnsureTable(env) {
+	await env.DB.prepare(
+		"CREATE TABLE IF NOT EXISTS modPopup (id INTEGER PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 0, heading TEXT, message TEXT, buttonLabel TEXT, url TEXT, updatedAt TEXT, updatedBy TEXT)"
+	).run();
+}
+async function handleModJoin(request, env, ctx) {
+	const mcUsername = (new URL(request.url).searchParams.get("mcUsername") || "").trim();
+	if (mcUsername && MC_USERNAME.test(mcUsername)) ctx.waitUntil(recordModUserPing(env, mcUsername, request));
+	let row = null;
+	try { row = await env.DB.prepare("SELECT * FROM modPopup WHERE id = 1").first(); } catch (e) { /* table not made yet */ }
+	if (!row || !row.enabled || !row.message) return json({ enabled: false });
+	return json({ enabled: true, id: row.updatedAt || "1", heading: row.heading || "", message: row.message, buttonLabel: row.buttonLabel || "", url: row.url || "" });
+}
+async function handleAdminGetModPopup(request, env) {
+	const auth = await requireAdminAuth(request, env, "siteNotice");
+	if (!auth.ok) return auth.response;
+	await modPopupEnsureTable(env);
+	const row = await env.DB.prepare("SELECT * FROM modPopup WHERE id = 1").first();
+	return json(row ? { ...row, enabled: !!row.enabled } : { enabled: false, empty: true });
+}
+async function handleAdminSetModPopup(request, env) {
+	const auth = await requireAdminAuth(request, env, "siteNotice");
+	if (!auth.ok) return auth.response;
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const enabled = !!body.enabled;
+	const heading = String(body.heading || "").trim().slice(0, 60);
+	const message = String(body.message || "").trim().slice(0, 600);
+	const buttonLabel = String(body.buttonLabel || "").trim().slice(0, 40);
+	const url = String(body.url || "").trim().slice(0, 300);
+	if (enabled && !message) return json({ error: "Write a message first (or switch the popup off)." }, 400);
+	if (url && !/^https:\/\//.test(url)) return json({ error: "The link must start with https://" }, 400);
+	await modPopupEnsureTable(env);
+	await env.DB.prepare(
+		"INSERT INTO modPopup (id, enabled, heading, message, buttonLabel, url, updatedAt, updatedBy) VALUES (1, ?, ?, ?, ?, ?, ?, ?) " +
+		"ON CONFLICT(id) DO UPDATE SET enabled = excluded.enabled, heading = excluded.heading, message = excluded.message, buttonLabel = excluded.buttonLabel, url = excluded.url, updatedAt = excluded.updatedAt, updatedBy = excluded.updatedBy"
+	).bind(enabled ? 1 : 0, heading, message, url ? (buttonLabel || "Read more") : null, url || null, new Date().toISOString(), auth.admin.username).run();
 	return json({ ok: true });
 }
 
@@ -8869,6 +8920,9 @@ const ROUTES = [
 	["GET", "/site-notice", handleGetSiteNotice],
 	["GET", "/admin/site-notice", handleAdminGetSiteNotice],
 	["POST", "/admin/site-notice/set", handleAdminSetSiteNotice],
+	["GET", "/mod/join", handleModJoin],
+	["GET", "/admin/mod-popup", handleAdminGetModPopup],
+	["POST", "/admin/mod-popup/set", handleAdminSetModPopup],
 	["POST", "/admin/listings/manual-add", handleAdminAddManualListings],
 	["GET", "/admin/listings/manual", handleAdminListManualListings],
 	["POST", "/admin/listings/manual-delete", handleAdminDeleteManualListing],

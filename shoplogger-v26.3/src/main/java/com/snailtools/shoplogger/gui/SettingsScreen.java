@@ -147,8 +147,6 @@ public class SettingsScreen extends UiScreen {
 							ShopVisitAlert::isRaresOnly, ShopVisitAlert::setRaresOnly),
 					SettingRow.toggle("Own-shop sale alerts", "Tell me when something sells from my shop",
 							OwnShopSaleTracker::isMessagesEnabled, OwnShopSaleTracker::setMessagesEnabled),
-					SettingRow.toggle("Watchlist: marketplace posts", "Include sctp.nl marketplace posts in watchlist alerts",
-							WatchlistStore::isMarketplaceAlertsEnabled, WatchlistStore::setMarketplaceAlertsEnabled),
 					SettingRow.toggle("Confirm expensive buys", "Click twice to buy from a shop at or above the price below",
 							BuyConfirm::isEnabled, BuyConfirm::setEnabled),
 					SettingRow.stepper("Confirm from", "Shop price that needs a second click",

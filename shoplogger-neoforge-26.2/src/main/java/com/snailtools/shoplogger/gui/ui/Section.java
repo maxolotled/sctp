@@ -25,7 +25,7 @@ public enum Section {
 	WATCHLIST("Watchlist", "Items you're watching", Items.SPYGLASS, WatchlistScreen::new),
 	STORAGE("My storage", "Everything in your own chests", Items.BARREL, com.snailtools.shoplogger.gui.StorageScreen::new),
 	NOTEPAD("Notepad", "Shopping list and notes", Items.WRITABLE_BOOK, com.snailtools.shoplogger.gui.NotepadScreen::new),
-	MARKET("Marketplace", "Player marketplace", Items.EMERALD, MarketplaceScreen::new),
+	MARKET("Marketplace", "Removed by the SC admins", Items.EMERALD, MarketplaceScreen::new),
 	MAPART("Mapart", "Mapart scanner", Items.FILLED_MAP, MapartPreviewScreen::new),
 	AUCTIONS("Auctions", "Run rare auctions in-game", Items.BELL, AuctionsScreen::new),
 	HUNT("Hunt", "The Golden Shell", Items.NAUTILUS_SHELL, com.snailtools.shoplogger.gui.HuntScreen::new),

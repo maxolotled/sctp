@@ -1,3 +1,16 @@
+// Beta mode (see /beta.js): pages that don't load beta.js work it out here,
+// so account-widget.js (loaded after this script) can read window.sctpBeta too.
+(function () {
+	if (window.sctpBeta !== undefined) return;
+	var on = false;
+	try {
+		if (location.hash === "#beta") localStorage.setItem("sctp_beta", "1");
+		else if (location.hash === "#nobeta") localStorage.removeItem("sctp_beta");
+		on = localStorage.getItem("sctp_beta") === "1";
+	} catch (e) { on = location.hash === "#beta"; }
+	window.sctpBeta = on;
+})();
+
 // Shared site navigation: one slim app bar at the top of every page that loads
 // this script — logo, the main sections, a "More" menu that holds everything
 // else, Download, and the account button (account-widget.js still renders into
@@ -149,6 +162,7 @@
 // Closed once, it stays closed in this browser. Not on the hunt's own pages or admin.
 (function () {
 	"use strict";
+	if (window.sctpBeta) return; // beta mode: no hunt popup
 	var KEY = "sctp_hunt_popup_1";
 	var path = location.pathname;
 	if (/^\/(hunt|admin|auctionadmin)(\/|$)|admin/i.test(path)) return;

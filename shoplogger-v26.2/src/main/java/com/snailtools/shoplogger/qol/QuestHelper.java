@@ -4,6 +4,7 @@ package com.snailtools.shoplogger.qol;
 import com.snailtools.shoplogger.config.Config;
 import com.snailtools.shoplogger.qol.utils.Util;
 import net.minecraft.client.Minecraft;
+import com.snailtools.shoplogger.gui.ui.Theme;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -13,6 +14,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
@@ -64,19 +66,30 @@ public class QuestHelper {
     private static final float MIN_HUD_SCALE = 0.5f;
     private static final float MAX_HUD_SCALE = 2.0f;
     private static final int SHADOW_COLOR = 0x60000000;
-    private static final int BORDER_COLOR = 0xE3487A56;
-    private static final int PANEL_COLOR = 0xD818241C;
-    private static final int HEADER_COLOR = 0xE04C8A5E;
     private static final int ROW_ALT_COLOR = 0x24000000;
-    private static final int TEXT_COLOR = 0xFFF0FFF2;
-    private static final int MUTED_TEXT_COLOR = 0xFFC7E9CB;
-    private static final int CONTROL_BORDER_COLOR = 0xE0D7F4DA;
-    private static final int CONTROL_FILL_COLOR = 0xD8355D3F;
-    private static final int CONTROL_HOVER_COLOR = 0xE0528060;
-    private static final int CONTROL_ACTIVE_COLOR = 0xE04E9460;
-    private static final int CONTROL_TRACK_COLOR = 0xAA18241C;
-    private static final int DRAG_ACTIVE_COLOR = 0xE07FCF91;
-    private static final int DRAG_FILL_COLOR = 0xD8528060;
+    private static int BORDER_COLOR, PANEL_COLOR, HEADER_COLOR, TEXT_COLOR, MUTED_TEXT_COLOR,
+            CONTROL_BORDER_COLOR, CONTROL_FILL_COLOR, CONTROL_HOVER_COLOR, CONTROL_ACTIVE_COLOR,
+            CONTROL_TRACK_COLOR, DRAG_ACTIVE_COLOR, DRAG_FILL_COLOR;
+
+    /** Takes the colours from the mod's theme (Settings), so this panel matches every other SCTP screen. */
+    private static void syncTheme() {
+        BORDER_COLOR = Theme.blend(Theme.LINE, Theme.ACCENT, 0.3f, 0xE3);
+        PANEL_COLOR = Theme.alpha(Theme.PANEL, 0xD8);
+        HEADER_COLOR = Theme.blend(Theme.PANEL_HI, Theme.ACCENT, 0.25f, 0xE0);
+        TEXT_COLOR = Theme.TEXT;
+        MUTED_TEXT_COLOR = Theme.MUTED;
+        CONTROL_BORDER_COLOR = Theme.alpha(Theme.MUTED, 0xE0);
+        CONTROL_FILL_COLOR = Theme.alpha(Theme.PANEL_ALT, 0xD8);
+        CONTROL_HOVER_COLOR = Theme.alpha(Theme.PANEL_HI, 0xE0);
+        CONTROL_ACTIVE_COLOR = Theme.blend(Theme.PANEL_HI, Theme.ACCENT, 0.45f, 0xE0);
+        CONTROL_TRACK_COLOR = Theme.alpha(Theme.SLOT, 0xAA);
+        DRAG_ACTIVE_COLOR = Theme.blend(Theme.PANEL_HI, Theme.ACCENT, 0.6f, 0xE0);
+        DRAG_FILL_COLOR = Theme.alpha(Theme.PANEL_HI, 0xD8);
+    }
+
+    static {
+        syncTheme();
+    }
 
     private int toggleX = 0;
     private int toggleY = 0;
@@ -105,6 +118,7 @@ public class QuestHelper {
     }
 
     public void onScreenRender(Screen screen, GuiGraphicsExtractor gui, int mouseX, int mouseY, float delta) {
+        syncTheme();
         if (!isQuestScreen(screen)) {
             scaleSliderDragging = false;
             opacitySliderDragging = false;
@@ -214,6 +228,7 @@ public class QuestHelper {
     }
 
     public void onHUDRender(GuiGraphicsExtractor graphics) {
+        syncTheme();
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.font == null) return;
         if (isInButterflyGardenLevel()) return;
@@ -370,19 +385,19 @@ public class QuestHelper {
         String text = line.getString();
         int colonIndex = text.indexOf(':');
         if (colonIndex < 0 || colonIndex == text.length() - 1) {
-            graphics.text(minecraft.font, withFallbackColor(line, fallbackColor), leftX, y, fallbackColor, false);
+            graphics.text(minecraft.font, sliceStyled(line, 0, text.length(), fallbackColor), leftX, y, fallbackColor, false);
             return;
         }
 
-        String labelText = text.substring(0, colonIndex + 1);
-        String valueText = text.substring(colonIndex + 1).trim();
-        if (valueText.isEmpty()) {
-            graphics.text(minecraft.font, withFallbackColor(line, fallbackColor), leftX, y, fallbackColor, false);
+        int valueStart = questValueStart(text, colonIndex);
+        int valueEnd = questValueEnd(text, valueStart);
+        if (valueStart == valueEnd) {
+            graphics.text(minecraft.font, sliceStyled(line, 0, text.length(), fallbackColor), leftX, y, fallbackColor, false);
             return;
         }
 
-        Component label = withFallbackColor(styledText(line, labelText), fallbackColor);
-        Component value = withFallbackColor(styledText(line, valueText), fallbackColor);
+        Component label = sliceStyled(line, 0, colonIndex + 1, fallbackColor);
+        Component value = sliceStyled(line, valueStart, valueEnd, fallbackColor);
         int valueWidth = minecraft.font.width(value);
         graphics.text(minecraft.font, label, leftX, y, fallbackColor, false);
         graphics.text(minecraft.font, value, rightX - valueWidth, y, fallbackColor, false);
@@ -395,13 +410,30 @@ public class QuestHelper {
             return minecraft.font.width(line);
         }
 
-        String labelText = text.substring(0, colonIndex + 1);
-        String valueText = text.substring(colonIndex + 1).trim();
-        if (valueText.isEmpty()) {
+        int valueStart = questValueStart(text, colonIndex);
+        int valueEnd = questValueEnd(text, valueStart);
+        if (valueStart == valueEnd) {
             return minecraft.font.width(line);
         }
 
-        return minecraft.font.width(styledText(line, labelText)) + 8 + minecraft.font.width(styledText(line, valueText));
+        return minecraft.font.width(sliceStyled(line, 0, colonIndex + 1, MUTED_TEXT_COLOR))
+                + 8 + minecraft.font.width(sliceStyled(line, valueStart, valueEnd, MUTED_TEXT_COLOR));
+    }
+
+    private int questValueStart(String text, int colonIndex) {
+        int start = colonIndex + 1;
+        while (start < text.length() && text.charAt(start) <= ' ') {
+            start++;
+        }
+        return start;
+    }
+
+    private int questValueEnd(String text, int start) {
+        int end = text.length();
+        while (end > start && text.charAt(end - 1) <= ' ') {
+            end--;
+        }
+        return end;
     }
 
     private void renderCollapsedToggle(GuiGraphicsExtractor graphics, Minecraft minecraft, QuestDisplay questDisplay) {
@@ -472,7 +504,7 @@ public class QuestHelper {
         gui.fill(x + 1, y + 1, x + SCALE_SLIDER_WIDTH - 1, y + SCALE_SLIDER_HEIGHT - 1, fillColor);
         gui.centeredText(minecraft.font, label, x + SCALE_SLIDER_WIDTH / 2, y + 3, TEXT_COLOR);
         gui.fill(trackX, trackY, trackX + trackWidth, trackY + SCALE_TRACK_HEIGHT, CONTROL_TRACK_COLOR);
-        gui.fill(trackX, trackY, knobX + SCALE_KNOB_WIDTH / 2, trackY + SCALE_TRACK_HEIGHT, MUTED_TEXT_COLOR);
+        gui.fill(trackX, trackY, knobX + SCALE_KNOB_WIDTH / 2, trackY + SCALE_TRACK_HEIGHT, Theme.ACCENT);
         gui.fill(knobX, trackY - 2, knobX + SCALE_KNOB_WIDTH, trackY + SCALE_TRACK_HEIGHT + 2, 0xFFFFFFFF);
     }
 
@@ -666,15 +698,29 @@ public class QuestHelper {
         }
     }
 
-    private Component styledText(Component source, String text) {
-        return Component.literal(text).withStyle(source.getStyle());
-    }
+    private Component sliceStyled(Component source, int start, int end, int fallbackColor) {
+        var result = Component.empty();
+        int[] offset = {0};
 
-    private Component withFallbackColor(Component component, int fallbackColor) {
-        if (component.getStyle().getColor() != null) {
-            return component;
-        }
-        return component.copy().withStyle(style -> style.withColor(fallbackColor));
+        source.visit((style, segment) -> {
+            int segmentStart = offset[0];
+            int segmentEnd = segmentStart + segment.length();
+            offset[0] = segmentEnd;
+
+            int from = Math.max(start, segmentStart);
+            int to = Math.min(end, segmentEnd);
+            if (from < to) {
+                Style effectiveStyle = style.getColor() == null
+                        ? style.withColor(fallbackColor)
+                        : style;
+                result.append(Component.literal(
+                        segment.substring(from - segmentStart, to - segmentStart)
+                ).withStyle(effectiveStyle));
+            }
+            return java.util.Optional.<Void>empty();
+        }, Style.EMPTY);
+
+        return result;
     }
 
 
@@ -685,4 +731,3 @@ public class QuestHelper {
         private static final QuestDisplay EMPTY = new QuestDisplay(Component.literal("Quest"), List.of());
     }
 }
-

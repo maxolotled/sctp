@@ -128,10 +128,22 @@
 
 	footer.site{padding:20px 0 40px;color:var(--muted);font-size:12.5px;text-align:center;}
 	footer.site .big-disclaimer{max-width:640px;margin:0 auto;text-align:left;}
+	/* beta mode (see /beta.js): the marketplace was removed */
+	.gone{max-width:560px;margin:28px auto 0;background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--bad);border-radius:14px;padding:26px 26px 22px;}
+	.gone .kicker{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--bad);margin:0 0 8px;}
+	.gone h2{font-family:var(--font-display);font-weight:700;font-size:27px;line-height:1.2;margin:0 0 12px;text-wrap:balance;}
+	.gone p{margin:0 0 14px;color:var(--text);max-width:60ch;}
+	.gone p.muted{color:var(--muted);font-size:14px;}
+	.gone .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;}
+	.gone .btn{display:inline-block;border-radius:10px;padding:10px 16px;font-weight:700;font-size:14px;text-decoration:none;border:1px solid var(--line);color:var(--text);background:var(--panel-alt);}
+	.gone .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
+	.gone .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+	body.beta-removed main:not(#betaRemoved){display:none;}
 </style>
 <link rel="stylesheet" href="/theme.css">
 <script src="/theme.js" defer></script>
 <link rel="stylesheet" href="/site.css">
+<script src="/beta.js"></script>
 </head>
 <body>
 
@@ -144,6 +156,20 @@
 		<nav id="siteNavMount"></nav>
 	</div>
 </header>
+
+<main class="wrap" id="betaRemoved" hidden>
+	<section class="gone" aria-labelledby="goneTitle">
+		<p class="kicker">Removed</p>
+		<h2 id="goneTitle">The marketplace has been removed</h2>
+		<p>The Snailcraft admins required us to remove the marketplace from the website and the mod, together with live shop prices and the watchlist's join notifications. <strong>This decision wasn't made by us.</strong></p>
+		<p class="muted">Listings, bids and jobs can no longer be posted or viewed.</p>
+		<div class="acts">
+			<a class="btn primary" href="/statement/">Read our statement</a>
+			<a class="btn" href="/search/">Search shop listings</a>
+		</div>
+	</section>
+</main>
+<script>if(window.sctpBeta){ document.getElementById("betaRemoved").hidden = false; document.body.classList.add("beta-removed"); }</script>
 
 <main class="wrap">
 	<div class="segmented" id="marketSeg" style="margin-bottom:16px;">

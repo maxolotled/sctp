@@ -87,8 +87,9 @@
 		var canManageForms = session.isHeadAdmin || (session.permissions && session.permissions.indexOf("manageForms") !== -1);
 		var canRunAuctions = session.isHeadAdmin || (session.permissions && session.permissions.indexOf("auctions") !== -1);
 		var html = '<a href="/s/' + encodeURIComponent((session.mcUsername || session.username || "").replace(/^\./, "")) + '">My Profile</a>';
-		html += '<a href="/marketplace/#notifications">Notifications<span class="acct-badge" id="acctMenuBadge" hidden></span></a>';
-		html += '<a href="/marketplace/#mine">My Marketplace</a>';
+		// beta mode: the marketplace was removed, so no Notifications / My Marketplace (see /beta.js)
+		if (!window.sctpBeta) html += '<a href="/marketplace/#notifications">Notifications<span class="acct-badge" id="acctMenuBadge" hidden></span></a>';
+		if (!window.sctpBeta) html += '<a href="/marketplace/#mine">My Marketplace</a>';
 		html += '<a href="/stats/mine/">My Shop Statistics</a>';
 		html += '<a href="/mapart/manage/">Mapart Management</a>';
 		html += '<a href="/collection/">My Collection</a>';
@@ -100,7 +101,7 @@
 		if (canRunAuctions) html += '<a href="/auction/admin/">Auction Admin</a>';
 		html += '<button type="button" id="acctLogout">Log out</button>';
 		menu.innerHTML = html;
-		refreshBadge(session);
+		if (!window.sctpBeta) refreshBadge(session);
 		document.getElementById("acctLogout").onclick = function () {
 			clearSession();
 			render();

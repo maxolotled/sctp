@@ -4,6 +4,7 @@ import com.snailtools.shoplogger.gui.data.RareIcons;
 import com.snailtools.shoplogger.ShopReporter;
 import com.snailtools.shoplogger.TeleportHighlight;
 import com.snailtools.shoplogger.gui.data.Listing;
+import com.snailtools.shoplogger.gui.data.AveragePrices;
 import com.snailtools.shoplogger.gui.ui.Draw;
 import com.snailtools.shoplogger.gui.ui.Theme;
 import com.snailtools.shoplogger.gui.ui.UiLists;
@@ -98,6 +99,10 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 		private boolean rareResolved;
 		private boolean reported;
 		private final int inStorage; // how many of this you have in My storage
+		private static final int INFO = 9; // the "i" next to an average price
+		private AveragePrices.Avg avg;
+		private boolean averaged;
+		private int infoX = -100, infoY = -100;
 
 		private ListingEntry(Listing listing, boolean showItemName, java.util.function.Consumer<String> onClickSeller) {
 			this.listing = listing;
@@ -157,12 +162,17 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 
 			int tx = x + 28;
 			int rightEdge = buttonsLeft() - 6;
-			// rares in an upcoming auction (merged into /listings): the lot and its starting bid
-			String price = "auction".equals(listing.marketplaceType)
+			// rares in an upcoming auction (merged into /listings): the lot and its starting bid.
+			// Shop listings show the item's average price (with an info icon), never the shop's own.
+			boolean auction = "auction".equals(listing.marketplaceType);
+			avg = auction ? null : AveragePrices.of(listing);
+			averaged = !auction && !listing.isDisplay();
+			String price = auction
 					? "Auction · " + listing.priceLabel + (listing.stackSize > 1 ? " · " + listing.stackSize + "×" : "")
-					: listing.priceLabel + " / " + listing.stackSize;
+					: listing.isDisplay() ? "Display only"
+					: avg != null ? AveragePrices.label(avg) : "Avg —";
 			String stock = "x" + listing.amount + " (" + listing.stacksInStock + ")";
-			int priceW = Math.max(font.width(price), font.width(stock));
+			int priceW = Math.max(font.width(price) + (averaged ? INFO + 3 : 0), font.width(stock));
 			int textW = rightEdge - priceW - 8 - tx;
 
 			String type = listing.bulk ? "Bulk" : listing.bundled ? "Bundled" : "Single";
@@ -179,6 +189,14 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 			}
 
 			Draw.right(g, font, price, rightEdge, y + 5, Theme.SHELL);
+			if (averaged) {
+				infoX = rightEdge - font.width(price) - 3 - INFO;
+				infoY = y + 4;
+				boolean overInfo = UiLists.over(infoX, infoY, INFO, INFO, mouseX, mouseY);
+				Draw.round(g, infoX, infoY, INFO, INFO, overInfo ? Theme.TEXT : Theme.INFO);
+				Draw.centered(g, font, "i", infoX + INFO / 2 + 1, infoY + 1, 0xFF16210F);
+				if (overInfo) g.setTooltipForNextFrame(AveragePrices.tooltip(font, avg), mouseX, mouseY);
+			}
 			Draw.right(g, font, stock, rightEdge, y + 15, Theme.MUTED);
 
 			if (inStorage > 0) {
@@ -189,7 +207,7 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 			if (canReport) {
 				boolean over = UiLists.rowButton(g, reportX(), btnY(), BTN, BTN, reported ? "✓" : "!",
 						reported ? Theme.PANEL_ALT : 0xFF6E2A22, reported ? Theme.PANEL_HI : Theme.BAD, Theme.TEXT, mouseX, mouseY);
-				if (over) g.setTooltipForNextFrame(font, Component.literal(reported ? "Already reported" : "Report this listing (wrong price, gone, fake...)"), mouseX, mouseY);
+				if (over) g.setTooltipForNextFrame(font, Component.literal(reported ? "Already reported" : "Report this listing (gone, fake, wrong item...)"), mouseX, mouseY);
 			}
 			if (teleportTarget != null) {
 				boolean over = UiLists.rowButton(g, tpX(), btnY(), BTN, BTN, "TP", Theme.GO, 0xFF3C8A5A, Theme.TEXT, mouseX, mouseY);
@@ -215,6 +233,10 @@ public class ListingListWidget extends AbstractSelectionList<ListingListWidget.L
 
 		@Override
 		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+			if (averaged && UiLists.over(infoX, infoY, INFO, INFO, event.x(), event.y())) {
+				com.snailtools.shoplogger.gui.ui.UiLinks.open(AveragePrices.STATEMENT_URL);
+				return true;
+			}
 			if (inStorage > 0 && UiLists.over(storageX(), btnY(), BTN, BTN, event.x(), event.y())) {
 				com.snailtools.shoplogger.storage.StorageHighlight.showItem(listing.baseItem, listing.itemName);
 				return true;

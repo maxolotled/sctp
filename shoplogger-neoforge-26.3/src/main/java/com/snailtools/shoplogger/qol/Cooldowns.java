@@ -48,8 +48,15 @@ public class Cooldowns {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         if (tag.contains("PublicBukkitValues")) {
             CompoundTag publicBukkitValues = tag.getCompound("PublicBukkitValues").get();
-            if (publicBukkitValues.contains("epicitems:cooldown-end") || publicBukkitValues.contains("epicitems:default")) {
-                long initial = (publicBukkitValues.contains("epicitems:cooldown-end") ? publicBukkitValues.getLong("epicitems:cooldown-end").get() : publicBukkitValues.getLong("epicitems:default").get());
+            String cooldownKey = null;
+            for (String key : List.of("epicitems:cooldown-end", "epicitems:default", "epicitems:trickortreater")) {
+                if (publicBukkitValues.contains(key)) {
+                    cooldownKey = key;
+                    break;
+                }
+            }
+            if (cooldownKey != null) {
+                long initial = publicBukkitValues.getLong(cooldownKey).get();
                 long coolDown = initial - System.currentTimeMillis();
                 if (coolDown > 0) {
                     // Calculate time components

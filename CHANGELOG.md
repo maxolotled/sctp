@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.1 (mod 3.1)
+
+The Snailcraft admins required us to remove live shop prices, the watchlist's join notifications and the marketplace. This wasn't our decision: read [our statement](https://sctp.nl/statement) for what happened. Older mod versions keep working as they are.
+
+### Mod
+- **Average prices instead of live ones:** shop listings (search, item pages, seller pages and the chat search) show the item's average price, across every shop listing it in that world, instead of the shop's own price. Hover the **i** next to it to see why; click it to open our statement.
+- **No more join notifications from the watchlist:** joining no longer lists the shops and marketplace posts selling your watched items. Your watchlist itself, and its alerts when a scan of yours finds a watched item, work as before.
+- **Marketplace removed:** the Marketplace tile stays for now and explains why, with a link to our statement. Marketplace posts no longer appear between shop listings.
+- **Messages from SCTP:** the mod can show a popup the first time you join after we post something important.
+- **Trick-or-treater cooldowns:** the Trick-or-treater now shows its cooldown like the other items with one.
+- **Quest panel colours:** quest lines keep their own colours and obfuscated text, also when a line is split into a label and a value.
+
+### Website
+- **Average prices instead of live ones:** listings in search and on item and seller pages show the item's average price per item instead of the shop's own price. The **i** next to it explains why and links to our statement.
+- **Marketplace removed:** the marketplace page now explains why it's gone, and marketplace posts no longer show between shop listings.
+- **Our statement:** [sctp.nl/statement](https://sctp.nl/statement).
+
 ## 3.0 (mod 3.0)
 
 ### Mod
@@ -29,6 +46,7 @@
 - **Fixed: slot outlines:** opening the one container that holds what you're looking for outlines its slots again (they used to disappear before the window opened).
 - **Settings scroll:** a ▼ at the bottom shows when there's more below.
 - **See-through quest panel:** the quest scroll panel has an Opacity slider under its size slider (in the quest menu), from solid down to 10%. Only the background fades; the text stays readable.
+- **Quest and Butterfly Garden panels follow your theme:** they now use the colour theme you picked in Settings, like every other SCTP screen, instead of their own fixed green and pink.
 - **Fixed: the sold glow:** a new sale on a shop chest whose earlier payment you hadn't collected yet lights the chest up again. Scans never turn it off; only opening the chest yourself does.
 - **Fixed: yearly items mixed up on the watchlist.** Watching last year's "Creativity Crate Key" no longer alerts you about the "Creativity 2026 Crate Key" (or the other way round): numbers in a name now count.
 

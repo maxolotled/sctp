@@ -10,6 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="/site-nav.js" defer></script>
+<script src="/beta.js"></script>
+<script src="/avg-price.js"></script>
 <script src="/account-widget.js" defer></script>
 <script src="/mapart-report.js" defer></script>
 <script src="/mapart-like.js" defer></script>
@@ -1269,6 +1271,24 @@
 	// "= 0.5 dia each": the listing's price per single item in diamond-equivalent
 	// terms, so mixed currencies / stack sizes read on one scale. Only shown
 	// when it adds information (not for already-1-diamond-per-item listings).
+	// One item's price in diamonds, always converted (the average is in diamonds
+	// whatever the "convert currencies" switch says).
+	function avgPerItemDia(r){
+		var mult = CURRENCY_VALUE[String(r.currency||"").toLowerCase()] || 1;
+		return (Number(r.price) || 0) * mult / (r.stackSize || 1);
+	}
+	var avgFor = function(){ return null; };
+
+	// The price cell: the item's average (with the (i) that explains why), never
+	// the shop's own price. Display signs and auction lots keep their own text.
+	function avgPriceHtml(r){
+		if(String(r.currency||"").toLowerCase() === "display") return '<span class="price-main">'+esc(r.priceLabel || "Display")+'</span>';
+		var a = avgFor(r);
+		var info = window.sctpAvgPrice ? window.sctpAvgPrice.info(a ? a.n : 0) : "";
+		if(!a) return '<span class="price-main">Avg &mdash;</span>'+info;
+		return '<span class="price-main">'+fmtAvgPrice(a.each)+'</span>'+info+'<br><span class="price-sub">average each</span>';
+	}
+
 	function eachPriceHtml(r){
 		if(!convertOn()) return "";
 		var each = pricePerItem(r);
@@ -1682,6 +1702,15 @@
 		await itemLangReady;
 		allListings.forEach(function(r){ r.itemNameDisplay = localizedNameToEnglish(r.baseItem, r.itemName); });
 
+		// Beta mode (beta.js): the marketplace was removed (see /statement/), so its
+		// posts no longer show here. Rares in an upcoming auction ride on the same flag and stay.
+		if(window.sctpBeta) allListings = allListings.filter(function(r){ return !r.marketplace || r.marketplaceType === "auction"; });
+		// Live shop prices were removed too: each listing shows its item's average
+		// across every current listing of it in that world (avg-price.js).
+		avgFor = window.sctpAvgPrice
+			? window.sctpAvgPrice.build(allListings, avgPerItemDia, function(r){ return r.itemNameDisplay; })
+			: function(){ return null; };
+
 		try {
 			var shopsRes = await fetch(SHARED_SHOPS_URL);
 			var approved = shopsRes.ok ? await shopsRes.json() : [];
@@ -2007,7 +2036,7 @@
 			COLS.forEach(function(k){ tr.appendChild(cells[ORIG_COLS.indexOf(k)]); });
 		});
 	}
-	var COL_LABELS = { icon:"Icon", item:"Item", base:"Base item", type:"Type", price:"Price", avg:"Avg?", stock:"In stock", seller:"Seller", world:"World", position:"Position", recent:"Last seen", since:"Available since" };
+	var COL_LABELS = { icon:"Icon", item:"Item", base:"Base item", type:"Type", price:(window.sctpBeta ? "Avg price" : "Price"), avg:"Avg?", stock:"In stock", seller:"Seller", world:"World", position:"Position", recent:"Last seen", since:"Available since" };
 	var HIDDEN_COLS_KEY = "sctp_hidden_cols_v2";
 	var hiddenCols = (function(){
 		try { var a = JSON.parse(localStorage.getItem(HIDDEN_COLS_KEY) || '["base","since","avg"]'); var o = {}; a.forEach(function(k){ if(COL_LABELS[k]) o[k] = true; }); return o; } catch(e){ return {}; }
@@ -2162,7 +2191,7 @@
 			'<th data-k="item">Item'+headerSortMark("item")+'</th>'+
 			'<th data-k="item">Base item'+headerSortMark("item")+'</th>'+
 			'<th>Type</th>'+
-			'<th data-k="price">Price'+headerSortMark("price")+'</th>'+
+			'<th data-k="price">'+(window.sctpBeta ? 'Avg price' : 'Price')+headerSortMark("price")+'</th>'+
 			'<th>Avg?</th>'+
 			'<th data-k="stock">In stock'+headerSortMark("stock")+'</th>'+
 			'<th data-k="seller">Seller'+headerSortMark("seller")+'</th>'+
@@ -2215,7 +2244,7 @@
 				'<td class="item-name">'+itemNameHtml+(r.mapartGallery ? galleryIcon : rareIcon)+'</td>'+
 				'<td class="base-item">'+esc(r.baseItem)+'</td>'+
 				'<td>'+typeCell+'</td>'+
-				'<td><span class="price-main">'+esc(r.priceLabel)+'</span>'+(r.marketplace || r.mapartGallery ? '' : '<br><span class="price-sub">per '+(r.bulk ? 'shulk' : r.stackSize)+'</span>'+eachPriceHtml(r))+'</td>'+
+				'<td>'+(window.sctpBeta && !r.marketplace && !r.mapartGallery ? avgPriceHtml(r) : '<span class="price-main">'+esc(r.priceLabel)+'</span>'+(r.marketplace || r.mapartGallery ? '' : '<br><span class="price-sub">per '+(r.bulk ? 'shulk' : r.stackSize)+'</span>'+eachPriceHtml(r)))+'</td>'+
 				(r.mapartGallery
 					? '<td></td>'
 					: '<td style="text-align:center;"><input type="checkbox" class="avg-toggle" data-key="'+esc(rowKey(r))+'" title="Include this listing in the average price above"'+(avgExcluded[rowKey(r)] ? '' : ' checked')+'></td>')+
@@ -2384,10 +2413,10 @@
 
 	// ---------------- download modal ----------------
 	var DOWNLOAD_JARS = {
-		"fabric|26.2": "/sctp-26.2-3.0.jar",
-		"fabric|26.3": "/sctp-26.3-3.0.jar",
-		"neoforge|26.2": "/sctp-neoforge-26.2-3.0.jar",
-		"neoforge|26.3": "/sctp-neoforge-26.3-3.0.jar"
+		"fabric|26.2": "/sctp-26.2-" + (window.sctpBeta ? "3.1" : "3.0") + ".jar",
+		"fabric|26.3": "/sctp-26.3-" + (window.sctpBeta ? "3.1" : "3.0") + ".jar",
+		"neoforge|26.2": "/sctp-neoforge-26.2-" + (window.sctpBeta ? "3.1" : "3.0") + ".jar",
+		"neoforge|26.3": "/sctp-neoforge-26.3-" + (window.sctpBeta ? "3.1" : "3.0") + ".jar"
 	};
 	var dlLoader = "fabric";
 	var dlVersion = "26.2";
@@ -2600,12 +2629,15 @@
 		var manual = isManualListing(row);
 		var itemUrl = itemLibraryUrlFor(row);
 		var itemHtml = itemUrl ? '<a href="'+esc(itemUrl)+'">'+esc(row.itemNameDisplay)+'</a>' : esc(row.itemNameDisplay);
-		var priceSubHtml = row.marketplace ? '' : '<div class="share-hero-price-sub">per '+esc(row.bulk ? 'shulk' : row.stackSize)+'</div>';
+		var shareAvg = row.marketplace ? null : avgFor(row);
+		var priceSubHtml = row.marketplace ? '' : !window.sctpBeta ? '<div class="share-hero-price-sub">per '+esc(row.bulk ? 'shulk' : row.stackSize)+'</div>'
+			: '<div class="share-hero-price-sub">'+(shareAvg ? 'average price each' : '')+(window.sctpAvgPrice ? window.sctpAvgPrice.info(shareAvg ? shareAvg.n : 0) : '')+'</div>';
+		var sharePrice = !window.sctpBeta || row.marketplace || String(row.currency||"").toLowerCase() === "display" ? row.priceLabel : shareAvg ? fmtAvgPrice(shareAvg.each) : "Avg —";
 		document.getElementById("shareHero").innerHTML =
 			'<img src="'+esc(row.mapart ? mapartImgUrl(row.mapart) : iconFor(row))+'" alt="" onerror="this.onerror=null;this.src=\''+PLACEHOLDER_ICON_JS+'\';">'+
 			'<div class="share-hero-info">'+
 				'<div class="share-hero-name">'+itemHtml+'</div>'+
-				'<div class="share-hero-price">'+esc(row.priceLabel)+'</div>'+
+				'<div class="share-hero-price">'+esc(sharePrice)+'</div>'+
 				priceSubHtml+
 			'</div>';
 
@@ -3101,6 +3133,20 @@
 			if(window.sctpLike) window.sctpLike.ready(function(){ var h = document.getElementById("motdLike"); if(h) h.innerHTML = window.sctpLike.button(m, true); });
 		}).catch(function(){ document.getElementById("motd").innerHTML = '<div class="promo-loading">Couldn\'t load today\'s mapart.</div>'; });
 
+		// Beta mode: the marketplace card says it was removed, with the statement
+		var betaMarket = document.getElementById("promoMarket");
+		if(window.sctpBeta && betaMarket) betaMarket.innerHTML = "\t\t\t<div class=\"promo-kicker\">&#128722; Marketplace</div><h2 class=\"promo-title\">The marketplace has been removed</h2><p class=\"promo-text\">The Snailcraft admins required us to remove the marketplace, live shop prices and the watchlist's join notifications. This wasn't our decision.</p><div class=\"promo-actions\"><a class=\"promo-btn primary\" href=\"/statement/\">Read our statement &rarr;</a></div>";
+
+		// Marketplace: show how many listings are open right now
+		if(!window.sctpBeta) fetch(API_BASE + "/marketplace/listings").then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+			var list = Array.isArray(d) ? d : (d && Array.isArray(d.listings) ? d.listings : null);
+			if(!list || !list.length) return;
+			var el = document.getElementById("promoMarketStat");
+			if(!el) return; // the auction ad took the card
+			el.innerHTML = '<b>' + fmtNum(list.length) + '</b> open listing' + (list.length === 1 ? '' : 's') + ' right now';
+			el.hidden = false;
+		}).catch(function(){});
+
 		// Upcoming auction: replaces the marketplace card until it's held
 		fetch(API_BASE + "/auction/current").then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
 			if(!d || !d.auction) return;
@@ -3130,15 +3176,6 @@
 					: '<a class="promo-btn primary" href="/auction/">See the line-up &rarr;</a>') + '</div>';
 		}).catch(function(){});
 
-		// Marketplace: show how many listings are open right now
-		fetch(API_BASE + "/marketplace/listings").then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
-			var list = Array.isArray(d) ? d : (d && Array.isArray(d.listings) ? d.listings : null);
-			if(!list || !list.length) return;
-			var el = document.getElementById("promoMarketStat");
-			if(!el) return; // the auction ad took the card
-			el.innerHTML = '<b>' + fmtNum(list.length) + '</b> open listing' + (list.length === 1 ? '' : 's') + ' right now';
-			el.hidden = false;
-		}).catch(function(){});
 	})();
 
 	// Seller pages link here with ?addShop=<username> when a seller has no

@@ -1,236 +1,59 @@
 package com.snailtools.shoplogger.gui;
 
-import com.snailtools.shoplogger.ShopWorld;
-import com.snailtools.shoplogger.WorldSelection;
-import com.snailtools.shoplogger.gui.data.MarketplaceListing;
-import com.snailtools.shoplogger.gui.data.RareItem;
-import com.snailtools.shoplogger.gui.data.VanillaItem;
-import com.snailtools.shoplogger.gui.data.WebDataClient;
+import com.snailtools.shoplogger.gui.data.AveragePrices;
 import com.snailtools.shoplogger.gui.ui.Draw;
 import com.snailtools.shoplogger.gui.ui.Section;
 import com.snailtools.shoplogger.gui.ui.Theme;
 import com.snailtools.shoplogger.gui.ui.UiButton;
-import com.snailtools.shoplogger.gui.ui.UiChip;
-import com.snailtools.shoplogger.gui.ui.UiField;
 import com.snailtools.shoplogger.gui.ui.UiLinks;
 import com.snailtools.shoplogger.gui.ui.UiScreen;
-import com.snailtools.shoplogger.gui.widget.ItemListWidget;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import com.snailtools.shoplogger.gui.data.FilterMemory;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
 /**
- * Read-only in-game browser for the website's marketplace (no login needed
- * to read). Bidding or posting needs a real account on the site, so each
- * row opens that exact listing on sctp.nl instead of copying the whole
- * bidding flow in-game.
+ * The marketplace was removed at the request of the Snailcraft admins. The
+ * tile on the home screen stays for now and leads here: a short note and a
+ * button to SCTP's statement about it.
  */
 public class MarketplaceScreen extends UiScreen {
 
-	private static final Map<String, String> CURRENCY_LABELS = Map.of(
-			"diamond", "Dia", "diamondblock", "DB", "diamondstack", "STX"
-	);
-	private static final long SEARCH_DEBOUNCE_MS = 300;
-	private static final String BOTH_WORLDS = "Both";
-	private static final String ANY_TYPE = "All posts";
-	private static final String SELLING = "Selling";
-	private static final String LOOKING_FOR = "Looking for";
+	private static final int CARD_W = 340;
+	private static final String TITLE = "The marketplace has been removed";
+	private static final String MESSAGE = "The Snailcraft admins required us to remove the marketplace from the website and the mod. "
+			+ "This wasn't our decision. Our statement explains what happened and why.";
 
-	// remembered for the rest of the session, like the website's filters
-	private static String keepWorld = null;
-	private static String keepType = ANY_TYPE;
-
-	private UiField search;
-	private ItemListWidget list;
-	private int listX, listY, listW, listH, hintY;
-	private String keepQuery = "";
-
-	private List<MarketplaceListing> listings = List.of();
-	private List<VanillaItem> vanillaItems = List.of();
-	private List<RareItem> rareItems = List.of();
-	private boolean listingsLoaded = false;
-	private boolean catalogLoaded = false;
-	private boolean loadFailed = false;
-	private boolean requested = false;
-	private long searchChangedAtMillis = -1;
-
-	private static final List<String> SORTS = List.of(FilterMemory.AUTO_SORT, "Newest", "Price low-high");
-	private String keepSort = FilterMemory.get("market", "sort", FilterMemory.AUTO_SORT, SORTS);
+	private List<FormattedCharSequence> lines = List.of();
+	private int cardX, cardY, cardW, cardH;
 
 	public MarketplaceScreen(Screen parent) {
 		super("Marketplace", parent, Section.MARKET);
-		if (keepWorld == null) {
-			ShopWorld detected = WorldSelection.get();
-			keepWorld = FilterMemory.get("market", "world", detected != null ? detected.label() : BOTH_WORLDS, List.of(BOTH_WORLDS, "Firefly", "Honeybee"));
-			keepType = FilterMemory.get("market", "type", keepType, List.of(ANY_TYPE, SELLING, LOOKING_FOR));
-		}
 	}
 
 	@Override
 	protected void initContent() {
-		int x = contentX(), y = contentY(), w = contentW();
-		int btnW = 108;
-		search = new UiField(font, x, y, w - btnW - 6, 20, "Search by item name…", true);
-		search.box.setValue(keepQuery);
-		search.box.setResponder(s -> { keepQuery = s; searchChangedAtMillis = System.currentTimeMillis(); });
-		addRenderableOnly(search.frame());
-		addRenderableWidget(search.box);
-		addRenderableWidget(new UiButton(x + w - btnW, y, btnW, 20, "Post on sctp.nl ↗", UiButton.Style.SECONDARY,
-				() -> UiLinks.open("https://sctp.nl/marketplace/")).tooltip("Posting and bidding happen on the website"));
-		y += 26;
-
-		int chipW = Math.min(150, (w - 12) / 3);
-		addRenderableWidget(new UiChip<>(x, y, chipW, 18, "World", List.of(BOTH_WORLDS, "Firefly", "Honeybee"), keepWorld,
-				v -> v, v -> { keepWorld = v; FilterMemory.set("market", "world", v); refreshList(); }));
-		addRenderableWidget(new UiChip<>(x + chipW + 6, y, chipW, 18, "Show", List.of(ANY_TYPE, SELLING, LOOKING_FOR), keepType,
-				v -> v, v -> { keepType = v; FilterMemory.set("market", "type", v); refreshList(); }));
-		addRenderableWidget(new UiChip<>(x + 2 * (chipW + 6), y, chipW, 18, "Sort", SORTS, keepSort,
-				v -> FilterMemory.AUTO_SORT.equals(v) ? (FilterMemory.autoIsCheapest(keepQuery) ? "Auto: cheapest" : "Auto: newest") : v,
-				v -> { keepSort = v; FilterMemory.set("market", "sort", v); refreshList(); }));
-		y += 24;
-
-		hintY = y + 1;
-		listX = x - 6;
-		listY = y + 14;
-		listW = w + 12;
-		listH = contentBottom() - listY;
-		list = new ItemListWidget(minecraft, listX, listY, listW, listH);
-		addRenderableWidget(list);
-
-		setInitialFocus(search.box);
-		if (!requested) {
-			requested = true;
-			loadData();
-		} else {
-			refreshList();
-		}
-	}
-
-	@Override
-	public void tick() {
-		super.tick();
-		if (searchChangedAtMillis > 0 && System.currentTimeMillis() - searchChangedAtMillis >= SEARCH_DEBOUNCE_MS) {
-			searchChangedAtMillis = -1;
-			refreshList();
-		}
-	}
-
-	private void loadData() {
-		WebDataClient.fetchMarketplaceListings().thenAccept(rows -> minecraft.execute(() -> {
-			listings = rows;
-			listingsLoaded = true;
-			refreshList();
-		})).exceptionally(ex -> {
-			minecraft.execute(() -> { listingsLoaded = true; loadFailed = true; });
-			return null;
-		});
-
-		WebDataClient.fetchVanillaCatalog().thenAccept(items -> minecraft.execute(() -> {
-			vanillaItems = items;
-			catalogLoaded = true;
-			refreshList();
-		})).exceptionally(ex -> {
-			minecraft.execute(() -> catalogLoaded = true);
-			return null;
-		});
-
-		// Rare-item posts still render without their texture (placeholder icon),
-		// so this doesn't gate loading the way the vanilla catalog does.
-		WebDataClient.fetchRareCatalog().thenAccept(items -> minecraft.execute(() -> {
-			rareItems = items;
-			refreshList();
-		})).exceptionally(ex -> null);
-	}
-
-	private boolean isLoading() {
-		return !listingsLoaded || !catalogLoaded;
-	}
-
-	private String baseItemFor(String name) {
-		for (VanillaItem it : vanillaItems) if (it.name.equalsIgnoreCase(name)) return it.baseItem;
-		return null;
-	}
-
-	private String rareTextureFor(String name) {
-		for (RareItem it : rareItems) if (it.name.equalsIgnoreCase(name)) return it.texture;
-		return null;
-	}
-
-	private void refreshList() {
-		if (list == null) return;
-		list.clearAllEntries();
-		String q = search.value().trim().toLowerCase(Locale.ROOT);
-		String sort = FilterMemory.AUTO_SORT.equals(keepSort) ? (q.isEmpty() ? "Newest" : "Price low-high") : keepSort;
-		List<MarketplaceListing> ordered = new java.util.ArrayList<>(listings);
-		java.util.Comparator<MarketplaceListing> newest = (a, b) -> String.valueOf(b.createdAt).compareTo(String.valueOf(a.createdAt));
-		if ("Price low-high".equals(sort)) {
-			// posts without a price go last; same price: newest first
-			ordered.sort(java.util.Comparator.<MarketplaceListing>comparingDouble(l -> l.priceInfo() == null ? Double.MAX_VALUE : l.diamondValue()).thenComparing(newest));
-		} else {
-			ordered.sort(newest);
-		}
-
-		for (MarketplaceListing l : ordered) {
-			if (!q.isEmpty() && !l.itemName.toLowerCase(Locale.ROOT).contains(q)) continue;
-			boolean selling = "selling".equals(l.type);
-			// Cross-world posts show up under either world
-			if (!BOTH_WORLDS.equals(keepWorld) && !keepWorld.equalsIgnoreCase(l.world) && !"Cross-world".equalsIgnoreCase(l.world)) continue;
-			if (SELLING.equals(keepType) && !selling) continue;
-			if (LOOKING_FOR.equals(keepType) && selling) continue;
-			String subtitle = subtitleFor(l);
-			String baseItem = baseItemFor(l.itemName);
-			ItemListWidget.ItemEntry entry;
-			if (baseItem != null) {
-				entry = ItemListWidget.forVanilla(l.itemName, baseItem, subtitle, () -> openOnWebsite(l));
-			} else {
-				String texture = rareTextureFor(l.itemName);
-				entry = texture != null
-						? ItemListWidget.forRare(l.itemName, subtitle, texture, () -> openOnWebsite(l))
-						: ItemListWidget.forVanilla(l.itemName, null, subtitle, () -> openOnWebsite(l));
-			}
-			list.addItemEntry(entry.withBadge(selling ? "Selling" : "Looking for", selling ? Theme.ACCENT : Theme.INFO));
-		}
-	}
-
-	private String subtitleFor(MarketplaceListing l) {
-		MarketplaceListing.PriceInfo price = l.priceInfo();
-		String priceText = price == null
-				? "No price set"
-				: formatPrice(price.amount) + " " + CURRENCY_LABELS.getOrDefault(
-						price.currency == null ? "" : price.currency.toLowerCase(Locale.ROOT), price.currency);
-		return priceText + " · " + l.world;
-	}
-
-	private static String formatPrice(double v) {
-		return v == Math.floor(v) ? String.valueOf((long) v) : String.valueOf(v);
-	}
-
-	private void openOnWebsite(MarketplaceListing l) {
-		UiLinks.open("https://sctp.nl/marketplace/#listing=" + URLEncoder.encode(l.id, StandardCharsets.UTF_8));
+		cardW = Math.min(CARD_W, contentW());
+		lines = font.split(Component.literal(MESSAGE), cardW - 28);
+		cardH = 14 + 12 + 8 + lines.size() * 10 + 12 + 20 + 14;
+		cardX = contentX() + (contentW() - cardW) / 2;
+		cardY = contentY() + Math.max(10, (contentH() - cardH) / 3);
+		String label = "Read our statement ↗";
+		addRenderableWidget(new UiButton(cardX + 14, cardY + cardH - 14 - 20, font.width(label) + 24, 20, label, UiButton.Style.PRIMARY,
+				() -> UiLinks.open(AveragePrices.STATEMENT_URL)));
 	}
 
 	@Override
 	protected void extractPage(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-		int y = hintY;
-		Draw.glyph(g, Draw.GLYPH_LINK, contentX(), y, Theme.FAINT);
-		g.text(font, Draw.trim(font, "Click a post to open it on sctp.nl, where you can bid or reply", contentW() - 110), contentX() + 11, y, Theme.FAINT, false);
-		if (!isLoading() && list != null) {
-			String count = list.size() == listings.size() ? fmtNum(listings.size()) + " posts" : fmtNum(list.size()) + " of " + fmtNum(listings.size());
-			Draw.right(g, font, count, contentX() + contentW(), y, Theme.MUTED);
+		Draw.card(g, cardX, cardY, cardW, cardH, Theme.PANEL, Theme.LINE);
+		Draw.rect(g, cardX, cardY, cardW, 3, Theme.BAD);
+		Draw.textShadow(g, font, Draw.trim(font, TITLE, cardW - 28), cardX + 14, cardY + 14, Theme.TEXT);
+		int y = cardY + 14 + 12 + 8;
+		for (FormattedCharSequence line : lines) {
+			g.text(font, line, cardX + 14, y, Theme.MUTED, false);
+			y += 10;
 		}
-	}
-
-	@Override
-	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-		boolean empty = !isLoading() && list != null && list.size() == 0;
-		listState(g, listX, listY, listW, listH, isLoading(), loadFailed, empty,
-				listings.isEmpty() ? "No marketplace posts right now" : "No posts match that",
-				listings.isEmpty() ? "Be the first: post one on sctp.nl." : "Try a shorter search or other filters.");
 	}
 }

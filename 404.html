@@ -336,6 +336,8 @@
 </footer>
 
 <script src="/site-nav.js" defer></script>
+<script src="/beta.js"></script>
+<script src="/avg-price.js"></script>
 <script src="/account-widget.js" defer></script>
 <script src="/mapart-report.js" defer></script>
 <script src="/collection.js" defer></script>
@@ -389,6 +391,7 @@
 	// listings table on purpose, even though the same rows also appear mixed
 	// into it — this is the dedicated place to look.
 	function renderMarketplaceSection(rows){
+		if(window.sctpBeta) rows = rows.filter(function(r){ return r.marketplaceType === "auction"; });
 		if(!rows.length) return "";
 		var rowsHtml = rows.map(function(r){
 			var auction = r.marketplaceType === "auction";
@@ -402,7 +405,7 @@
 				'<td>'+sellerLink+'</td></tr>';
 		}).join("");
 		return '<section class="table-card" style="margin-bottom:20px;">'+
-			'<div class="table-toolbar"><span class="count">'+(rows.some(function(r){ return r.marketplaceType === "auction"; }) ? 'Marketplace &amp; auctions' : 'Marketplace listings')+' ('+fmtNum(rows.length)+')</span></div>'+
+			'<div class="table-toolbar"><span class="count">'+(window.sctpBeta ? 'Upcoming auctions' : rows.some(function(r){ return r.marketplaceType === "auction"; }) ? 'Marketplace &amp; auctions' : 'Marketplace listings')+' ('+fmtNum(rows.length)+')</span></div>'+
 			'<div class="table-scroll"><table><thead><tr><th>Type</th><th>Item</th><th>Qty</th><th>Price</th><th>World</th><th>Poster</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
 		'</section>';
 	}
@@ -531,6 +534,36 @@
 		return r.price * (mult || 1);
 	}
 	function pricePerItem(r){ return priceInDiamonds(r) / (r.stackSize || 1); }
+
+	// ---------------- shared: average prices ----------------
+	// Live shop prices were removed (see /statement/): a listing shows the
+	// average price of one of its item, across every current listing of it in
+	// that world (avg-price.js). setAverages() takes the full GET /listings
+	// list, so a seller's page still averages over everyone's listings.
+	var avgFor = function(){ return null; };
+	function avgName(r){ return r.itemNameDisplay || localizedNameToEnglish(r.baseItem, r.itemName); }
+	function setAverages(listingsRaw){
+		if(!window.sctpAvgPrice) return;
+		var rows = listingsRaw.filter(function(r){ return !r.marketplace; }).map(normalizeRow);
+		avgFor = window.sctpAvgPrice.build(rows, function(r){
+			var mult = CURRENCY_VALUE[String(r.currency||"").toLowerCase()] || 1;
+			return (Number(r.price) || 0) * mult / (r.stackSize || 1);
+		}, avgName);
+	}
+	function fmtAvgDia(d){
+		return d > 9 ? fmtNum(Math.round((d/9)*100)/100) + " db" : fmtNum(Math.round(d*100)/100) + " dia";
+	}
+	function avgPriceCell(r){
+		if(!window.sctpBeta) return '<td><span class="price-main">'+esc(r.priceLabel)+'</span><br><span class="price-sub">per '+(r.bulk ? 'shulk' : r.stackSize)+'</span></td>';
+		if(String(r.currency||"").toLowerCase() === "display") return '<td><span class="price-main">'+esc(r.priceLabel || "Display")+'</span></td>';
+		var a = avgFor(r);
+		var info = window.sctpAvgPrice ? window.sctpAvgPrice.info(a ? a.n : 0) : "";
+		if(!a) return '<td><span class="price-main">Avg &mdash;</span>'+info+'</td>';
+		return '<td><span class="price-main">'+fmtAvgDia(a.each)+'</span>'+info+'<br><span class="price-sub">average each</span></td>';
+	}
+	// Beta mode (beta.js): the marketplace was removed, so its posts are dropped
+	// everywhere (rares in an upcoming auction come through the same flag and stay).
+	function notMarketplacePost(r){ return !window.sctpBeta || !r.marketplace || r.marketplaceType === "auction"; }
 
 	// ---------------- shared: non-English name normalization ----------------
 	// Used by both the seller page and the item page — hoisted out of either
@@ -912,6 +945,8 @@
 		await loadItemLangTable();
 		loadTextureCatalogs(renderTable); // fires off in parallel — re-renders once icons/links are ready, doesn't block the first render
 
+		listingsRaw = listingsRaw.filter(notMarketplacePost);
+		setAverages(listingsRaw);
 		var mine = listingsRaw.filter(function(r){ return String(r.seller||"").toLowerCase() === usernameKey; });
 		allListings = mine.filter(function(r){ return r.world === world; }).map(normalizeRow);
 		allListings.forEach(function(r){ r.itemNameDisplay = localizedNameToEnglish(r.baseItem, r.itemName); });
@@ -1002,10 +1037,15 @@
 				var cn = (p.collection.counts || []).reduce(function(a, c){ return a + c.n; }, 0);
 				if(cn) tabs.push({ key: "collection", label: "Collection", n: cn });
 			}
-			var mk = p.marketplace || [];
-			if(mk.length || marketHtml){
-				tabs.push({ key: "market", label: "Marketplace", n: mk.length });
-				panels.market.insertAdjacentHTML("beforeend", renderProfileMarketHistory(mk));
+			// beta mode: the marketplace was removed, so no Marketplace tab, only upcoming auction lots
+			if(window.sctpBeta){
+				if(marketHtml) tabs.push({ key: "market", label: "Auctions", n: 0 });
+			} else {
+				var mk = p.marketplace || [];
+				if(mk.length || marketHtml){
+					tabs.push({ key: "market", label: "Marketplace", n: mk.length });
+					panels.market.insertAdjacentHTML("beforeend", renderProfileMarketHistory(mk));
+				}
 			}
 			draw();
 		}).catch(function(){});
@@ -1276,7 +1316,7 @@
 			'<th></th>'+
 			'<th data-k="item-az">Item</th>'+
 			'<th>Base item</th><th>Type</th><th>Currency</th>'+
-			'<th data-k="price-asc">Price</th>'+
+			'<th data-k="price-asc">'+(window.sctpBeta ? 'Avg price' : 'Price')+'</th>'+
 			'<th data-k="stock-desc">In stock</th>'+
 			'<th>Position</th>'+
 			'<th data-k="recent">Last seen</th>'+
@@ -1301,7 +1341,7 @@
 					(r.mixedContents ? ' <span class="badge mixed">Mixed chest</span>' : '')+
 				'</td>'+
 				'<td class="currency-cell">'+esc(r.currency)+'</td>'+
-				'<td><span class="price-main">'+esc(r.priceLabel)+'</span><br><span class="price-sub">per '+(r.bulk ? 'shulk' : r.stackSize)+'</span></td>'+
+				avgPriceCell(r)+
 				'<td>'+stockCell+'</td>'+
 				'<td class="position">'+esc(r.position)+'</td>'+
 				'<td>'+lastSeenCell+'</td>'+
@@ -1679,7 +1719,7 @@
 
 			var headerHtml =
 				'<th data-k="seller-az">Seller</th><th>World</th><th>Type</th><th>Currency</th>'+
-				'<th data-k="price-asc">Price</th>'+
+				'<th data-k="price-asc">'+(window.sctpBeta ? 'Avg price' : 'Price')+'</th>'+
 				'<th data-k="stock-desc">In stock</th>'+
 				'<th>Position</th>'+
 				'<th data-k="recent">Last seen</th>'+
@@ -1702,7 +1742,7 @@
 						(r.mixedContents ? ' <span class="badge mixed">Mixed chest</span>' : '')+
 					'</td>'+
 					'<td class="currency-cell">'+esc(r.currency)+'</td>'+
-					'<td><span class="price-main">'+esc(r.priceLabel)+'</span><br><span class="price-sub">per '+(r.bulk ? 'shulk' : r.stackSize)+'</span></td>'+
+					avgPriceCell(r)+
 					'<td>'+stockCell+'</td>'+
 					'<td class="position">'+esc(r.position)+'</td>'+
 					'<td>'+lastSeenCell+'</td>'+
@@ -1803,6 +1843,8 @@
 			await loadItemLangTable();
 
 			var listingsRaw = await fetch(DATA_URL).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; });
+			listingsRaw = listingsRaw.filter(notMarketplacePost);
+			setAverages(listingsRaw);
 			var history;
 
 			if(isRare){

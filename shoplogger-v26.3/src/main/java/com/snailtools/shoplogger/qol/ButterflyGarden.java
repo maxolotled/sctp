@@ -6,6 +6,7 @@ import com.snailtools.shoplogger.qol.utils.Util;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.client.Minecraft;
+import com.snailtools.shoplogger.gui.ui.Theme;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -48,15 +49,12 @@ public class ButterflyGarden {
     private final int SCOREBOARD_TOGGLE_MARGIN = 4;
     private static final int SCOREBOARD_TOGGLE_GAP = 3;
     private final int SHADOW_COLOR = 0x60000000;
-    private final int BORDER_COLOR = 0xE34B2D45;
-    private final int PANEL_COLOR = 0xD8211822;
-    private final int HEADER_COLOR = 0xE07C4B78;
     private final int ROW_ALT_COLOR = 0x26000000;
-    private final int TEXT_COLOR = 0xFFF8E8F6;
-    private final int MUTED_TEXT_COLOR = 0xFFDAB8D6;
     private final int POINTS_COLOR = 0xFFFFD56A;
-    private final int SELLABLE_SLOT_HIGHLIGHT_COLOR = 0x55F3A6C8;
-    private final int SELLABLE_SLOT_BORDER_COLOR = 0xFFC6F6C8;
+    private static int BORDER_COLOR, PANEL_COLOR, HEADER_COLOR, TEXT_COLOR, MUTED_TEXT_COLOR,
+            CONTROL_BORDER_COLOR, CONTROL_FILL_COLOR, CONTROL_HOVER_COLOR, CONTROL_ACTIVE_COLOR,
+            CONTROL_TRACK_COLOR, DRAG_ACTIVE_COLOR, DRAG_FILL_COLOR,
+            SELLABLE_SLOT_HIGHLIGHT_COLOR, SELLABLE_SLOT_BORDER_COLOR, WARNING_BG_COLOR;
     private final int WRONG_OWNER_SLOT_HIGHLIGHT_COLOR = 0x66FFD36A;
     private final int WRONG_OWNER_SLOT_BORDER_COLOR = 0xFFFF7A45;
     private final int EXCHANGE_BUTTON_WIDTH = 70;
@@ -78,8 +76,6 @@ public class ButterflyGarden {
     private static float panelOffsetY;
     private static boolean panelPinned;
     private static final int DRAG_HANDLE_SIZE = 9;
-    private static final int DRAG_ACTIVE_COLOR = 0xE0DAB8D6;
-    private static final int DRAG_FILL_COLOR = 0xD85A4A64;
     private static final float HEADER_ICON_MODEL_DATA = 999551.0F;
     private ItemStack headerIcon = ItemStack.EMPTY;
     private int dragHandleX = 0;
@@ -161,6 +157,7 @@ public class ButterflyGarden {
     }
 
     public void onScreenRender(Screen screen, GuiGraphicsExtractor gui, int mouseX, int mouseY, float delta) {
+        syncTheme();
         if (!isInButterflyGardenLevel()) {
             scaleSliderDragging = false;
             panelDragging = false;
@@ -258,7 +255,31 @@ public class ButterflyGarden {
         }
     }
 
+    /** Takes the colours from the mod's theme (Settings), so this panel matches every other SCTP screen. */
+    private static void syncTheme() {
+        BORDER_COLOR = Theme.blend(Theme.LINE, Theme.ACCENT, 0.3f, 0xE3);
+        PANEL_COLOR = Theme.alpha(Theme.PANEL, 0xD8);
+        HEADER_COLOR = Theme.blend(Theme.PANEL_HI, Theme.ACCENT, 0.25f, 0xE0);
+        TEXT_COLOR = Theme.TEXT;
+        MUTED_TEXT_COLOR = Theme.MUTED;
+        CONTROL_BORDER_COLOR = Theme.alpha(Theme.MUTED, 0xE0);
+        CONTROL_FILL_COLOR = Theme.alpha(Theme.PANEL_ALT, 0xD8);
+        CONTROL_HOVER_COLOR = Theme.alpha(Theme.PANEL_HI, 0xE0);
+        CONTROL_ACTIVE_COLOR = Theme.blend(Theme.PANEL_HI, Theme.ACCENT, 0.45f, 0xE0);
+        CONTROL_TRACK_COLOR = Theme.alpha(Theme.SLOT, 0xAA);
+        DRAG_ACTIVE_COLOR = Theme.blend(Theme.PANEL_HI, Theme.ACCENT, 0.6f, 0xE0);
+        DRAG_FILL_COLOR = Theme.alpha(Theme.PANEL_HI, 0xD8);
+        SELLABLE_SLOT_HIGHLIGHT_COLOR = Theme.alpha(Theme.ACCENT, 0x55);
+        SELLABLE_SLOT_BORDER_COLOR = Theme.ACCENT_HI;
+        WARNING_BG_COLOR = Theme.alpha(Theme.BG_DEEP, 0xCC);
+    }
+
+    static {
+        syncTheme();
+    }
+
     public void onHUDRender(GuiGraphicsExtractor graphics) {
+        syncTheme();
         if (!isInButterflyGardenLevel()) return;
 
         Minecraft minecraft = Minecraft.getInstance();
@@ -371,8 +392,8 @@ public class ButterflyGarden {
     private void renderExchangeButton(GuiGraphicsExtractor gui, int mouseX, int mouseY, boolean disabled) {
         boolean hovered = mouseX >= exchangeButtonX && mouseX < exchangeButtonX + EXCHANGE_BUTTON_WIDTH
                 && mouseY >= exchangeButtonY && mouseY < exchangeButtonY + EXCHANGE_BUTTON_HEIGHT;
-        int fillColor = disabled ? 0xD84B4248 : exchangeSelling ? 0xE04C7A4F : hovered ? 0xE05A4A64 : 0xD8342C3A;
-        int borderColor = disabled ? WRONG_OWNER_SLOT_BORDER_COLOR : hovered ? 0xFFFFFFFF : 0xE0DAB8D6;
+        int fillColor = disabled ? CONTROL_FILL_COLOR : exchangeSelling ? CONTROL_ACTIVE_COLOR : hovered ? CONTROL_HOVER_COLOR : CONTROL_FILL_COLOR;
+        int borderColor = disabled ? WRONG_OWNER_SLOT_BORDER_COLOR : hovered ? 0xFFFFFFFF : CONTROL_BORDER_COLOR;
         int textColor = disabled ? 0xFFFFD36A : TEXT_COLOR;
 
         gui.fill(exchangeButtonX, exchangeButtonY, exchangeButtonX + EXCHANGE_BUTTON_WIDTH, exchangeButtonY + EXCHANGE_BUTTON_HEIGHT, borderColor);
@@ -395,7 +416,7 @@ public class ButterflyGarden {
         int warningY = scaleSliderY + SCALE_SLIDER_HEIGHT + 4;
         int warningWidth = Minecraft.getInstance().font.width(warning);
 
-        gui.fill(warningX - 2, warningY - 2, warningX + warningWidth + 2, warningY + Minecraft.getInstance().font.lineHeight + 2, 0xCC2B2024);
+        gui.fill(warningX - 2, warningY - 2, warningX + warningWidth + 2, warningY + Minecraft.getInstance().font.lineHeight + 2, WARNING_BG_COLOR);
         gui.text(Minecraft.getInstance().font, warning, warningX, warningY, WRONG_OWNER_SLOT_BORDER_COLOR, true);
 
         if (mouseX >= exchangeButtonX && mouseX < exchangeButtonX + EXCHANGE_BUTTON_WIDTH
@@ -406,8 +427,8 @@ public class ButterflyGarden {
 
     private void renderScaleSlider(GuiGraphicsExtractor gui, int mouseX, int mouseY) {
         boolean hovered = isInside(mouseX, mouseY, scaleSliderX, scaleSliderY, SCALE_SLIDER_WIDTH, SCALE_SLIDER_HEIGHT);
-        int borderColor = hovered || scaleSliderDragging ? 0xFFFFFFFF : 0xE0DAB8D6;
-        int fillColor = scaleSliderDragging ? 0xE04C5F7A : hovered ? 0xE05A4A64 : 0xD8342C3A;
+        int borderColor = hovered || scaleSliderDragging ? 0xFFFFFFFF : CONTROL_BORDER_COLOR;
+        int fillColor = scaleSliderDragging ? CONTROL_ACTIVE_COLOR : hovered ? CONTROL_HOVER_COLOR : CONTROL_FILL_COLOR;
         int trackX = scaleSliderX + 7;
         int trackY = scaleSliderY + SCALE_SLIDER_HEIGHT - 5;
         int trackWidth = SCALE_SLIDER_WIDTH - 14;
@@ -417,8 +438,8 @@ public class ButterflyGarden {
         gui.fill(scaleSliderX, scaleSliderY, scaleSliderX + SCALE_SLIDER_WIDTH, scaleSliderY + SCALE_SLIDER_HEIGHT, borderColor);
         gui.fill(scaleSliderX + 1, scaleSliderY + 1, scaleSliderX + SCALE_SLIDER_WIDTH - 1, scaleSliderY + SCALE_SLIDER_HEIGHT - 1, fillColor);
         gui.centeredText(Minecraft.getInstance().font, label, scaleSliderX + SCALE_SLIDER_WIDTH / 2, scaleSliderY + 3, TEXT_COLOR);
-        gui.fill(trackX, trackY, trackX + trackWidth, trackY + SCALE_TRACK_HEIGHT, 0xAA201822);
-        gui.fill(trackX, trackY, knobX + SCALE_KNOB_WIDTH / 2, trackY + SCALE_TRACK_HEIGHT, POINTS_COLOR);
+        gui.fill(trackX, trackY, trackX + trackWidth, trackY + SCALE_TRACK_HEIGHT, CONTROL_TRACK_COLOR);
+        gui.fill(trackX, trackY, knobX + SCALE_KNOB_WIDTH / 2, trackY + SCALE_TRACK_HEIGHT, Theme.ACCENT);
         gui.fill(knobX, trackY - 2, knobX + SCALE_KNOB_WIDTH, trackY + SCALE_TRACK_HEIGHT + 2, 0xFFFFFFFF);
     }
 
@@ -841,8 +862,8 @@ public class ButterflyGarden {
 
 
     private void renderScoreboardToggle(GuiGraphicsExtractor graphics, Minecraft minecraft, int x, int y) {
-        graphics.fill(x, y, x + SCOREBOARD_TOGGLE_SIZE, y + SCOREBOARD_TOGGLE_SIZE, 0xE0DAB8D6);
-        graphics.fill(x + 1, y + 1, x + SCOREBOARD_TOGGLE_SIZE - 1, y + SCOREBOARD_TOGGLE_SIZE - 1, scoreboardVisible ? 0xD8342C3A : 0xE05A4A64);
+        graphics.fill(x, y, x + SCOREBOARD_TOGGLE_SIZE, y + SCOREBOARD_TOGGLE_SIZE, CONTROL_BORDER_COLOR);
+        graphics.fill(x + 1, y + 1, x + SCOREBOARD_TOGGLE_SIZE - 1, y + SCOREBOARD_TOGGLE_SIZE - 1, scoreboardVisible ? CONTROL_FILL_COLOR : CONTROL_HOVER_COLOR);
         int midY = y + SCOREBOARD_TOGGLE_SIZE / 2;
         graphics.fill(x + 3, midY, x + SCOREBOARD_TOGGLE_SIZE - 3, midY + 1, TEXT_COLOR);
         if (!scoreboardVisible) {
@@ -853,7 +874,7 @@ public class ButterflyGarden {
 
     private void renderDragHandle(GuiGraphicsExtractor graphics, int x, int y) {
         int fillColor = panelDragging || !panelPinned ? DRAG_ACTIVE_COLOR : DRAG_FILL_COLOR;
-        graphics.fill(x, y, x + DRAG_HANDLE_SIZE, y + DRAG_HANDLE_SIZE, 0xE0DAB8D6);
+        graphics.fill(x, y, x + DRAG_HANDLE_SIZE, y + DRAG_HANDLE_SIZE, CONTROL_BORDER_COLOR);
         graphics.fill(x + 1, y + 1, x + DRAG_HANDLE_SIZE - 1, y + DRAG_HANDLE_SIZE - 1, fillColor);
         String icon = panelPinned ? "\uD83D\uDD12" : "\uD83D\uDD13";
         int iconX = x + (DRAG_HANDLE_SIZE - Minecraft.getInstance().font.width(icon)) / 2;
@@ -862,8 +883,8 @@ public class ButterflyGarden {
     }
 
     private void renderVerboseScoreboardToggle(GuiGraphicsExtractor graphics, Minecraft minecraft, int x, int y) {
-        graphics.fill(x, y, x + SCOREBOARD_TOGGLE_SIZE, y + SCOREBOARD_TOGGLE_SIZE, 0xE0DAB8D6);
-        graphics.fill(x + 1, y + 1, x + SCOREBOARD_TOGGLE_SIZE - 1, y + SCOREBOARD_TOGGLE_SIZE - 1, scoreboardVerbose ? 0xE04C7A4F : 0xD8342C3A);
+        graphics.fill(x, y, x + SCOREBOARD_TOGGLE_SIZE, y + SCOREBOARD_TOGGLE_SIZE, CONTROL_BORDER_COLOR);
+        graphics.fill(x + 1, y + 1, x + SCOREBOARD_TOGGLE_SIZE - 1, y + SCOREBOARD_TOGGLE_SIZE - 1, scoreboardVerbose ? CONTROL_ACTIVE_COLOR : CONTROL_FILL_COLOR);
         int iconColor = scoreboardVerbose ? TEXT_COLOR : MUTED_TEXT_COLOR;
         int dotX = x + 3;
         int lineX = x + 5;
