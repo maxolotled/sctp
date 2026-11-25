@@ -8554,7 +8554,7 @@ async function handleSantaMine(request, env) {
 	const e = await santaFindMine(env, ev, auth.admin);
 	return json({
 		entry: e ? santaEntryPublic(e, false) : null,
-		revealToken: e && ev.pairsGeneratedAt ? e.revealToken : null,
+		revealToken: e ? e.revealToken : null,
 		account: { mcUsername: auth.admin.mcUsername || null, mcVerified: !!auth.admin.mcVerified, discord: auth.admin.contactDiscord || null },
 	});
 }
@@ -8594,6 +8594,9 @@ async function handleSantaSignup(request, env) {
 	}
 
 	if (existing) {
+		// once you've been given your person, your entry is locked
+		const assigned = await env.DB.prepare("SELECT 1 AS x FROM santaGifts WHERE eventId = ? AND giverId = ? LIMIT 1").bind(ev.id, existing.id).first();
+		if (assigned) return json({ error: "You've been given your person, so your entry can't be changed anymore." }, 409);
 		await env.DB.prepare(
 			`UPDATE santaEntries SET mcUsername = ?, accountId = ?, mcVerified = ?, discord = ?, category = ?, excludes = ?, wishlist = ?, about = ?, updatedAt = ? WHERE id = ?`
 		).bind(mcUsername, admin.id, verifiedName ? 1 : 0, v.discord, v.category, JSON.stringify(v.excludes), JSON.stringify(v.wishlist), v.about, now, existing.id).run();
@@ -8609,7 +8612,7 @@ async function handleSantaSignup(request, env) {
 	).bind(id, ev.id, mcUsername, admin ? admin.id : null, verifiedName ? 1 : 0, v.discord, v.category, JSON.stringify(v.excludes),
 		JSON.stringify(v.wishlist), v.about, newToken(), now, now).run();
 	const e = await env.DB.prepare("SELECT * FROM santaEntries WHERE id = ?").bind(id).first();
-	return json({ ok: true, updated: false, entry: santaEntryPublic(e, false), linkedToAccount: !!admin, event: santaEventPublic(ev) });
+	return json({ ok: true, updated: false, entry: santaEntryPublic(e, false), revealToken: e.revealToken, linkedToAccount: !!admin, event: santaEventPublic(ev) });
 }
 
 async function handleSantaWithdraw(request, env) {
@@ -8631,9 +8634,16 @@ async function handleSantaReveal(request, env) {
 	if (!me) return json({ error: "This link isn't valid (anymore). Ask a Secret Santa admin for yours." }, 404);
 	const ev = await env.DB.prepare("SELECT * FROM santaEvents WHERE id = ?").bind(me.eventId).first();
 	const out = { event: santaEventPublic(ev), you: { mcUsername: me.mcUsername, category: me.category }, assignments: [] };
-	if (!ev.pairsGeneratedAt) return json(out);
-
 	const { results: gifts } = await env.DB.prepare("SELECT * FROM santaGifts WHERE eventId = ? AND giverId = ?").bind(ev.id, me.id).all();
+	// Nobody assigned to you yet: the link is where you change your entry
+	// (POST /secret-santa/update). Once you have someone, it shows them and
+	// the entry is locked.
+	if (!gifts.length) {
+		out.editable = true;
+		out.entry = santaEntryPublic(me, false);
+		out.canWithdraw = santaPhase(ev) === "signups";
+		return json(out);
+	}
 	let marketplace = null;
 	for (const pool of SANTA_POOLS) {
 		const g = gifts.find((x) => x.pool === pool);
@@ -8669,6 +8679,39 @@ async function handleSantaReveal(request, env) {
 		});
 	}
 	return json(out);
+}
+
+// POST /secret-santa/update {token, discord, category, excludes, wishlist, about}
+//   or {token, withdraw: true}. Changes an entry through its personal link, until
+// someone has been assigned to it (then it's locked). The Minecraft name never
+// changes here. Withdrawing works while sign-ups are open.
+async function handleSantaUpdate(request, env) {
+	let body;
+	try { body = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400); }
+	const token = String(body.token || "");
+	if (!/^[0-9a-f]{64}$/.test(token)) return json({ error: "This link isn't valid." }, 404);
+	const me = await env.DB.prepare("SELECT * FROM santaEntries WHERE revealToken = ?").bind(token).first();
+	if (!me) return json({ error: "This link isn't valid (anymore). Ask a Secret Santa admin for yours." }, 404);
+	const ev = await env.DB.prepare("SELECT * FROM santaEvents WHERE id = ?").bind(me.eventId).first();
+	const assigned = await env.DB.prepare("SELECT 1 AS x FROM santaGifts WHERE eventId = ? AND giverId = ? LIMIT 1").bind(ev.id, me.id).first();
+	if (assigned) return json({ error: "You've been given your person, so your entry can't be changed anymore. Reload the page to see who it is." }, 409);
+
+	if (body.withdraw === true) {
+		if (santaPhase(ev) !== "signups") return json({ error: "Sign-ups are closed. Ask a Secret Santa admin to take you out." }, 400);
+		await santaSyncPools(env, ev.id, me.id, null);
+		await env.DB.prepare("DELETE FROM santaEntries WHERE id = ?").bind(me.id).run();
+		return json({ ok: true, withdrawn: true });
+	}
+
+	const clean = await santaCleanEntry(env, body, me.mcUsername);
+	if (clean.error) return json({ error: clean.error }, 400);
+	const v = clean.value;
+	await env.DB.prepare(
+		"UPDATE santaEntries SET discord = ?, category = ?, excludes = ?, wishlist = ?, about = ?, updatedAt = ? WHERE id = ?"
+	).bind(v.discord, v.category, JSON.stringify(v.excludes), JSON.stringify(v.wishlist), v.about, new Date().toISOString(), me.id).run();
+	if (ev.pairsGeneratedAt) await santaSyncPools(env, ev.id, me.id, v.category);
+	const e = await env.DB.prepare("SELECT * FROM santaEntries WHERE id = ?").bind(me.id).first();
+	return json({ ok: true, entry: santaEntryPublic(e, false), event: santaEventPublic(ev) });
 }
 
 // ---- admin (permission "secretSanta") ----
@@ -8986,6 +9029,7 @@ const ROUTES = [
 	["POST", "/secret-santa/signup", handleSantaSignup],
 	["POST", "/secret-santa/withdraw", handleSantaWithdraw],
 	["GET", "/secret-santa/reveal", handleSantaReveal],
+	["POST", "/secret-santa/update", handleSantaUpdate],
 	["GET", "/secret-santa/admin/state", handleSantaAdminState],
 	["POST", "/secret-santa/admin/event", handleSantaAdminEvent],
 	["POST", "/secret-santa/admin/entry", handleSantaAdminEntry],

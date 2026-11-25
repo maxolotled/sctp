@@ -52,6 +52,8 @@
 	@media (max-width:700px){.how-to{grid-template-columns:1fr;}}
 	.how-to div{background:var(--panel-alt);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13.5px;}
 	.how-to b{display:block;font-size:14.5px;margin-bottom:2px;}
+	.saved-note{display:flex;gap:10px;align-items:center;background:rgba(67,192,138,.12);border:1px solid rgba(67,192,138,.55);border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:14px;}
+	.mc-fixed{display:flex;align-items:center;gap:10px;background:var(--panel-alt);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:600;}
 </style>
 </head>
 <body>
@@ -60,7 +62,7 @@
 	<div class="wrap header-row">
 		<div class="brand-row">
 			<div class="brand-mark" aria-hidden="true">&#127873;</div>
-			<div><h1>Your Secret Santa</h1><p class="tag" id="tagline">Snailcraft &middot; Firefly</p></div>
+			<div><h1 id="heading">Your Secret Santa</h1><p class="tag" id="tagline">Snailcraft &middot; Firefly</p></div>
 		</div>
 		<div id="siteNavMount"></div>
 	</div>
@@ -94,6 +96,8 @@
 		var ev = d.event;
 		document.title = "Your Secret Santa " + ev.id + " - SCTP";
 		$("tagline").innerHTML = "Snailcraft &middot; Firefly &middot; Christmas " + esc(ev.id);
+		// Nobody assigned to you yet: this link is where you change your entry.
+		if(d.editable){ renderEdit(d); return; }
 		var html = secretBanner(d);
 		if(!ev.pairsGenerated){
 			html += '<section class="card cane"><span class="firefly"><span class="dot"></span>Firefly only</span>' +
@@ -105,6 +109,78 @@
 		var two = d.assignments.length > 1;
 		d.assignments.forEach(function(a){ html += assignment(ev, a, two); });
 		show(html + howTo(ev, two));
+	}
+
+	// ---------------- your entry, until you're given your person ----------------
+	var wish = null, excl = null, justSaved = /[?&]new\b/.test(location.search) ? "new" : "";
+	function renderEdit(d){
+		var ev = d.event, e = d.entry;
+		$("heading").textContent = "Your Secret Santa entry";
+		var top = justSaved === "new"
+			? '<div class="saved-note"><span aria-hidden="true">&#127876;</span><span><b>You\'re signed up!</b> Bookmark this page: it\'s your personal Secret Santa link.</span></div>'
+			: justSaved ? '<div class="saved-note"><span aria-hidden="true">&#10003;</span><span><b>Saved.</b></span></div>' : '';
+		show(top +
+			'<section class="card cane"><span class="firefly"><span class="dot"></span>Firefly only</span>' +
+			'<h2 style="margin-top:12px;">Hi ' + esc(e.mcUsername) + '!</h2>' +
+			'<p class="lead" style="margin:0;">You can change your entry here until you\'re given your person' + (ev.pairsGenerated ? '' : ' (pairs are made after sign-ups close at the end of ' + esc(S.fmtDay(ev.signupCloseDate)) + ')') + '. From then on, this same link shows who you\'re making a gift for, and your entry can\'t be changed anymore. <b>Keep this link to yourself</b>: anyone with it can change your entry.</p></section>' +
+			'<section class="card"><h2>Your entry</h2>' +
+			'<form id="form" novalidate>' +
+				'<div class="row2">' +
+					'<div class="field"><span class="label">Minecraft username</span><div class="mc-fixed">' + S.avatar(e.mcUsername, 22) + esc(e.mcUsername) + '</div><p class="help">This can\'t be changed. Ask a Secret Santa admin if it\'s wrong.</p></div>' +
+					'<div class="field"><label for="discord">Discord username</label><input type="text" id="discord" maxlength="64" autocomplete="off" spellcheck="false" value="' + esc(e.discord) + '"><p class="help">Only Secret Santa admins see this, in case they need to reach you.</p></div>' +
+				'</div>' +
+				'<div class="field" role="radiogroup" aria-labelledby="catLabel"><span class="label" id="catLabel">Category</span><div class="cats">' +
+					'<label class="cat"><input type="radio" name="category" value="high"><span class="t">High value</span><span class="v">48 DB+</span><span class="d">Make one gift worth at least 48 DB.</span></label>' +
+					'<label class="cat"><input type="radio" name="category" value="low"><span class="t">Low value</span><span class="v">16 DB+</span><span class="d">Make one gift worth at least 16 DB.</span></label>' +
+					'<label class="cat"><input type="radio" name="category" value="both"><span class="t">Both</span><span class="v">48 DB+ and 16 DB+</span><span class="d">Make two gifts, one of each.</span></label>' +
+				'</div><div class="both-note" id="bothNote" hidden><b>You\'ll make 2 gifts:</b> one high value gift (48 DB+) for one player and one low value gift (16 DB+) for another. You\'ll get 2 gifts back too.</div></div>' +
+				'<div class="field"><span class="label">Don\'t match me with</span><p class="help">Up to 5 players you don\'t want to make a gift for or get one from. Use their full Minecraft username.</p><div id="excludes"></div></div>' +
+				'<div class="field"><span class="label">Wishlist</span><p class="help">What would you love to get? Pick rares, items and mapart from SCTP (with their suggested value), or write your own wishes. Your Secret Santa sees this list and where to buy each item on Firefly.</p><div id="wishlist"></div></div>' +
+				'<div class="field"><label for="about">About you</label><p class="help">Your hobbies, what you build, favourite colours, things you collect&hellip; anything that helps your Secret Santa pick something you\'ll love.</p>' +
+					'<textarea id="about" maxlength="500">' + esc(e.about) + '</textarea><div class="count" id="aboutCount">0 / 500</div></div>' +
+				'<p class="form-error" id="formError" hidden></p>' +
+				'<div class="form-actions"><button type="submit" class="btn" id="saveBtn">Save changes</button>' +
+					(d.canWithdraw ? '<button type="button" class="btn-danger" id="withdrawBtn">Withdraw my entry</button>' : '') + '</div>' +
+			'</form></section>' + howTo(ev, e.category === "both"));
+
+		document.querySelectorAll('input[name=category]').forEach(function(r){
+			r.checked = r.value === e.category;
+			r.addEventListener("change", function(){ $("bothNote").hidden = this.value !== "both"; });
+		});
+		$("bothNote").hidden = e.category !== "both";
+		var count = function(){ $("aboutCount").textContent = $("about").value.length + " / 500"; };
+		$("about").addEventListener("input", count);
+		count();
+		wish = S.wishEditor($("wishlist"), { list: e.wishlist, onImport: S.session() ? S.importAccountWishlist : null });
+		excl = S.nameChips($("excludes"), { list: e.excludes, max: 5, self: function(){ return e.mcUsername; } });
+
+		$("form").addEventListener("submit", function(ev2){
+			ev2.preventDefault();
+			var discord = $("discord").value.trim();
+			if(!discord) return fail("Enter your Discord username.");
+			var cat = (document.querySelector('input[name=category]:checked') || {}).value;
+			if(!cat) return fail("Choose high value, low value or both.");
+			fail("");
+			$("saveBtn").disabled = true;
+			S.api("/secret-santa/update", { auth: false, body: { token: token, discord: discord, category: cat, excludes: excl.get(), wishlist: wish.get(), about: $("about").value.trim() } })
+				.then(function(){ justSaved = "saved"; return reload(); })
+				.catch(function(err){ fail(err.message); $("saveBtn").disabled = false; });
+		});
+		if($("withdrawBtn")) $("withdrawBtn").addEventListener("click", function(){
+			var m = S.modal('<h2>Withdraw from Secret Santa?</h2><p>Your entry and wishlist are deleted, and this link stops working.' + (ev.accepting ? ' You can sign up again until the end of ' + esc(S.fmtDay(ev.signupCloseDate)) + '.' : '') + '</p>' +
+				'<div class="actions"><button type="button" class="btn-ghost" data-a="back">Keep my entry</button><button type="button" class="btn-danger" data-a="go">Withdraw</button></div>');
+			m.el.querySelector('[data-a=back]').onclick = m.close;
+			m.el.querySelector('[data-a=go]').onclick = function(){
+				S.api("/secret-santa/update", { auth: false, body: { token: token, withdraw: true } }).then(function(){
+					m.close();
+					show('<section class="card"><h2>You\'ve withdrawn</h2><p class="lead" style="margin:0;">Your entry is deleted. <a href="/secret-santa/">Back to Secret Santa</a></p></section>');
+				}).catch(function(err){ m.close(); fail(err.message); });
+			};
+		});
+	}
+	function fail(msg){ var el = $("formError"); if(!el) return; el.textContent = msg; el.hidden = !msg; if(msg) el.scrollIntoView({ block: "center", behavior: "smooth" }); }
+	function reload(){
+		return S.api("/secret-santa/reveal?token=" + encodeURIComponent(token), { auth: false }).then(function(d){ render(d); window.scrollTo({ top: 0, behavior: "smooth" }); });
 	}
 
 	function secretBanner(d){

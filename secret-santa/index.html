@@ -140,6 +140,8 @@
 			mine = res[1] ? res[1].entry : null;
 			account = res[1] ? res[1].account : null;
 			if(mine) mine.revealToken = res[1].revealToken;
+			// signed in and signed up: your personal page is where everything happens
+			if(mine && mine.revealToken){ location.replace("/secret-santa/reveal/#" + mine.revealToken); return; }
 			render();
 		}).catch(function(err){
 			$("heroStatus").textContent = "Couldn't load Secret Santa: " + err.message;
@@ -315,6 +317,8 @@
 		data.agreed = true;
 		S.api("/secret-santa/signup", { body: data }).then(function(res){
 			ev = res.event;
+			// a new sign-up goes straight to its personal page (where it can be changed)
+			if(res.revealToken){ location.href = "/secret-santa/reveal/?new#" + res.revealToken; return; }
 			var wasEdit = res.updated;
 			mine = res.entry;
 			$("formCard").hidden = true;
