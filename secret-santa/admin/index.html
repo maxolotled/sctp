@@ -141,6 +141,15 @@
 
 	function byId(){ var m = {}; data.entries.forEach(function(e){ m[e.id] = e; }); return m; }
 	function revealLink(e){ return location.origin + "/secret-santa/reveal/#" + e.revealToken; }
+	// Has this player been given someone to make a gift for?
+	function assigned(e){ return data.gifts.some(function(g){ return g.giverId === e.id; }); }
+	// The Discord message for them: before they have someone, "please confirm or edit
+	// your sign-up"; after, "your recipient has been assigned". Both with their personal link.
+	var MSG_CHECK = "# :Peepsteroji_pepesanta: Please confirm your Secret Santa signup\nHi NAME! It's been a while since you signed up, so we're just checking if you still want to play!\nPlease go to [your Secret Santa page](LINK) to confirm or edit your signup. :checkmark: \n> If you want to change your wishlist, selected value group, or deregister, you can also do that above!\n\nThank you for playing this year, and be sure to shoot us a DM if you have any questions. :peepoHappyDanceXmas: \n~ Max & Nameless";
+	var MSG_ASSIGNED = "# :peepoSantarun: Your Secret Santa recipient has been assigned!\nHi NAME! Thank you so much for signing up to Secret Santa. It's  time to reveal your recipient!\n\n**View your recipient(s) and more info [here](LINK):**\n\nHere's some things to remember:\n:peepoClapxmas: Your gift value must be **at least** 16 db, preferably >24 for low value, and **at least** 48db, preferably >64 for high value.\n-# It can be higher, but we can't guarantee you'll get the same value back\n:peepoHappyDanceXmas: Your gift must be submitted to **/pw xmas**, which will be open from **Dec 7th - Dec 20th**!\n:peepoClapxmas: Your gift must be in a **green (low value)** or **red (high value)** shulker box with ***_YOUR_*** minecraft username on it -- not your recipient's!!\n:peepoHappyDanceXmas: You can pick up your gift starting **December 24th**!\n-# You must pick your gift up before February!\n:peepoClapxmas: Please be original & try to add a personal touch - don't just put in DB\n-# You CAN put in your minecraft username in a note or otherwise if you want people to know who gave the gift - we won't disclose it by default!";
+	function messageFor(e){
+		return (assigned(e) ? MSG_ASSIGNED : MSG_CHECK).replace("NAME", e.mcUsername).replace("LINK", revealLink(e));
+	}
 	function copy(text, what){
 		(navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function(){ toast(what + " copied"); })
 			.catch(function(){ window.prompt("Copy this:", text); });
@@ -205,15 +214,17 @@
 		$("entries").innerHTML = '<thead><tr><th>Player</th><th>Discord</th><th>Category</th><th>Don\'t match with</th><th>Wishlist</th><th>About</th><th>Signed up</th><th></th></tr></thead><tbody>' +
 			(rows.length ? rows.map(function(e){
 				var cat = S.CATEGORY[e.category];
-				var badge = e.mcVerified ? '<span class="verified" title="Signed in with a verified Minecraft account">&#10003;</span>'
-					: e.addedBy ? '<span class="pill" title="Added by ' + esc(e.addedBy) + '">admin</span>' : '<span class="pill warn" title="Not signed in with a verified Minecraft account">unverified</span>';
+				// confirmed they're still playing (their personal link, or set here by clicking it)
+				var badge = e.confirmedAt
+					? '<button type="button" class="pill good" data-confirm="' + e.id + '" title="Confirmed ' + esc(S.fmtStamp(e.confirmedAt)) + '. Click to mark as unconfirmed.">confirmed</button>'
+					: '<button type="button" class="pill bad" data-confirm="' + e.id + '" title="Hasn\'t confirmed they\'re still playing. Click to mark as confirmed.">unconfirmed</button>';
 				return '<tr><td><div class="who">' + S.avatar(e.mcUsername, 24) + '<b>' + esc(e.mcUsername) + '</b> ' + badge + '</div></td>' +
 					'<td>' + esc(e.discord) + '</td><td style="white-space:nowrap;">' + esc(cat.label) + '</td>' +
 					'<td class="more">' + (e.excludes.length ? esc(e.excludes.join(", ")) : "—") + '</td>' +
 					'<td class="more">' + (e.wishlist.length ? '<details><summary>' + e.wishlist.length + ' item' + (e.wishlist.length === 1 ? '' : 's') + '</summary>' + esc(e.wishlist.map(S.wishName).join(", ")) + '</details>' : "—") + '</td>' +
 					'<td class="more">' + (e.about ? '<details><summary>Read</summary>' + esc(e.about) + '</details>' : "—") + '</td>' +
 					'<td class="muted" style="white-space:nowrap;">' + esc(S.fmtStamp(e.createdAt)) + '</td>' +
-					'<td><div class="acts"><button type="button" class="btn-ghost" data-link="' + e.id + '">Copy link</button><button type="button" class="btn-ghost" data-edit="' + e.id + '">Edit</button><button type="button" class="btn-danger" data-rm="' + e.id + '">Remove</button></div></td></tr>';
+					'<td><div class="acts"><button type="button" class="btn-ghost" data-msg="' + e.id + '" title="' + (assigned(e) ? 'Their recipient has been assigned: the message with their link to who they make a gift for' : 'No recipient yet: the message asking them to confirm or edit their sign-up') + '">Copy message</button><button type="button" class="btn-ghost" data-link="' + e.id + '">Copy link</button><button type="button" class="btn-ghost" data-edit="' + e.id + '">Edit</button><button type="button" class="btn-danger" data-rm="' + e.id + '">Remove</button></div></td></tr>';
 			}).join("") : '<tr><td colspan="8" class="muted">' + (es.length ? "Nobody matches that filter." : "No sign-ups yet.") + '</td></tr>') + '</tbody>';
 	}
 	$("filter").addEventListener("input", renderEntries);
@@ -222,6 +233,13 @@
 		if(!b) return;
 		var m = byId();
 		if(b.dataset.link) copy(revealLink(m[b.dataset.link]), m[b.dataset.link].mcUsername + "'s reveal link");
+		if(b.dataset.msg){ var me = m[b.dataset.msg]; copy(messageFor(me), me.mcUsername + "'s " + (assigned(me) ? "recipient" : "check-in") + " message"); }
+		if(b.dataset.confirm){
+			var ce = m[b.dataset.confirm], to = !ce.confirmedAt;
+			S.api("/secret-santa/admin/entry", { body: { action: "confirm", eventId: eventId, id: ce.id, confirmed: to } })
+				.then(function(r){ ce.confirmedAt = r.confirmedAt; renderEntries(); toast(ce.mcUsername + (to ? " marked as confirmed" : " marked as unconfirmed")); })
+				.catch(function(err){ toast(err.message); });
+		}
 		if(b.dataset.edit) editEntry(m[b.dataset.edit]);
 		if(b.dataset.rm){
 			var en = m[b.dataset.rm];

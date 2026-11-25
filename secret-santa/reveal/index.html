@@ -53,6 +53,9 @@
 	.how-to div{background:var(--panel-alt);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13.5px;}
 	.how-to b{display:block;font-size:14.5px;margin-bottom:2px;}
 	.saved-note{display:flex;gap:10px;align-items:center;background:rgba(67,192,138,.12);border:1px solid rgba(67,192,138,.55);border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:14px;}
+	.confirm-box{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;justify-content:space-between;margin:14px 0 0;padding:12px 14px;border-radius:12px;background:rgba(226,59,69,.1);border:1px solid rgba(226,59,69,.5);}
+	.confirm-box b{display:block;font-size:15px;}
+	.confirm-box span{color:var(--muted);font-size:14px;}
 	.mc-fixed{display:flex;align-items:center;gap:10px;background:var(--panel-alt);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:600;}
 </style>
 </head>
@@ -118,11 +121,15 @@
 		$("heading").textContent = "Your Secret Santa entry";
 		var top = justSaved === "new"
 			? '<div class="saved-note"><span aria-hidden="true">&#127876;</span><span><b>You\'re signed up!</b> Bookmark this page: it\'s your personal Secret Santa link.</span></div>'
+			: justSaved === "confirmed" ? '<div class="saved-note"><span aria-hidden="true">&#127876;</span><span><b>Thanks for confirming!</b> You can still change your entry below until you\'re given your person.</span></div>'
 			: justSaved ? '<div class="saved-note"><span aria-hidden="true">&#10003;</span><span><b>Saved.</b></span></div>' : '';
+		var confirmBox = e.confirmedAt
+			? '<p style="margin:12px 0 0;"><span class="pill good">&#10003; You\'ve confirmed you\'re playing</span></p>'
+			: '<div class="confirm-box"><div><b>Still playing?</b><span>Let us know you\'re still in, so we can count on your gift.</span></div><button type="button" class="btn" id="confirmBtn">&#10003; Yes, I\'m still playing</button></div>';
 		show(top +
 			'<section class="card cane"><span class="firefly"><span class="dot"></span>Firefly only</span>' +
 			'<h2 style="margin-top:12px;">Hi ' + esc(e.mcUsername) + '!</h2>' +
-			'<p class="lead" style="margin:0;">You can change your entry here until you\'re given your person' + (ev.pairsGenerated ? '' : ' (pairs are made after sign-ups close at the end of ' + esc(S.fmtDay(ev.signupCloseDate)) + ')') + '. From then on, this same link shows who you\'re making a gift for, and your entry can\'t be changed anymore. <b>Keep this link to yourself</b>: anyone with it can change your entry.</p></section>' +
+			'<p class="lead" style="margin:0;">You can change your entry here until you\'re given your person' + (ev.pairsGenerated ? '' : ' (pairs are made after sign-ups close at the end of ' + esc(S.fmtDay(ev.signupCloseDate)) + ')') + '. From then on, this same link shows who you\'re making a gift for, and your entry can\'t be changed anymore. <b>Keep this link to yourself</b>: anyone with it can change your entry.</p>' + confirmBox + '</section>' +
 			'<section class="card"><h2>Your entry</h2>' +
 			'<form id="form" novalidate>' +
 				'<div class="row2">' +
@@ -154,6 +161,12 @@
 		wish = S.wishEditor($("wishlist"), { list: e.wishlist, onImport: S.session() ? S.importAccountWishlist : null });
 		excl = S.nameChips($("excludes"), { list: e.excludes, max: 5, self: function(){ return e.mcUsername; } });
 
+		if($("confirmBtn")) $("confirmBtn").addEventListener("click", function(){
+			this.disabled = true;
+			S.api("/secret-santa/update", { auth: false, body: { token: token, confirm: true } })
+				.then(function(){ justSaved = "confirmed"; return reload(); })
+				.catch(function(err){ $("confirmBtn").disabled = false; alert(err.message); });
+		});
 		$("form").addEventListener("submit", function(ev2){
 			ev2.preventDefault();
 			var discord = $("discord").value.trim();

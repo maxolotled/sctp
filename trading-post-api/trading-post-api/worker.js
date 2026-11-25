@@ -8304,6 +8304,7 @@ function santaEntryPublic(e, full) {
 		id: e.id, mcUsername: e.mcUsername, mcVerified: !!e.mcVerified, signedIn: !!e.accountId,
 		discord: e.discord, category: e.category, excludes: santaParse(e.excludes, []),
 		wishlist: santaParse(e.wishlist, []), about: e.about || "", createdAt: e.createdAt, updatedAt: e.updatedAt,
+		confirmedAt: e.confirmedAt || null,
 	};
 	if (full) { out.revealToken = e.revealToken; out.addedBy = e.addedBy || null; }
 	return out;
@@ -8607,10 +8608,10 @@ async function handleSantaSignup(request, env) {
 
 	const id = newId();
 	await env.DB.prepare(
-		`INSERT INTO santaEntries (id, eventId, mcUsername, accountId, mcVerified, discord, category, excludes, wishlist, about, revealToken, createdAt, updatedAt)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		`INSERT INTO santaEntries (id, eventId, mcUsername, accountId, mcVerified, discord, category, excludes, wishlist, about, revealToken, createdAt, updatedAt, confirmedAt)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	).bind(id, ev.id, mcUsername, admin ? admin.id : null, verifiedName ? 1 : 0, v.discord, v.category, JSON.stringify(v.excludes),
-		JSON.stringify(v.wishlist), v.about, newToken(), now, now).run();
+		JSON.stringify(v.wishlist), v.about, newToken(), now, now, now).run();
 	const e = await env.DB.prepare("SELECT * FROM santaEntries WHERE id = ?").bind(id).first();
 	return json({ ok: true, updated: false, entry: santaEntryPublic(e, false), revealToken: e.revealToken, linkedToAccount: !!admin, event: santaEventPublic(ev) });
 }
@@ -8682,7 +8683,7 @@ async function handleSantaReveal(request, env) {
 }
 
 // POST /secret-santa/update {token, discord, category, excludes, wishlist, about}
-//   or {token, withdraw: true}. Changes an entry through its personal link, until
+//   or {token, confirm: true} ("I'm still playing") or {token, withdraw: true}. Changes an entry through its personal link, until
 // someone has been assigned to it (then it's locked). The Minecraft name never
 // changes here. Withdrawing works while sign-ups are open.
 async function handleSantaUpdate(request, env) {
@@ -8696,6 +8697,12 @@ async function handleSantaUpdate(request, env) {
 	const assigned = await env.DB.prepare("SELECT 1 AS x FROM santaGifts WHERE eventId = ? AND giverId = ? LIMIT 1").bind(ev.id, me.id).first();
 	if (assigned) return json({ error: "You've been given your person, so your entry can't be changed anymore. Reload the page to see who it is." }, 409);
 
+	if (body.confirm === true) {
+		await env.DB.prepare("UPDATE santaEntries SET confirmedAt = ? WHERE id = ?").bind(new Date().toISOString(), me.id).run();
+		const e = await env.DB.prepare("SELECT * FROM santaEntries WHERE id = ?").bind(me.id).first();
+		return json({ ok: true, entry: santaEntryPublic(e, false) });
+	}
+
 	if (body.withdraw === true) {
 		if (santaPhase(ev) !== "signups") return json({ error: "Sign-ups are closed. Ask a Secret Santa admin to take you out." }, 400);
 		await santaSyncPools(env, ev.id, me.id, null);
@@ -8707,8 +8714,8 @@ async function handleSantaUpdate(request, env) {
 	if (clean.error) return json({ error: clean.error }, 400);
 	const v = clean.value;
 	await env.DB.prepare(
-		"UPDATE santaEntries SET discord = ?, category = ?, excludes = ?, wishlist = ?, about = ?, updatedAt = ? WHERE id = ?"
-	).bind(v.discord, v.category, JSON.stringify(v.excludes), JSON.stringify(v.wishlist), v.about, new Date().toISOString(), me.id).run();
+		"UPDATE santaEntries SET discord = ?, category = ?, excludes = ?, wishlist = ?, about = ?, updatedAt = ?, confirmedAt = ? WHERE id = ?"
+	).bind(v.discord, v.category, JSON.stringify(v.excludes), JSON.stringify(v.wishlist), v.about, new Date().toISOString(), new Date().toISOString(), me.id).run();
 	if (ev.pairsGeneratedAt) await santaSyncPools(env, ev.id, me.id, v.category);
 	const e = await env.DB.prepare("SELECT * FROM santaEntries WHERE id = ?").bind(me.id).first();
 	return json({ ok: true, entry: santaEntryPublic(e, false), event: santaEventPublic(ev) });
@@ -8788,6 +8795,13 @@ async function handleSantaAdminEntry(request, env) {
 	const ev = await santaAdminEvent(env, body);
 	if (!ev) return json({ error: "Event not found" }, 404);
 	const now = new Date().toISOString();
+
+	if (body.action === "confirm") {
+		const e = await env.DB.prepare("SELECT id FROM santaEntries WHERE id = ? AND eventId = ?").bind(String(body.id || ""), ev.id).first();
+		if (!e) return json({ error: "Entry not found" }, 404);
+		await env.DB.prepare("UPDATE santaEntries SET confirmedAt = ? WHERE id = ?").bind(body.confirmed ? now : null, e.id).run();
+		return json({ ok: true, confirmedAt: body.confirmed ? now : null });
+	}
 
 	if (body.action === "remove") {
 		const e = await env.DB.prepare("SELECT * FROM santaEntries WHERE id = ? AND eventId = ?").bind(String(body.id || ""), ev.id).first();

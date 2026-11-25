@@ -133,6 +133,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .pill{display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap;background:var(--panel-alt);border:1px solid var(--line);color:var(--muted);}
 .pill.good{background:rgba(67,192,138,.14);border-color:rgba(67,192,138,.5);color:var(--accent-2);}
 .pill.warn{background:rgba(226,163,61,.14);border-color:rgba(226,163,61,.5);color:var(--warn);}
+.pill.bad{background:rgba(226,59,69,.14);border-color:rgba(226,59,69,.55);color:#ff7a84;}
+button.pill{font-family:inherit;cursor:pointer;}
+button.pill:hover{filter:brightness(1.2);}
 .pill.accent{background:rgba(var(--accent-rgb),.14);border-color:rgba(var(--accent-rgb),.5);color:var(--accent);}
 .muted{color:var(--muted);}
 .small{font-size:13px;}
