@@ -143,6 +143,16 @@
 	function revealLink(e){ return location.origin + "/secret-santa/reveal/#" + e.revealToken; }
 	// Has this player been given someone to make a gift for?
 	function assigned(e){ return data.gifts.some(function(g){ return g.giverId === e.id; }); }
+	// Has the Secret Santa bot's DM reached them (or was it marked done by hand)?
+	// Before pairs that's the check-in message; once pairs are generated it's the
+	// recipient message, which starts out unsent again.
+	function dmBadge(e){
+		var after = !!(data.event && data.event.pairsGeneratedAt) || assigned(e);
+		var at = after ? e.dmAssignedAt : e.dmCheckAt, what = after ? "recipient" : "check-in";
+		return at
+			? '<span class="pill good" title="The ' + what + ' DM was sent ' + esc(S.fmtStamp(at)) + '">dm sent</span>'
+			: '<span class="pill bad" title="The ' + what + ' DM has not been sent yet">dm unsent</span>';
+	}
 	// The Discord message for them: before they have someone, "please confirm or edit
 	// your sign-up"; after, "your recipient has been assigned". Both with their personal link.
 	var MSG_CHECK = "# :Peepsteroji_pepesanta: Please confirm your Secret Santa signup\nHi NAME! It's been a while since you signed up, so we're just checking if you still want to play!\nPlease go to [your Secret Santa page](LINK) to confirm or edit your signup. :checkmark: \n> If you want to change your wishlist, selected value group, or deregister, you can also do that above!\n\nThank you for playing this year, and be sure to shoot us a DM if you have any questions. :peepoHappyDanceXmas: \n~ Max & Nameless";
@@ -218,7 +228,7 @@
 				var badge = e.confirmedAt
 					? '<button type="button" class="pill good" data-confirm="' + e.id + '" title="Confirmed ' + esc(S.fmtStamp(e.confirmedAt)) + '. Click to mark as unconfirmed.">confirmed</button>'
 					: '<button type="button" class="pill bad" data-confirm="' + e.id + '" title="Hasn\'t confirmed they\'re still playing. Click to mark as confirmed.">unconfirmed</button>';
-				return '<tr><td><div class="who">' + S.avatar(e.mcUsername, 24) + '<b>' + esc(e.mcUsername) + '</b> ' + badge + '</div></td>' +
+				return '<tr><td><div class="who">' + S.avatar(e.mcUsername, 24) + '<b>' + esc(e.mcUsername) + '</b> ' + badge + ' ' + dmBadge(e) + '</div></td>' +
 					'<td>' + esc(e.discord) + '</td><td style="white-space:nowrap;">' + esc(cat.label) + '</td>' +
 					'<td class="more">' + (e.excludes.length ? esc(e.excludes.join(", ")) : "—") + '</td>' +
 					'<td class="more">' + (e.wishlist.length ? '<details><summary>' + e.wishlist.length + ' item' + (e.wishlist.length === 1 ? '' : 's') + '</summary>' + esc(e.wishlist.map(S.wishName).join(", ")) + '</details>' : "—") + '</td>' +
